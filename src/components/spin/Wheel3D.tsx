@@ -35,7 +35,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   const [rotation, setRotation] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [wheelSize, setWheelSize] = useState(480);
-  const targetIndexRef = useRef<number>(0);
   const currentRotationRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetSegmentRef = useRef<number | undefined>(targetSegment);
@@ -189,18 +188,17 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   // Spin animation
   useEffect(() => {
     if (!isSpinning) {
-      // Reset animation phase when not spinning
       if (isAnimating) {
         setIsAnimating(false);
       }
       return;
     }
 
-    // Start animation with current target
-    const duration = 6000;
+    const duration = 5000;
     const startTime = Date.now();
     const startRotation = currentRotationRef.current;
 
+    // Determine target index
     let currentTargetIdx: number;
     if (targetPrizeIdRef.current !== undefined) {
       const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
@@ -211,14 +209,20 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       currentTargetIdx = 0;
     }
 
-    const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
-    const targetRot = 360 - segMid;
+    // Calculate rotation to land on target segment
+    // Segments are drawn: segment i center at angle ((i * segAngle + segAngle/2) - 90) degrees
+    // Pointer is at 270° (top). We want that angle to rotate to 270°.
+    // Rotation needed = 360 + 270 - (segMidAngle) = 360 - segMidAngle (mod 360)
+    // where segMidAngle = (i * segAngle + segAngle/2 - 90)
+    // So targetRot = 360 - segMid in [0,360)
+    const segMidDeg = (currentTargetIdx * segmentAngle + segmentAngle / 2);
+    const targetRot = (270 - (segMidDeg - 90) + 360) % 360;
 
+    // Total rotation = shortest path + extra full spins
     let needed = targetRot - startRotation;
     needed = ((needed % 360) + 360) % 360;
     if (needed < 60) needed += 360;
 
-    // Extra spins generated once at start
     const extra = (5 + Math.floor(Math.random() * 3)) * 360;
     const totalRotation = needed + extra;
 
@@ -234,7 +238,8 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      const eased = 1 - Math.pow(1 - progress, 5);
+      // Cubic ease-out
+      const eased = 1 - Math.pow(1 - progress, 3);
       const newRotation = startRotation + totalRotation * eased;
 
       setRotation(newRotation);
