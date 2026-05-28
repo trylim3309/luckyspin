@@ -101,6 +101,7 @@ export default function PrizesPage() {
         value: 0,
         type: "MONEY",
         stock: 0,
+        unlimitedStock: false,
         probability: 0,
         isActive: true,
         displayOrder: 0,
