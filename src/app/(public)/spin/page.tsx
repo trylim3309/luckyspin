@@ -94,7 +94,7 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
-    // Start spinning immediately before API call
+    // Clear last result and set pending state while waiting for API
     setLastResult(null);
     setIsSpinning(true);
 
@@ -134,7 +134,7 @@ export default function SpinPage() {
         message: data.result?.message || "",
       });
 
-      // Set target segment - wheel animates to this position
+      // Set target segment and trigger animation
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
     } catch (error) {
