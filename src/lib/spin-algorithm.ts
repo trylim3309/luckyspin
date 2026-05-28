@@ -34,6 +34,7 @@ interface CachedPrize {
   stock: number;
   unlimitedStock: boolean;
   probability: number;
+  imageUrl?: string | null;
 }
 
 let prizesCache: { data: CachedPrize[]; timestamp: number } | null = null;
@@ -157,6 +158,7 @@ async function getCachedPrizes(): Promise<CachedPrize[]> {
       stock: true,
       unlimitedStock: true,
       probability: true,
+      imageUrl: true,
     },
   });
 
