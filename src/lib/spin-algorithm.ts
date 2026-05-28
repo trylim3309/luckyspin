@@ -133,7 +133,7 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
 
   // If prizes without stock exist, they should be treated as EMPTY
   // Filter out prizes without stock from weighted selection
-  const selectablePrizes = weightedPrizes.filter(wp => wp.prize.stock > 0);
+  const selectablePrizes = weightedPrizes.filter(wp => wp.prize.stock > 0 || wp.prize.unlimitedStock);
 
   if (selectablePrizes.length === 0) {
     return {
