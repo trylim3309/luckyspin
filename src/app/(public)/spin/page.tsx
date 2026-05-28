@@ -94,12 +94,9 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
-    // Clear last result and start wheel immediately with random target
-    setLastResult(null);
-    const randomSegment = Math.floor(Math.random() * prizes.length);
-    setTargetSegment(randomSegment);
-    setTargetPrizeId(undefined); // Use random first, then correct when API returns
+    // Wait for API result before starting wheel
     setIsSpinning(true);
+    setLastResult(null);
 
     try {
       const res = await fetch("/api/spin", { method: "POST", credentials: "include" });
@@ -123,7 +120,7 @@ export default function SpinPage() {
       }
 
       // Store the result for display after animation
-      setLastResult({
+      const result = {
         prize: data.result ? {
           id: data.result.prizeId,
           name: data.result.prizeName,
@@ -134,9 +131,11 @@ export default function SpinPage() {
         } : null,
         isWin: data.result?.isWin || false,
         message: data.result?.message || "",
-      });
+      };
+      setLastResult(result);
+      lastResultRef.current = result;
 
-      // Update to correct target - wheel is already spinning and will animate to correct position
+      // Now set the correct target - wheel will start spinning
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
     } catch (error) {

@@ -190,43 +190,46 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   useEffect(() => {
     console.log("Spin effect running", { isSpinning, isAnimating, targetPrizeId: targetPrizeIdRef.current, targetSegment: targetSegmentRef.current });
     if (isSpinning && !isAnimating) {
-      // Find the actual index in displayPrizes using prize ID
-      let targetIdx: number;
-      if (targetPrizeIdRef.current !== undefined) {
-        const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
-        console.log("Found index by prizeId:", foundIndex, "prizeId:", targetPrizeIdRef.current);
-        targetIdx = foundIndex !== -1 ? foundIndex : 0;
-      } else if (targetSegmentRef.current !== undefined) {
-        targetIdx = targetSegmentRef.current;
-      } else {
-        targetIdx = Math.floor(Math.random() * displayPrizes.length);
-      }
-      targetIndexRef.current = targetIdx;
-
-      const segMid = targetIdx * segmentAngle + segmentAngle / 2;
-      const targetRot = 360 - segMid; // Original direction
-
-      const currentRot = currentRotationRef.current;
-      let needed = targetRot - currentRot;
-      needed = ((needed % 360) + 360) % 360;
-      if (needed < 30 && needed > 0) needed += 360;
-
-      const extra = (5 + Math.floor(Math.random() * 4)) * 360;
-      const totalRotation = needed + extra;
-
+      // Start animation - target will be checked on each frame
       const duration = 4000;
       const startTime = Date.now();
-      const startRotation = currentRot;
-      const finalRotation = startRotation + totalRotation;
+      const startRotation = currentRotationRef.current;
 
       setIsAnimating(true);
       onSpinStart?.();
 
       const animate = () => {
+        if (!isSpinning) {
+          setIsAnimating(false);
+          return;
+        }
+
+        // Check current target on each frame
+        let currentTargetIdx: number;
+        if (targetPrizeIdRef.current !== undefined) {
+          const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+          currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
+        } else if (targetSegmentRef.current !== undefined) {
+          currentTargetIdx = targetSegmentRef.current;
+        } else {
+          currentTargetIdx = Math.floor(Math.random() * displayPrizes.length);
+        }
+        targetIndexRef.current = currentTargetIdx;
+
+        const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
+        const targetRot = 360 - segMid;
+
+        let needed = targetRot - startRotation;
+        needed = ((needed % 360) + 360) % 360;
+        if (needed < 30 && needed > 0) needed += 360;
+
+        const extra = (5 + Math.floor(Math.random() * 4)) * 360;
+        const totalRotation = needed + extra;
+
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const easeOut = 1 - Math.pow(1 - progress, 3);
-        const newRotation = startRotation + (finalRotation - startRotation) * easeOut;
+        const newRotation = startRotation + (totalRotation - 0) * easeOut;
 
         setRotation(newRotation);
         currentRotationRef.current = newRotation;
@@ -234,11 +237,11 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
-          setRotation(finalRotation);
-          currentRotationRef.current = finalRotation;
+          setRotation(newRotation);
+          currentRotationRef.current = newRotation;
           setIsAnimating(false);
-          const selectedPrize = displayPrizes[targetIdx];
-          onSpinEnd?.(selectedPrize, targetIdx);
+          const selectedPrize = displayPrizes[currentTargetIdx];
+          onSpinEnd?.(selectedPrize, currentTargetIdx);
         }
       };
 
