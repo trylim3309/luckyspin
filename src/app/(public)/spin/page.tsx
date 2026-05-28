@@ -94,21 +94,16 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
-    // Start spinning immediately before API call
-    setIsSpinning(true);
-
     try {
       const res = await fetch("/api/spin", { method: "POST", credentials: "include" });
       const data = await res.json();
 
       if (data.error) {
-        setIsSpinning(false);
         alert(data.error);
         return;
       }
 
       if (!data.success) {
-        setIsSpinning(false);
         alert(data.error || "Spin failed. Please try again.");
         return;
       }
@@ -132,14 +127,11 @@ export default function SpinPage() {
         message: data.result?.message || "",
       });
 
-      // Set target and start spinning after refs update
+      // Set target and start spinning together
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
-      requestAnimationFrame(() => {
-        setIsSpinning(true);
-      });
+      setIsSpinning(true);
     } catch (error) {
-      setIsSpinning(false);
       console.error("Spin error:", error);
     }
   }, [isSpinning, remainingSpins, prizes]);
