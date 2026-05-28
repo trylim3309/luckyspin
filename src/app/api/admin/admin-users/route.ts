@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     const existingUser = await prisma.adminUser.findFirst({
-      where: { name: body.name },
+      where: { username: body.name.toLowerCase().replace(/\s+/g, "") },
     });
 
     if (existingUser) {
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.adminUser.create({
       data: {
         name: body.name,
+        username: body.name.toLowerCase().replace(/\s+/g, ""),
         email: body.name.toLowerCase().replace(/\s+/g, "") + "@admin.local",
         passwordHash,
         role: body.role || "ADMIN",
