@@ -33,13 +33,12 @@ const PRIZE_ICONS: Record<string, string> = {
 
 export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, onSpinTrigger, targetSegment, targetPrizeId }: Wheel3DProps) {
   const [rotation, setRotation] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [wheelSize, setWheelSize] = useState(480);
-  const targetIndexRef = useRef<number>(0);
   const currentRotationRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetSegmentRef = useRef<number | undefined>(targetSegment);
   const targetPrizeIdRef = useRef<string | undefined>(targetPrizeId);
+  const animRef = useRef<{ rafId: number; startTime: number; duration: number; totalRotation: number; startRotation: number; targetIdx: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Responsive sizing
@@ -79,7 +78,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Load all images first
     const imagePromises = displayPrizes.map((prize) => {
       if (prize.imageUrl) {
         return new Promise<void>((resolve) => {
@@ -102,17 +100,14 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       ctx.translate(CENTER * 2, CENTER * 2);
       ctx.rotate((rotation * Math.PI) / 180);
 
-      // Enable high quality image rendering
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      // Draw each segment
       displayPrizes.forEach((prize, i) => {
         const startAngle = ((i * segmentAngle) - 90) * (Math.PI / 180);
         const endAngle = (((i + 1) * segmentAngle) - 90) * (Math.PI / 180);
         const midAngle = (startAngle + endAngle) / 2;
 
-        // Draw pie segment
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.arc(0, 0, OUTER_RADIUS * 2, startAngle, endAngle);
@@ -120,12 +115,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         ctx.fillStyle = prize.color;
         ctx.fill();
 
-        // White border between segments
         ctx.strokeStyle = "rgba(255,255,255,0.3)";
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Calculate position at middle of segment
         const textRadius = OUTER_RADIUS * 0.7 * 2;
         const textX = Math.cos(midAngle) * textRadius;
         const textY = Math.sin(midAngle) * textRadius;
@@ -133,28 +126,24 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         ctx.save();
         ctx.translate(textX, textY);
 
-        // Draw image if available
         const prizeWithImage = prize as any;
         if (prizeWithImage._image && prizeWithImage._image.complete) {
           const img = prizeWithImage._image;
-          const size = 160;
+          const imgSize = 160;
 
           ctx.save();
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = "high";
           ctx.beginPath();
-          ctx.rect(-size/2, -size/2, size, size);
+          ctx.rect(-imgSize/2, -imgSize/2, imgSize, imgSize);
           ctx.clip();
 
-          const scale = Math.max(size / img.width, size / img.height);
+          const scale = Math.max(imgSize / img.width, imgSize / img.height);
           const w = img.width * scale;
           const h = img.height * scale;
-          const x = -w / 2;
-          const y = -h / 2;
-          ctx.drawImage(img, x, y, w, h);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
           ctx.restore();
         } else {
-          // Draw icon
           ctx.font = `${SIZE * 0.13}px sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -166,14 +155,12 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         ctx.restore();
       });
 
-      // Gold outer ring (thicker and more prominent)
       ctx.beginPath();
       ctx.arc(0, 0, OUTER_RADIUS * 2, 0, Math.PI * 2);
       ctx.strokeStyle = "#fbbf24";
       ctx.lineWidth = SIZE * 0.04;
       ctx.stroke();
 
-      // Center circle
       ctx.beginPath();
       ctx.arc(0, 0, CENTER_RADIUS * 2, 0, Math.PI * 2);
       ctx.fillStyle = "#1e293b";
@@ -186,67 +173,107 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     });
   }, [rotation, displayPrizes, segmentAngle]);
 
-  // Spin animation
+  // Animation loop — reads live from refs, no stale closures
   useEffect(() => {
-    if (isSpinning && !isAnimating) {
-      const duration = 4000;
-      const startTime = Date.now();
-      const startRotation = currentRotationRef.current;
+    if (!isSpinning) {
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current.rafId);
+        animRef.current = null;
+      }
+      return;
+    }
 
-      let currentTargetIdx: number;
-      if (targetPrizeIdRef.current !== undefined) {
-        const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
-        currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
-      } else if (targetSegmentRef.current !== undefined) {
-        currentTargetIdx = targetSegmentRef.current;
-      } else {
-        currentTargetIdx = Math.floor(Math.random() * displayPrizes.length);
+    onSpinStart?.();
+
+    const duration = 4000;
+    const startTime = Date.now();
+    const startRotation = currentRotationRef.current;
+
+    // Resolve current target
+    let targetIdx: number;
+    if (targetPrizeIdRef.current !== undefined) {
+      const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+      targetIdx = foundIndex !== -1 ? foundIndex : 0;
+    } else if (targetSegmentRef.current !== undefined) {
+      targetIdx = targetSegmentRef.current;
+    } else {
+      targetIdx = Math.floor(Math.random() * displayPrizes.length);
+    }
+
+    const segMid = targetIdx * segmentAngle + segmentAngle / 2;
+    const targetRot = 360 - segMid;
+
+    let needed = targetRot - startRotation;
+    needed = ((needed % 360) + 360) % 360;
+    if (needed < 30 && needed > 0) needed += 360;
+
+    const extra = (5 + Math.floor(Math.random() * 4)) * 360;
+    const totalRotation = needed + extra;
+
+    animRef.current = { rafId: 0, startTime, duration, totalRotation, startRotation, targetIdx };
+
+    const animate = () => {
+      const anim = animRef.current;
+      if (!anim || !isSpinning) {
+        animRef.current = null;
+        return;
       }
 
-      const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
-      const targetRot = 360 - segMid;
+      const elapsed = Date.now() - anim.startTime;
+      const progress = Math.min(elapsed / anim.duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const newRotation = anim.startRotation + anim.totalRotation * eased;
 
-      // Animate from current wheel position (not frozen start position)
-      const animStartRotation = currentRotationRef.current;
-      let needed = targetRot - animStartRotation;
-      needed = ((needed % 360) + 360) % 360;
-      if (needed < 30 && needed > 0) needed += 360;
+      setRotation(newRotation);
+      currentRotationRef.current = newRotation;
 
-      const extra = (5 + Math.floor(Math.random() * 4)) * 360;
-      const totalRotation = needed + extra;
+      if (progress < 1) {
+        anim.rafId = requestAnimationFrame(animate);
+      } else {
+        animRef.current = null;
+        const selectedPrize = displayPrizes[anim.targetIdx];
+        onSpinEnd?.(selectedPrize, anim.targetIdx);
+      }
+    };
 
-      setIsAnimating(true);
-      onSpinStart?.();
+    animRef.current.rafId = requestAnimationFrame(animate);
+  }, [isSpinning, displayPrizes, segmentAngle, onSpinEnd, onSpinStart]);
 
-      const animate = () => {
-        if (!isSpinning) {
-          setIsAnimating(false);
-          return;
-        }
+  // Target update: mid-spin correction via ref, no state restart
+  useEffect(() => {
+    // When target changes while spinning, update the running animation target
+    const anim = animRef.current;
+    if (!anim || !isSpinning) return;
 
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        // Quintic ease-out for smooth deceleration
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const newRotation = animStartRotation + totalRotation * eased;
-
-        setRotation(newRotation);
-        currentRotationRef.current = newRotation;
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          setIsAnimating(false);
-          currentRotationRef.current = animStartRotation + totalRotation;
-          const selectedPrize = displayPrizes[currentTargetIdx];
-          onSpinEnd?.(selectedPrize, currentTargetIdx);
-        }
-      };
-
-      requestAnimationFrame(animate);
+    let newTargetIdx: number;
+    if (targetPrizeIdRef.current !== undefined) {
+      const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+      newTargetIdx = foundIndex !== -1 ? foundIndex : 0;
+    } else if (targetSegmentRef.current !== undefined) {
+      newTargetIdx = targetSegmentRef.current;
+    } else {
+      return;
     }
-  }, [isSpinning, isAnimating, displayPrizes, segmentAngle, onSpinEnd, onSpinStart]);
+
+    if (newTargetIdx === anim.targetIdx) return;
+
+    const currentPos = currentRotationRef.current;
+    const segMid = newTargetIdx * segmentAngle + segmentAngle / 2;
+    const targetRot = 360 - segMid;
+
+    let needed = targetRot - currentPos;
+    needed = ((needed % 360) + 360) % 360;
+    if (needed < 30 && needed > 0) needed += 360;
+
+    const extra = (5 + Math.floor(Math.random() * 4)) * 360;
+    const totalRotation = needed + extra;
+
+    // Update ref — animation loop reads this on next frame
+    anim.targetIdx = newTargetIdx;
+    anim.startRotation = currentPos;
+    anim.startTime = Date.now();
+    anim.totalRotation = totalRotation;
+  }, [targetSegment, targetPrizeId, isSpinning, displayPrizes, segmentAngle]);
 
   const BULB_COUNT = 28;
   const BULB_RADIUS = OUTER_RADIUS + 24;
@@ -256,7 +283,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
   return (
     <div className="relative flex items-center justify-center" ref={containerRef} tabIndex={0} style={{ width: SIZE + 70, height: SIZE + 90 }}>
-      {/* Glow backdrop */}
       <div
         className="absolute rounded-full"
         style={{
@@ -268,7 +294,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         }}
       />
 
-      {/* Light bulbs */}
       <div className="absolute inset-0" style={{ zIndex: 5 }}>
         {Array.from({ length: BULB_COUNT }).map((_, i) => {
           const angle = (i * (360 / BULB_COUNT) - 90) * (Math.PI / 180);
@@ -279,14 +304,14 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
               key={i}
               className="absolute rounded-full"
               style={{
-                width: isAnimating ? BULB_SIZE : BULB_SIZE * 1.4,
-                height: isAnimating ? BULB_SIZE : BULB_SIZE * 1.4,
+                width: SIZE * 0.03,
+                height: SIZE * 0.03,
                 backgroundColor: BULB_COLORS[i % BULB_COLORS.length],
-                boxShadow: `0 0 ${isAnimating ? BULB_SIZE : BULB_SIZE * 1.8}px ${BULB_COLORS[i % BULB_COLORS.length]}`,
+                boxShadow: `0 0 ${SIZE * 0.03}px ${BULB_COLORS[i % BULB_COLORS.length]}`,
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
                 transform: "translate(-50%, -50%)",
-                animationName: isAnimating ? "none" : "bulb-glow",
+                animationName: "bulb-glow",
                 animationDuration: "1.5s",
                 animationTimingFunction: "ease-in-out",
                 animationIterationCount: "infinite",
@@ -297,7 +322,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         })}
       </div>
 
-      {/* Canvas wheel */}
       <div className="relative" style={{ zIndex: 1 }}>
         <canvas
           ref={canvasRef}
@@ -310,7 +334,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
           }}
         />
 
-        {/* Center button */}
         <div
           className="absolute rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform duration-150"
           style={{
@@ -335,7 +358,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         </div>
       </div>
 
-      {/* Pointer */}
       <div
         className="absolute z-20"
         style={{
@@ -368,33 +390,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         />
       </div>
 
-      {/* Spinning glow */}
-      {isAnimating && (
-        <div
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            width: SIZE + 70,
-            height: SIZE + 70,
-            top: -35,
-            left: -35,
-            background: "radial-gradient(circle, rgba(251,191,36,0.25) 0%, transparent 60%)",
-            zIndex: 15,
-            animationName: "spin-glow-pulse",
-            animationDuration: "0.6s",
-            animationTimingFunction: "ease-in-out",
-            animationIterationCount: "infinite",
-          }}
-        />
-      )}
-
       <style>{`
         @keyframes bulb-glow {
           0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
           50% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
-        }
-        @keyframes spin-glow-pulse {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
         }
       `}</style>
     </div>
