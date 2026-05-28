@@ -46,6 +46,10 @@ export async function GET(req: NextRequest) {
       totalSpins: user.totalSpins,
       usedToday,
       dailyLimit: condition?.maxSpinsPerDay || null,
+      _debug: {
+        lifetimeRemaining,
+        dailyLimitRemaining: condition ? Math.max(0, condition.maxSpinsPerDay - usedToday) : null
+      }
     });
   } catch (error) {
     console.error("Remaining error:", error);
