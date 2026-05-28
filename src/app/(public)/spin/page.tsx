@@ -94,16 +94,21 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
+    // Start spinning immediately before API call
+    setIsSpinning(true);
+
     try {
       const res = await fetch("/api/spin", { method: "POST", credentials: "include" });
       const data = await res.json();
 
       if (data.error) {
+        setIsSpinning(false);
         alert(data.error);
         return;
       }
 
       if (!data.success) {
+        setIsSpinning(false);
         alert(data.error || "Spin failed. Please try again.");
         return;
       }
@@ -114,9 +119,6 @@ export default function SpinPage() {
       }
 
       // Store the result for display after animation
-      console.log("Setting lastResult from API:", data.result);
-      console.log("segmentIndex from API:", data.result?.segmentIndex);
-      console.log("prizeId from API:", data.result?.prizeId);
       setLastResult({
         prize: data.result ? {
           id: data.result.prizeId,
@@ -130,11 +132,11 @@ export default function SpinPage() {
         message: data.result?.message || "",
       });
 
-      // Set target FIRST, then start animation
+      // Set target and prize - wheel will animate to correct position
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
-      setIsSpinning(true);
     } catch (error) {
+      setIsSpinning(false);
       console.error("Spin error:", error);
     }
   }, [isSpinning, remainingSpins, prizes]);
