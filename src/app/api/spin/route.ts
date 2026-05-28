@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     // Fetch updated data in parallel
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const [updatedUser, dailySpin, condition] = await Promise.all([
+    const [updatedUser, dailySpin, latestCondition] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),
       prisma.dailySpinCount.findUnique({
         where: { userId_date: { userId: user.id, date: today } },
@@ -97,8 +97,8 @@ export async function POST(req: NextRequest) {
     const usedToday = dailySpin?.spinCount || 0;
     const lifetimeRemaining = (updatedUser?.totalSpins || 0) - usedToday;
     let remaining = lifetimeRemaining;
-    if (condition && condition.maxSpinsPerDay > 0) {
-      remaining = Math.min(remaining, Math.max(0, condition.maxSpinsPerDay - usedToday));
+    if (latestCondition && latestCondition.maxSpinsPerDay > 0) {
+      remaining = Math.min(remaining, Math.max(0, latestCondition.maxSpinsPerDay - usedToday));
     }
 
     return NextResponse.json({
