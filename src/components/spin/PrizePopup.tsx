@@ -34,19 +34,19 @@ export function PrizePopup({ isOpen, onClose, prize, isWin }: PrizePopupProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-gradient-to-br from-purple-900 to-indigo-900 border-yellow-500">
+      <DialogContent className="w-[90vw] max-w-md sm:max-w-md bg-gradient-to-br from-purple-900 to-indigo-900 border-yellow-500 p-4 sm:p-6">
         <DialogHeader className="text-center">
           {prize.imageUrl ? (
-            <div className="mx-auto mb-4 w-32 h-32 rounded-xl overflow-hidden bg-white/10">
+            <div className="mx-auto mb-3 sm:mb-4 w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-white/10">
               <img src={prize.imageUrl} alt={prize.name} className="w-full h-full object-contain" />
             </div>
           ) : (
-            <div className="mx-auto mb-4 text-6xl">🎉</div>
+            <div className="mx-auto mb-3 sm:mb-4 text-5xl sm:text-6xl">🎉</div>
           )}
-          <DialogTitle className="text-2xl font-bold text-white">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-white">
             {isWin ? "🎉 អបអរសាទរ! 🎉" : "😢 ល្អចាំ!"}
           </DialogTitle>
-          <DialogDescription className="text-xl text-white/90 font-medium">
+          <DialogDescription className="text-lg sm:text-xl text-white/90 font-medium">
             {getMessage()}
           </DialogDescription>
         </DialogHeader>

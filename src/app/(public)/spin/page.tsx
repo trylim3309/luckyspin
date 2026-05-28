@@ -176,39 +176,39 @@ export default function SpinPage() {
       `}</style>
 
       {/* Header */}
-      <header className="relative z-50 py-4 px-4">
+      <header className="relative z-50 py-2 px-3 sm:py-4 sm:px-4">
         <div className="flex items-center justify-between">
           {/* Left - User info or Logo */}
           <div className="flex-1">
             {user ? (
-              <div className="flex items-center justify-between px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center">
-                    <span className="text-sm font-bold text-slate-900">
+              <div className="flex items-center justify-between px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900">
                       {user.username?.[0]?.toUpperCase() || user.firstName?.[0]?.toUpperCase() || "U"}
                     </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-xs text-yellow-400 font-medium">Welcome back</span>
-                    <span className="text-base font-bold text-white">{user.username || user.firstName}</span>
+                    <span className="text-[10px] sm:text-xs text-yellow-400 font-medium">Welcome back</span>
+                    <span className="text-sm sm:text-base font-bold text-white">{user.username || user.firstName}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/20">
-                  <span className="text-white/60 text-xs">ការបង្វិលនៅសល់</span>
-                  <span className="text-lg font-bold text-yellow-400">{remainingSpins === null ? "..." : remainingSpins}</span>
+                <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full bg-black/20">
+                  <span className="text-[10px] sm:text-xs text-white/60">ការបង្វិលនៅសល់</span>
+                  <span className="text-base sm:text-lg font-bold text-yellow-400">{remainingSpins === null ? "..." : remainingSpins}</span>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl">🎰</span>
-                  <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500">
+              <div className="flex items-center justify-between px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <span className="text-xl sm:text-3xl">🎰</span>
+                  <h1 className="text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500">
                     LUCKY SPIN
                   </h1>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/20">
-                  <span className="text-white/60 text-xs">ការបង្វិលនៅសល់</span>
-                  <span className="text-lg font-bold text-yellow-400">{remainingSpins === null ? "..." : remainingSpins}</span>
+                <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full bg-black/20">
+                  <span className="text-[10px] sm:text-xs text-white/60">ការបង្វិលនៅសល់</span>
+                  <span className="text-base sm:text-lg font-bold text-yellow-400">{remainingSpins === null ? "..." : remainingSpins}</span>
                 </div>
               </div>
             )}
@@ -233,14 +233,14 @@ export default function SpinPage() {
 
         {/* SPIN NOW Button */}
         <button
-          className="mt-8 px-20 py-5 text-white text-2xl font-bold rounded-full border-2 border-emerald-400/50 transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-4 sm:mt-8 px-10 sm:px-20 py-3 sm:py-5 text-white text-lg sm:text-2xl font-bold rounded-full border-2 border-emerald-400/50 transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(180deg, #10b981 0%, #059669 100%)",
             boxShadow: `
-              0 6px 0 #065f46,
-              0 12px 35px rgba(16,185,129,0.35),
-              inset 0 -4px 12px rgba(0,0,0,0.2),
-              inset 0 4px 12px rgba(255,255,255,0.15)
+              0 4px 0 #065f46,
+              0 8px 25px rgba(16,185,129,0.35),
+              inset 0 -3px 10px rgba(0,0,0,0.2),
+              inset 0 3px 10px rgba(255,255,255,0.15)
             `,
           }}
           onClick={handleSpin}

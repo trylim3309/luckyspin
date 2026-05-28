@@ -34,11 +34,26 @@ const PRIZE_ICONS: Record<string, string> = {
 export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, onSpinTrigger, targetSegment, targetPrizeId }: Wheel3DProps) {
   const [rotation, setRotation] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [wheelSize, setWheelSize] = useState(480);
   const targetIndexRef = useRef<number>(0);
   const currentRotationRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetSegmentRef = useRef<number | undefined>(targetSegment);
   const targetPrizeIdRef = useRef<string | undefined>(targetPrizeId);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Responsive sizing
+  useEffect(() => {
+    const updateSize = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const maxSize = Math.min(vw - 40, vh * 0.55, 480);
+      setWheelSize(Math.max(280, maxSize));
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   // Keep refs in sync with props
   useEffect(() => {
@@ -49,10 +64,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   const displayPrizes = prizes.slice(0, 8);
   const segmentAngle = displayPrizes.length > 0 ? 360 / displayPrizes.length : 45;
 
-  const SIZE = 480;
+  const SIZE = wheelSize;
   const CENTER = SIZE / 2;
   const OUTER_RADIUS = SIZE / 2 - 10;
-  const CENTER_RADIUS = 100;
+  const CENTER_RADIUS = SIZE * 0.2;
 
   const getIcon = (prize: Prize) => prize.icon || PRIZE_ICONS[prize.type] || "🎰";
 
@@ -140,7 +155,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
           ctx.restore();
         } else {
           // Draw icon
-          ctx.font = "64px sans-serif";
+          ctx.font = `${SIZE * 0.13}px sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "#ffffff";
@@ -155,7 +170,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       ctx.beginPath();
       ctx.arc(0, 0, OUTER_RADIUS * 2, 0, Math.PI * 2);
       ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 20;
+      ctx.lineWidth = SIZE * 0.04;
       ctx.stroke();
 
       // Center circle
@@ -164,7 +179,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       ctx.fillStyle = "#1e293b";
       ctx.fill();
       ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 10;
+      ctx.lineWidth = SIZE * 0.02;
       ctx.stroke();
 
       ctx.restore();
@@ -233,8 +248,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   const BULB_RADIUS = OUTER_RADIUS + 24;
   const BULB_COLORS = ["#fbbf24", "#f472b6", "#a78bfa", "#34d399", "#fb923c", "#60a5fa", "#f472b6", "#fbbf24"];
 
+  const BULB_SIZE = Math.max(8, SIZE * 0.03);
+
   return (
-    <div className="relative flex items-center justify-center" tabIndex={0} style={{ width: SIZE + 70, height: SIZE + 90 }}>
+    <div className="relative flex items-center justify-center" ref={containerRef} tabIndex={0} style={{ width: SIZE + 70, height: SIZE + 90 }}>
       {/* Glow backdrop */}
       <div
         className="absolute rounded-full"
@@ -258,10 +275,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
               key={i}
               className="absolute rounded-full"
               style={{
-                width: isAnimating ? 10 : 14,
-                height: isAnimating ? 10 : 14,
+                width: isAnimating ? BULB_SIZE : BULB_SIZE * 1.4,
+                height: isAnimating ? BULB_SIZE : BULB_SIZE * 1.4,
                 backgroundColor: BULB_COLORS[i % BULB_COLORS.length],
-                boxShadow: `0 0 ${isAnimating ? 10 : 18}px ${BULB_COLORS[i % BULB_COLORS.length]}`,
+                boxShadow: `0 0 ${isAnimating ? BULB_SIZE : BULB_SIZE * 1.8}px ${BULB_COLORS[i % BULB_COLORS.length]}`,
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
                 transform: "translate(-50%, -50%)",
