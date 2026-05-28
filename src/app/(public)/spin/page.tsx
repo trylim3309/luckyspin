@@ -132,9 +132,12 @@ export default function SpinPage() {
         message: data.result?.message || "",
       });
 
-      // Set target and prize - wheel will animate to correct position
+      // Set target and start spinning after refs update
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
+      requestAnimationFrame(() => {
+        setIsSpinning(true);
+      });
     } catch (error) {
       setIsSpinning(false);
       console.error("Spin error:", error);
