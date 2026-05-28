@@ -188,11 +188,13 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
   // Spin animation
   useEffect(() => {
+    console.log("Spin effect running", { isSpinning, isAnimating, targetPrizeId: targetPrizeIdRef.current, targetSegment: targetSegmentRef.current });
     if (isSpinning && !isAnimating) {
       // Find the actual index in displayPrizes using prize ID
       let targetIdx: number;
       if (targetPrizeIdRef.current !== undefined) {
         const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+        console.log("Found index by prizeId:", foundIndex, "prizeId:", targetPrizeIdRef.current);
         targetIdx = foundIndex !== -1 ? foundIndex : 0;
       } else if (targetSegmentRef.current !== undefined) {
         targetIdx = targetSegmentRef.current;

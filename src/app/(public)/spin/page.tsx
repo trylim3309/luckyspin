@@ -115,6 +115,8 @@ export default function SpinPage() {
 
       // Store the result for display after animation
       console.log("Setting lastResult from API:", data.result);
+      console.log("segmentIndex from API:", data.result?.segmentIndex);
+      console.log("prizeId from API:", data.result?.prizeId);
       setLastResult({
         prize: data.result ? {
           id: data.result.prizeId,
