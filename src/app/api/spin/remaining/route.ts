@@ -8,26 +8,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { totalSpins: true },
-    });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [user, dailySpin] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { totalSpins: true } }),
+      prisma.dailySpinCount.findUnique({
+        where: { userId_date: { userId, date: today } },
+        select: { spinCount: true },
+      }),
+    ]);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dailySpin = await prisma.dailySpinCount.findUnique({
-      where: {
-        userId_date: {
-          userId,
-          date: today,
-        },
-      },
-    });
 
     const remaining = user.totalSpins - (dailySpin?.spinCount || 0);
 
@@ -35,7 +29,6 @@ export async function GET(req: NextRequest) {
       remaining: Math.max(0, remaining),
       totalSpins: user.totalSpins,
       usedToday: dailySpin?.spinCount || 0,
-      resetAt: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     });
   } catch (error) {
     console.error("Remaining error:", error);

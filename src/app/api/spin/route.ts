@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateSpinResult, recordSpinResult, updatePrizeStock, incrementDailySpinCount } from "@/lib/spin-algorithm";
+import { calculateSpinResult } from "@/lib/spin-algorithm";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,9 +9,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    // Fetch user with condition in parallel
+    const [user, condition] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.spinCondition.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -21,39 +26,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User blocked" }, { status: 403 });
     }
 
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-
-    const condition = await prisma.spinCondition.findFirst({
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    });
-
     if (condition && !condition.zeroBalanceCanSpin && user.balance <= 0 && !condition.freeSpinEnabled) {
-      return NextResponse.json(
-        { error: "Insufficient balance. Please add funds to continue spinning." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Insufficient balance" }, { status: 400 });
     }
 
     const spinResult = await calculateSpinResult({
       userId: user.id,
       userBalance: user.balance,
+      condition,
     });
 
     if (spinResult.segmentIndex === -1 && !spinResult.prize) {
       return NextResponse.json({ error: spinResult.message }, { status: 400 });
     }
 
+    // Do all writes in single transaction
     await prisma.$transaction(async (tx) => {
       if (spinResult.prize && spinResult.prize.type !== "EMPTY" && spinResult.prize.type !== "NO_WIN") {
-        await tx.prize.update({
-          where: { id: spinResult.prize.id },
-          data: {
-            dailyWinCount: { increment: 1 },
-            totalWinCount: { increment: 1 },
-            ...(spinResult.prize.unlimitedStock ? {} : { stock: { decrement: 1 } }),
-          },
-        });
+        const updateData: any = {
+          dailyWinCount: { increment: 1 },
+          totalWinCount: { increment: 1 },
+        };
+        if (!spinResult.prize.unlimitedStock) {
+          updateData.stock = { decrement: 1 };
+        }
+        await tx.prize.update({ where: { id: spinResult.prize.id }, data: updateData });
       }
 
       await tx.spinResult.create({
@@ -62,51 +59,33 @@ export async function POST(req: NextRequest) {
           prizeId: spinResult.prize?.id,
           isWin: spinResult.isWin,
           resultSource: spinResult.resultSource,
-          ipAddress: ip,
+          ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown",
           userAgent: req.headers.get("user-agent"),
         },
       });
 
       await tx.user.update({
         where: { id: user.id },
-        data: {
-          totalWins: spinResult.isWin ? { increment: 1 } : undefined,
-        },
+        data: { totalWins: spinResult.isWin ? { increment: 1 } : undefined },
       });
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       await tx.dailySpinCount.upsert({
-        where: {
-          userId_date: {
-            userId: user.id,
-            date: today,
-          },
-        },
-        update: {
-          spinCount: { increment: 1 },
-        },
-        create: {
-          userId: user.id,
-          date: today,
-          spinCount: 1,
-        },
+        where: { userId_date: { userId: user.id, date: today } },
+        update: { spinCount: { increment: 1 } },
+        create: { userId: user.id, date: today, spinCount: 1 },
       });
     });
 
-    const updatedUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
-
-    // Get remaining spins for response
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dailySpin = await prisma.dailySpinCount.findUnique({
-      where: { userId_date: { userId: user.id, date: today } },
-    });
-    // remaining = total spins user has - spins used today
-    const remainingSpins = Math.max(0, (updatedUser?.totalSpins || 0) - (dailySpin?.spinCount || 0));
+    // Fetch updated data in parallel
+    const [updatedUser, dailySpin] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.dailySpinCount.findUnique({
+        where: { userId_date: { userId: user.id, date: new Date() } },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -127,7 +106,7 @@ export async function POST(req: NextRequest) {
         totalSpins: updatedUser?.totalSpins,
         totalWins: updatedUser?.totalWins,
       },
-      remainingSpins,
+      remainingSpins: Math.max(0, (updatedUser?.totalSpins || 0) - (dailySpin?.spinCount || 0)),
     });
   } catch (error) {
     console.error("Spin error:", error);

@@ -4,6 +4,11 @@ import { Prize, SpinResult, ResultSource } from "@prisma/client";
 interface SpinContext {
   userId: string;
   userBalance: number;
+  condition?: {
+    zeroBalanceCanSpin: boolean;
+    freeSpinEnabled: boolean;
+    maxSpinsPerDay: number;
+  } | null;
 }
 
 interface SpinResultData {
@@ -20,41 +25,39 @@ interface WeightedPrize {
   segmentIndex: number;
 }
 
+let prizesCache: { data: Prize[]; timestamp: number } | null = null;
+const PRIZES_CACHE_TTL = 30000; // 30 seconds
+
 export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultData> {
-  const condition = await prisma.spinCondition.findFirst({
+  // Use cached condition if passed from parent, otherwise fetch once
+  const condition = ctx.condition || await prisma.spinCondition.findFirst({
     where: { isActive: true },
     orderBy: { createdAt: "desc" },
   });
 
-  if (condition) {
-    const conditionCheck = await checkSpinConditions(ctx, condition);
-    if (!conditionCheck.allowed) {
-      return {
-        prize: null,
-        isWin: false,
-        resultSource: "RANDOM",
-        segmentIndex: -1,
-        message: conditionCheck.reason || "Cannot spin right now",
-      };
-    }
+  if (condition && !condition.zeroBalanceCanSpin && ctx.userBalance <= 0 && !condition.freeSpinEnabled) {
+    return {
+      prize: null,
+      isWin: false,
+      resultSource: "RANDOM",
+      segmentIndex: -1,
+      message: "Insufficient balance",
+    };
   }
 
-  const resultControl = await prisma.resultControl.findFirst({
-    where: {
-      isActive: true,
-      OR: [
-        { mode: { in: ["ADMIN_CONTROL", "RANDOM"] } },
-      ],
-    },
-    include: { prize: true },
-    orderBy: { createdAt: "desc" },
-  });
+  // Fetch resultControl and prizes in parallel
+  const [resultControl, prizes] = await Promise.all([
+    prisma.resultControl.findFirst({
+      where: { isActive: true },
+      include: { prize: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    getCachedPrizes(),
+  ]);
 
   if (resultControl) {
     if (resultControl.forceWin && resultControl.forcedPrizeId) {
-      const prize = await prisma.prize.findUnique({
-        where: { id: resultControl.forcedPrizeId },
-      });
+      const prize = resultControl.prize;
       if (prize && prize.isActive && (prize.stock > 0 || prize.unlimitedStock)) {
         return {
           prize,
@@ -67,9 +70,8 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
     }
 
     if (resultControl.forceLose) {
-      const emptyPrize = await getEmptyPrize();
       return {
-        prize: emptyPrize,
+        prize: null,
         isWin: false,
         resultSource: "FORCE_LOSE",
         segmentIndex: -1,
@@ -77,13 +79,6 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
       };
     }
   }
-
-  const prizes = await prisma.prize.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: { displayOrder: "asc" },
-  });
 
   if (prizes.length === 0) {
     return {
@@ -95,11 +90,7 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
     };
   }
 
-  // Separate prizes with stock > 0 from prizes with no stock
   const prizesWithStock = prizes.filter(p => p.stock > 0 || p.unlimitedStock);
-  const prizesWithoutStock = prizes.filter(p => p.stock <= 0 && !p.unlimitedStock);
-
-  // If no prizes with stock, can't spin
   if (prizesWithStock.length === 0) {
     return {
       prize: null,
@@ -110,153 +101,79 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
     };
   }
 
-  // Build weighted prizes from prizes with stock
-  const weightedPrizes: WeightedPrize[] = prizesWithStock.map((prize, index) => ({
-    prize,
-    weight: prize.probability,
-    segmentIndex: prizes.indexOf(prize), // Use actual index in full prize list
-  }));
+  const totalWeight = prizesWithStock.reduce((sum, p) => sum + p.probability, 0);
+  let random = Math.random() * totalWeight;
 
-  // Add EMPTY prize if not present (for prizes without stock)
-  const hasEmptyPrize = prizes.some((wp) => wp.type === "EMPTY" || wp.type === "NO_WIN");
-  if (!hasEmptyPrize) {
-    const emptyPrize = await getEmptyPrize();
-    if (emptyPrize) {
-      const emptyIndex = prizes.length;
-      weightedPrizes.push({
-        prize: emptyPrize,
-        weight: Math.max(0, 100 - weightedPrizes.reduce((sum, wp) => sum + wp.weight, 0)),
-        segmentIndex: emptyIndex,
-      });
+  for (let i = 0; i < prizesWithStock.length; i++) {
+    random -= prizesWithStock[i].probability;
+    if (random <= 0) {
+      const selectedPrize = prizesWithStock[i];
+      return {
+        prize: selectedPrize,
+        isWin: selectedPrize.type !== "EMPTY" && selectedPrize.type !== "NO_WIN",
+        resultSource: "RANDOM",
+        segmentIndex: i,
+        message: selectedPrize.type === "EMPTY" ? "Better luck next time!" : `អ្នកទទួលបាន ${selectedPrize.name}!`,
+      };
     }
   }
 
-  // If prizes without stock exist, they should be treated as EMPTY
-  // Filter out prizes without stock from weighted selection
-  const selectablePrizes = weightedPrizes.filter(wp => wp.prize.stock > 0 || wp.prize.unlimitedStock);
-
-  if (selectablePrizes.length === 0) {
-    return {
-      prize: null,
-      isWin: false,
-      resultSource: "RANDOM",
-      segmentIndex: -1,
-      message: "No prizes available",
-    };
-  }
-
-  const selectedPrize = selectWeightedPrize(selectablePrizes);
-
+  // Fallback to first prize
   return {
-    prize: selectedPrize.prize,
-    isWin: selectedPrize.prize.type !== "EMPTY" && selectedPrize.prize.type !== "NO_WIN",
+    prize: prizesWithStock[0],
+    isWin: prizesWithStock[0].type !== "EMPTY",
     resultSource: "RANDOM",
-    segmentIndex: selectedPrize.segmentIndex,
-    message: selectedPrize.prize.type === "EMPTY" ? "Better luck next time!" : `You won ${selectedPrize.prize.name}!`,
+    segmentIndex: 0,
+    message: `អ្នកទទួលបាន ${prizesWithStock[0].name}!`,
   };
 }
 
-async function checkSpinConditions(
-  ctx: SpinContext,
-  condition: {
-    maxSpinsPerDay: number;
-    minBalanceRequired: number;
-    zeroBalanceCanSpin: boolean;
-    freeSpinEnabled: boolean;
-    winCooldownMinutes: number;
-    startDate: Date | null;
-    endDate: Date | null;
-  }
-): Promise<{ allowed: boolean; reason?: string }> {
-  if (ctx.userBalance < condition.minBalanceRequired && !condition.zeroBalanceCanSpin) {
-    return {
-      allowed: false,
-      reason: `Minimum balance of ${condition.minBalanceRequired} required to spin`,
-    };
+async function getCachedPrizes(): Promise<Prize[]> {
+  const now = Date.now();
+  if (prizesCache && (now - prizesCache.timestamp) < PRIZES_CACHE_TTL) {
+    return prizesCache.data;
   }
 
-  if (condition.winCooldownMinutes > 0) {
-    const lastSpin = await prisma.spinResult.findFirst({
-      where: {
-        userId: ctx.userId,
-        isWin: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (lastSpin) {
-      const cooldownEnd = new Date(lastSpin.createdAt.getTime() + condition.winCooldownMinutes * 60 * 1000);
-      if (new Date() < cooldownEnd) {
-        const minutesLeft = Math.ceil((cooldownEnd.getTime() - Date.now()) / 60000);
-        return {
-          allowed: false,
-          reason: `Please wait ${minutesLeft} minutes before spinning again`,
-        };
-      }
-    }
-  }
-
-  if (condition.startDate && new Date() < condition.startDate) {
-    return { allowed: false, reason: "Campaign has not started yet" };
-  }
-  if (condition.endDate && new Date() > condition.endDate) {
-    return { allowed: false, reason: "Campaign has ended" };
-  }
-
-  return { allowed: true };
-}
-
-async function getEmptyPrize(): Promise<Prize | null> {
-  return prisma.prize.findFirst({
-    where: {
-      OR: [{ type: "EMPTY" }, { type: "NO_WIN" }],
-      isActive: true,
+  const prizes = await prisma.prize.findMany({
+    where: { isActive: true },
+    orderBy: { displayOrder: "asc" },
+    select: {
+      id: true,
+      name: true,
+      color: true,
+      type: true,
+      value: true,
+      stock: true,
+      unlimitedStock: true,
+      probability: true,
     },
   });
-}
 
-function selectWeightedPrize(weightedPrizes: WeightedPrize[]): WeightedPrize {
-  const totalWeight = weightedPrizes.reduce((sum, wp) => sum + wp.weight, 0);
-  let random = Math.random() * totalWeight;
-
-  for (const wp of weightedPrizes) {
-    random -= wp.weight;
-    if (random <= 0) {
-      return wp;
-    }
-  }
-
-  return weightedPrizes[weightedPrizes.length - 1];
+  prizesCache = { data: prizes as Prize[], timestamp: now };
+  return prizes;
 }
 
 export async function recordSpinResult(
-  ctx: { userId: string; ipAddress?: string; userAgent?: string },
-  result: SpinResultData
-): Promise<SpinResult> {
-  return prisma.spinResult.create({
-    data: {
-      userId: ctx.userId,
-      prizeId: result.prize?.id,
-      isWin: result.isWin,
-      resultSource: result.resultSource,
-      ipAddress: ctx.ipAddress,
-      userAgent: ctx.userAgent,
-    },
-  });
+  tx: any,
+  data: {
+    userId: string;
+    prizeId: string | null;
+    isWin: boolean;
+    resultSource: string;
+    ipAddress: string;
+    userAgent: string | null;
+  }
+): Promise<void> {
+  await tx.spinResult.create({ data });
 }
 
 export async function updatePrizeStock(prizeId: string, unlimitedStock?: boolean): Promise<void> {
-  const data: any = {
-    dailyWinCount: { increment: 1 },
-    totalWinCount: { increment: 1 },
-  };
   if (!unlimitedStock) {
-    data.stock = { decrement: 1 };
+    await prisma.prize.update({
+      where: { id: prizeId },
+      data: { stock: { decrement: 1 } },
+    });
   }
-  await prisma.prize.update({
-    where: { id: prizeId },
-    data,
-  });
 }
 
 export async function incrementDailySpinCount(userId: string): Promise<void> {
@@ -264,19 +181,8 @@ export async function incrementDailySpinCount(userId: string): Promise<void> {
   today.setHours(0, 0, 0, 0);
 
   await prisma.dailySpinCount.upsert({
-    where: {
-      userId_date: {
-        userId,
-        date: today,
-      },
-    },
-    update: {
-      spinCount: { increment: 1 },
-    },
-    create: {
-      userId,
-      date: today,
-      spinCount: 1,
-    },
+    where: { userId_date: { userId, date: today } },
+    update: { spinCount: { increment: 1 } },
+    create: { userId, date: today, spinCount: 1 },
   });
 }
