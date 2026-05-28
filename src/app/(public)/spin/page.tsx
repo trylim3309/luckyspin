@@ -94,6 +94,9 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
+    // Clear last result before new spin
+    setLastResult(null);
+
     try {
       const res = await fetch("/api/spin", { method: "POST", credentials: "include" });
       const data = await res.json();
@@ -127,7 +130,7 @@ export default function SpinPage() {
         message: data.result?.message || "",
       });
 
-      // Set target and start spinning together
+      // Set target FIRST, then start spinning
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
       setIsSpinning(true);
