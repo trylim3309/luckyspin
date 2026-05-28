@@ -218,7 +218,25 @@ export default function PrizesPage() {
           data={prizes}
           columns={columns}
           onEdit={handleOpenDialog}
-          onDelete={(prize) => console.log("Delete", prize.id)}
+          onDelete={async (prize) => {
+            if (confirm(`Delete prize "${prize.name}"?`)) {
+              try {
+                const res = await fetch(`/api/admin/prizes?id=${prize.id}`, {
+                  method: "DELETE",
+                  credentials: "include",
+                });
+                if (res.ok) {
+                  fetchPrizes();
+                } else {
+                  const data = await res.json();
+                  alert(data.error || "Failed to delete prize");
+                }
+              } catch (error) {
+                console.error("Delete error:", error);
+                alert("Failed to delete prize");
+              }
+            }
+          }}
         />
       )}
 
