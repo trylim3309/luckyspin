@@ -46,6 +46,7 @@ model Prize {
   value               Float          @default(0)
   type                PrizeType      @default(MONEY)
   stock               Int            @default(0)
+  unlimitedStock      Boolean        @default(false)
   probability         Float          @default(0)
   minBalanceRequired  Float          @default(0)
   dailyWinLimit       Int            @default(0)

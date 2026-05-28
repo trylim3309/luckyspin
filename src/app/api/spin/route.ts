@@ -49,9 +49,9 @@ export async function POST(req: NextRequest) {
         await tx.prize.update({
           where: { id: spinResult.prize.id },
           data: {
-            stock: { decrement: 1 },
             dailyWinCount: { increment: 1 },
             totalWinCount: { increment: 1 },
+            ...(spinResult.prize.unlimitedStock ? {} : { stock: { decrement: 1 } }),
           },
         });
       }

@@ -18,6 +18,7 @@ interface Prize {
   value: number;
   type: string;
   stock: number;
+  unlimitedStock: boolean;
   probability: number;
   isActive: boolean;
   displayOrder: number;
@@ -36,6 +37,7 @@ export default function PrizesPage() {
     value: number;
     type: string;
     stock: number;
+    unlimitedStock: boolean;
     probability: number;
     isActive: boolean;
     displayOrder: number;
@@ -47,6 +49,7 @@ export default function PrizesPage() {
     value: 0,
     type: "MONEY",
     stock: 0,
+    unlimitedStock: false,
     probability: 0,
     isActive: true,
     displayOrder: 0,
@@ -83,6 +86,7 @@ export default function PrizesPage() {
         value: prize.value,
         type: prize.type,
         stock: prize.stock,
+        unlimitedStock: (prize as any).unlimitedStock || false,
         probability: prize.probability,
         isActive: prize.isActive,
         displayOrder: prize.displayOrder,
@@ -371,6 +375,16 @@ export default function PrizesPage() {
                 onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
               />
               <label htmlFor="isActive" className="text-sm font-medium">Active</label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="unlimitedStock"
+                checked={formData.unlimitedStock || false}
+                onChange={(e) => setFormData({ ...formData, unlimitedStock: e.target.checked })}
+              />
+              <label htmlFor="unlimitedStock" className="text-sm font-medium">Unlimited Stock</label>
             </div>
           </div>
 

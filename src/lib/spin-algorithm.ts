@@ -55,7 +55,7 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
       const prize = await prisma.prize.findUnique({
         where: { id: resultControl.forcedPrizeId },
       });
-      if (prize && prize.isActive && prize.stock > 0) {
+      if (prize && prize.isActive && (prize.stock > 0 || prize.unlimitedStock)) {
         return {
           prize,
           isWin: true,
@@ -96,8 +96,8 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
   }
 
   // Separate prizes with stock > 0 from prizes with no stock
-  const prizesWithStock = prizes.filter(p => p.stock > 0);
-  const prizesWithoutStock = prizes.filter(p => p.stock <= 0);
+  const prizesWithStock = prizes.filter(p => p.stock > 0 || p.unlimitedStock);
+  const prizesWithoutStock = prizes.filter(p => p.stock <= 0 && !p.unlimitedStock);
 
   // If no prizes with stock, can't spin
   if (prizesWithStock.length === 0) {
@@ -245,14 +245,17 @@ export async function recordSpinResult(
   });
 }
 
-export async function updatePrizeStock(prizeId: string): Promise<void> {
+export async function updatePrizeStock(prizeId: string, unlimitedStock?: boolean): Promise<void> {
+  const data: any = {
+    dailyWinCount: { increment: 1 },
+    totalWinCount: { increment: 1 },
+  };
+  if (!unlimitedStock) {
+    data.stock = { decrement: 1 };
+  }
   await prisma.prize.update({
     where: { id: prizeId },
-    data: {
-      stock: { decrement: 1 },
-      dailyWinCount: { increment: 1 },
-      totalWinCount: { increment: 1 },
-    },
+    data,
   });
 }
 
