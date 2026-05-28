@@ -124,6 +124,7 @@ export default function SpinPage() {
           color: data.result.prizeColor,
           type: data.result.prizeType,
           value: data.result.prizeValue,
+          imageUrl: data.result.prizeImageUrl,
         } : null,
         isWin: data.result?.isWin || false,
         message: data.result?.message || "",
