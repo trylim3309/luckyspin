@@ -11,6 +11,7 @@ async function main() {
     update: {},
     create: {
       name: "Admin",
+      username: "admin",
       email: "admin@luckyspin.com",
       passwordHash: adminPassword,
       role: "SUPER_ADMIN",
