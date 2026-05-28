@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model User {
+  id           String           @id @default(cuid())
+  username     String           @unique
+  firstName    String
+  lastName     String?
+  photoUrl     String?
+  balance      Float            @default(0)
+  isBlocked    Boolean          @default(false)
+  totalSpins   Int              @default(0)
+  totalWins    Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  email        String?          @unique
+  passwordHash String
+  phone        String?          @unique
+  dailySpins   DailySpinCount[]
+  spinResults  SpinResult[]
+}
+
+model Prize {
+  id                  String         @id @default(cuid())
+  name                String
+  description         String?
+  imageUrl            String?
+  color               String         @default("#ffffff")
+  value               Float          @default(0)
+  type                PrizeType      @default(MONEY)
+  stock               Int            @default(0)
+  probability         Float          @default(0)
+  minBalanceRequired  Float          @default(0)
+  dailyWinLimit       Int            @default(0)
+  totalWinLimit       Int            @default(0)
+  dailyWinCount       Int            @default(0)
+  totalWinCount       Int            @default(0)
+  isActive            Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  displayOrder        Int            @default(0)
+  forcedResultControl ResultControl?
+  spinResults         SpinResult[]
+}
+
+model SpinCondition {
+  id                 String    @id @default(cuid())
+  name               String
+  maxSpinsPerDay     Int       @default(10)
+  minBalanceRequired Float     @default(0)
+  zeroBalanceCanSpin Boolean   @default(false)
+  freeSpinEnabled    Boolean   @default(true)
+  ipLimitEnabled     Boolean   @default(false)
+  deviceLimitEnabled Boolean   @default(false)
+  winCooldownMinutes Int       @default(0)
+  startDate          DateTime?
+  endDate            DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model ResultControl {
+  id                   String      @id @default(cuid())
+  mode                 ControlMode @default(RANDOM)
+  globalWinPercentage  Float       @default(100)
+  globalLosePercentage Float       @default(0)
+  forcedPrizeId        String?     @unique
+  targetTelegramId     String?
+  forceWin             Boolean     @default(false)
+  forceLose            Boolean     @default(false)
+  blockBigPrize        Boolean     @default(false)
+  isActive             Boolean     @default(true)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  prize                Prize?      @relation(fields: [forcedPrizeId], references: [id])
+}
+
+model SpinResult {
+  id           String       @id @default(cuid())
+  userId       String
+  prizeId      String?
+  isWin        Boolean      @default(false)
+  resultSource ResultSource @default(RANDOM)
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime     @default(now())
+  prize        Prize?       @relation(fields: [prizeId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+}
+
+model CampaignSetting {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  title      String   @default("Lucky Spin")
+  subtitle   String?
+  isActive   Boolean  @default(true)
+  themeColor String   @default("#FFD700")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model DailySpinCount {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  spinCount Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+enum Role {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PrizeType {
+  MONEY
+  COUPON
+  PRODUCT
+  FREE_SPIN
+  EMPTY
+  NO_WIN
+}
+
+enum ControlMode {
+  RANDOM
+  ADMIN_CONTROL
+  FORCE_WIN
+  FORCE_LOSE
+  USER_SPECIFIC
+}
+
+enum ResultSource {
+  RANDOM
+  ADMIN_CONTROL
+  FORCE_WIN
+  FORCE_LOSE
+  USER_CONTROLLED
+}
