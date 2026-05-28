@@ -12,7 +12,7 @@ interface SpinContext {
 }
 
 interface SpinResultData {
-  prize: Prize | null;
+  prize: CachedPrize | null;
   isWin: boolean;
   resultSource: ResultSource;
   segmentIndex: number;
@@ -20,12 +20,23 @@ interface SpinResultData {
 }
 
 interface WeightedPrize {
-  prize: Prize;
+  prize: CachedPrize;
   weight: number;
   segmentIndex: number;
 }
 
-let prizesCache: { data: Prize[]; timestamp: number } | null = null;
+interface CachedPrize {
+  id: string;
+  name: string;
+  color: string;
+  type: string;
+  value: number;
+  stock: number;
+  unlimitedStock: boolean;
+  probability: number;
+}
+
+let prizesCache: { data: CachedPrize[]; timestamp: number } | null = null;
 const PRIZES_CACHE_TTL = 30000; // 30 seconds
 
 export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultData> {
@@ -90,7 +101,7 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
     };
   }
 
-  const prizesWithStock = prizes.filter(p => p.stock > 0 || p.unlimitedStock);
+  const prizesWithStock = prizes.filter((p: CachedPrize) => p.stock > 0 || p.unlimitedStock);
   if (prizesWithStock.length === 0) {
     return {
       prize: null,
@@ -128,7 +139,7 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
   };
 }
 
-async function getCachedPrizes(): Promise<Prize[]> {
+async function getCachedPrizes(): Promise<CachedPrize[]> {
   const now = Date.now();
   if (prizesCache && (now - prizesCache.timestamp) < PRIZES_CACHE_TTL) {
     return prizesCache.data;
@@ -149,7 +160,7 @@ async function getCachedPrizes(): Promise<Prize[]> {
     },
   });
 
-  prizesCache = { data: prizes as Prize[], timestamp: now };
+  prizesCache = { data: prizes as CachedPrize[], timestamp: now };
   return prizes;
 }
 

@@ -12,6 +12,7 @@ interface Prize {
   type: string;
   value?: number;
   icon?: string;
+  imageUrl?: string | null;
 }
 
 export default function SpinPage() {
