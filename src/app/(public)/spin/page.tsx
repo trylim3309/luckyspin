@@ -94,7 +94,11 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
+    // Start wheel immediately with random target
     setLastResult(null);
+    setTargetPrizeId(undefined);
+    setTargetSegment(Math.floor(Math.random() * prizes.length));
+    setIsSpinning(true);
 
     try {
       const res = await fetch("/api/spin", { method: "POST", credentials: "include" });
@@ -133,10 +137,9 @@ export default function SpinPage() {
       setLastResult(result);
       lastResultRef.current = result;
 
-      // Set target BEFORE starting wheel - so Wheel3D reads correct target on first effect run
+      // Update to correct target - animation continues from current position
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
-      setIsSpinning(true);
     } catch (error) {
       setIsSpinning(false);
       console.error("Spin error:", error);

@@ -189,7 +189,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   // Spin animation
   useEffect(() => {
     if (isSpinning && !isAnimating) {
-      const duration = 6000;
+      const duration = 4000;
       const startTime = Date.now();
       const startRotation = currentRotationRef.current;
 
@@ -210,9 +210,9 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       const animStartRotation = currentRotationRef.current;
       let needed = targetRot - animStartRotation;
       needed = ((needed % 360) + 360) % 360;
-      if (needed < 30) needed += 360;
+      if (needed < 30 && needed > 0) needed += 360;
 
-      const extra = (5 + Math.floor(Math.random() * 3)) * 360;
+      const extra = (5 + Math.floor(Math.random() * 4)) * 360;
       const totalRotation = needed + extra;
 
       setIsAnimating(true);
@@ -228,7 +228,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         const progress = Math.min(elapsed / duration, 1);
 
         // Quintic ease-out for smooth deceleration
-        const eased = 1 - Math.pow(1 - progress, 5);
+        const eased = 1 - Math.pow(1 - progress, 3);
         const newRotation = animStartRotation + totalRotation * eased;
 
         setRotation(newRotation);
