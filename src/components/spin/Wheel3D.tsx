@@ -33,19 +33,13 @@ const PRIZE_ICONS: Record<string, string> = {
 
 export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, onSpinTrigger, targetSegment, targetPrizeId }: Wheel3DProps) {
   const [rotation, setRotation] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [wheelSize, setWheelSize] = useState(480);
   const currentRotationRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetSegmentRef = useRef<number | undefined>(targetSegment);
   const targetPrizeIdRef = useRef<string | undefined>(targetPrizeId);
-  const animRef = useRef<{
-    rafId: number;
-    startTime: number;
-    duration: number;
-    totalRotation: number;
-    startRotation: number;
-    targetIdx: number;
-  } | null>(null);
+  const animRef = useRef<{ startTime: number; duration: number; totalRotation: number; startRotation: number; targetIdx: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Responsive sizing
@@ -61,7 +55,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Keep refs in sync with props
   useEffect(() => {
     targetSegmentRef.current = targetSegment;
     targetPrizeIdRef.current = targetPrizeId;
@@ -77,7 +70,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
   const getIcon = (prize: Prize) => prize.icon || PRIZE_ICONS[prize.type] || "🎰";
 
-  // Draw wheel on canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -180,103 +172,73 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     });
   }, [rotation, displayPrizes, segmentAngle]);
 
-  // Spin animation — starts when isSpinning becomes true
   useEffect(() => {
-    if (!isSpinning) {
-      if (animRef.current) {
-        cancelAnimationFrame(animRef.current.rafId);
-        animRef.current = null;
-      }
-      return;
-    }
+    if (isSpinning && !isAnimating) {
+      const duration = 4000;
+      const startTime = Date.now();
+      const startRotation = currentRotationRef.current;
 
-    onSpinStart?.();
-
-    const duration = 4000;
-    const startTime = Date.now();
-    const startRotation = currentRotationRef.current;
-
-    let targetIdx: number;
-    if (targetPrizeIdRef.current !== undefined) {
-      const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
-      targetIdx = foundIndex !== -1 ? foundIndex : 0;
-    } else if (targetSegmentRef.current !== undefined) {
-      targetIdx = targetSegmentRef.current;
-    } else {
-      targetIdx = Math.floor(Math.random() * displayPrizes.length);
-    }
-
-    const segMid = targetIdx * segmentAngle + segmentAngle / 2;
-    const targetRot = 360 - segMid;
-
-    let needed = targetRot - startRotation;
-    needed = ((needed % 360) + 360) % 360;
-    if (needed < 30 && needed > 0) needed += 360;
-
-    const extra = (5 + Math.floor(Math.random() * 4)) * 360;
-    const totalRotation = needed + extra;
-
-    animRef.current = { rafId: 0, startTime, duration, totalRotation, startRotation, targetIdx };
-
-    const animate = () => {
-      const anim = animRef.current;
-      if (!anim) return;
-
-      const elapsed = Date.now() - anim.startTime;
-      const progress = Math.min(elapsed / anim.duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const newRotation = anim.startRotation + anim.totalRotation * eased;
-
-      setRotation(newRotation);
-      currentRotationRef.current = newRotation;
-
-      if (progress < 1 && isSpinning && animRef.current === anim) {
-        anim.rafId = requestAnimationFrame(animate);
+      let currentTargetIdx: number;
+      if (targetPrizeIdRef.current !== undefined) {
+        const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+        currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
+      } else if (targetSegmentRef.current !== undefined) {
+        currentTargetIdx = targetSegmentRef.current;
       } else {
-        // Animation complete — save targetIdx before nulling the ref
-        const finalTargetIdx = anim.targetIdx;
-        const finalTargetRot = anim.startRotation + anim.totalRotation;
-        currentRotationRef.current = finalTargetRot;
-        animRef.current = null;
-        const selectedPrize = displayPrizes[finalTargetIdx];
-        onSpinEnd?.(selectedPrize, finalTargetIdx);
+        currentTargetIdx = 0;
       }
-    };
 
-    animRef.current.rafId = requestAnimationFrame(animate);
-  }, [isSpinning, displayPrizes, segmentAngle, onSpinEnd, onSpinStart]);
+      const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
+      const targetRot = 360 - segMid;
 
-  // Mid-spin target correction
-  useEffect(() => {
-    const anim = animRef.current;
-    if (!anim || !isSpinning) return;
+      let needed = targetRot - startRotation;
+      needed = ((needed % 360) + 360) % 360;
+      if (needed < 30 && needed > 0) needed += 360;
 
-    let newTargetIdx: number;
-    if (targetPrizeIdRef.current !== undefined) {
-      const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
-      newTargetIdx = foundIndex !== -1 ? foundIndex : 0;
-    } else if (targetSegmentRef.current !== undefined) {
-      newTargetIdx = targetSegmentRef.current;
-    } else {
-      return;
+      const extra = (5 + Math.floor(Math.random() * 4)) * 360;
+      const totalRotation = needed + extra;
+
+      animRef.current = {
+        startTime,
+        duration,
+        totalRotation,
+        startRotation,
+        targetIdx: currentTargetIdx,
+      };
+
+      setIsAnimating(true);
+      onSpinStart?.();
+
+      const animate = () => {
+        if (!isSpinning) {
+          setIsAnimating(false);
+          return;
+        }
+
+        const anim = animRef.current;
+        if (!anim) return;
+
+        const elapsed = Date.now() - anim.startTime;
+        const progress = Math.min(elapsed / anim.duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const newRotation = anim.startRotation + anim.totalRotation * eased;
+
+        setRotation(newRotation);
+        currentRotationRef.current = newRotation;
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setIsAnimating(false);
+          currentRotationRef.current = anim.startRotation + anim.totalRotation;
+          const selectedPrize = displayPrizes[anim.targetIdx];
+          onSpinEnd?.(selectedPrize, anim.targetIdx);
+        }
+      };
+
+      requestAnimationFrame(animate);
     }
-
-    if (newTargetIdx === anim.targetIdx) return;
-
-    const currentPos = currentRotationRef.current;
-    const segMid = newTargetIdx * segmentAngle + segmentAngle / 2;
-    const targetRot = 360 - segMid;
-
-    let needed = targetRot - currentPos;
-    needed = ((needed % 360) + 360) % 360;
-    if (needed < 30 && needed > 0) needed += 360;
-
-    const extra = (5 + Math.floor(Math.random() * 4)) * 360;
-    anim.startRotation = currentPos;
-    anim.startTime = Date.now();
-    anim.totalRotation = needed + extra;
-    anim.targetIdx = newTargetIdx;
-  }, [targetSegment, targetPrizeId, isSpinning, displayPrizes, segmentAngle]);
+  }, [isSpinning, isAnimating, displayPrizes, segmentAngle, onSpinEnd, onSpinStart]);
 
   const BULB_COUNT = 28;
   const BULB_RADIUS = OUTER_RADIUS + 24;
