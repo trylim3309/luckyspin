@@ -10,6 +10,7 @@ datasource db {
 model AdminUser {
   id           String   @id @default(cuid())
   name         String
+  username     String   @unique
   email        String   @unique
   passwordHash String
   role         Role     @default(ADMIN)
