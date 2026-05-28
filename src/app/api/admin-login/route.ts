@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = await prisma.adminUser.findFirst({
-      where: { name: username },
+      where: { username },
     });
 
     if (!admin) {
