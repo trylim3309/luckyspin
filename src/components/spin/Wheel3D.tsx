@@ -206,11 +206,12 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
       const targetRot = 360 - segMid;
 
-      let needed = targetRot - startRotation;
+      // Animate from current wheel position (not frozen start position)
+      const animStartRotation = currentRotationRef.current;
+      let needed = targetRot - animStartRotation;
       needed = ((needed % 360) + 360) % 360;
-      if (needed < 60) needed += 360;
+      if (needed < 30) needed += 360;
 
-      // Generate extra spins once at start
       const extra = (5 + Math.floor(Math.random() * 3)) * 360;
       const totalRotation = needed + extra;
 
@@ -228,7 +229,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
         // Quintic ease-out for smooth deceleration
         const eased = 1 - Math.pow(1 - progress, 5);
-        const newRotation = startRotation + totalRotation * eased;
+        const newRotation = animStartRotation + totalRotation * eased;
 
         setRotation(newRotation);
         currentRotationRef.current = newRotation;
@@ -237,7 +238,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
           requestAnimationFrame(animate);
         } else {
           setIsAnimating(false);
-          currentRotationRef.current = startRotation + totalRotation;
+          currentRotationRef.current = animStartRotation + totalRotation;
           const selectedPrize = displayPrizes[currentTargetIdx];
           onSpinEnd?.(selectedPrize, currentTargetIdx);
         }
