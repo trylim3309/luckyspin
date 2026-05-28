@@ -94,19 +94,22 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
-    // Clear last result before new spin
+    // Start spinning immediately before API call
     setLastResult(null);
+    setIsSpinning(true);
 
     try {
       const res = await fetch("/api/spin", { method: "POST", credentials: "include" });
       const data = await res.json();
 
       if (data.error) {
+        setIsSpinning(false);
         alert(data.error);
         return;
       }
 
       if (!data.success) {
+        setIsSpinning(false);
         alert(data.error || "Spin failed. Please try again.");
         return;
       }
@@ -131,11 +134,11 @@ export default function SpinPage() {
         message: data.result?.message || "",
       });
 
-      // Set target segment FIRST, then trigger wheel animation
+      // Set target segment - wheel animates to this position
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
-      setIsSpinning(true);
     } catch (error) {
+      setIsSpinning(false);
       console.error("Spin error:", error);
     }
   }, [isSpinning, remainingSpins, prizes]);
