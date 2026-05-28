@@ -94,8 +94,6 @@ export default function SpinPage() {
   const handleSpin = useCallback(async () => {
     if (isSpinning || remainingSpins === 0 || prizes.length === 0) return;
 
-    // Wait for API result before starting wheel
-    setIsSpinning(true);
     setLastResult(null);
 
     try {
@@ -135,9 +133,10 @@ export default function SpinPage() {
       setLastResult(result);
       lastResultRef.current = result;
 
-      // Now set the correct target - wheel will start spinning
+      // Set target BEFORE starting wheel - so Wheel3D reads correct target on first effect run
       setTargetSegment(data.result?.segmentIndex ?? 0);
       setTargetPrizeId(data.result?.prizeId);
+      setIsSpinning(true);
     } catch (error) {
       setIsSpinning(false);
       console.error("Spin error:", error);

@@ -188,63 +188,69 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
   // Spin animation
   useEffect(() => {
-    if (isSpinning && !isAnimating) {
-      const duration = 6000;
-      const startTime = Date.now();
-      const startRotation = currentRotationRef.current;
+    if (!isSpinning) {
+      // Reset animation phase when not spinning
+      if (isAnimating) {
+        setIsAnimating(false);
+      }
+      return;
+    }
 
-      let currentTargetIdx: number;
-      if (targetPrizeIdRef.current !== undefined) {
-        const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
-        currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
-      } else if (targetSegmentRef.current !== undefined) {
-        currentTargetIdx = targetSegmentRef.current;
-      } else {
-        currentTargetIdx = Math.floor(Math.random() * displayPrizes.length);
+    // Start animation with current target
+    const duration = 6000;
+    const startTime = Date.now();
+    const startRotation = currentRotationRef.current;
+
+    let currentTargetIdx: number;
+    if (targetPrizeIdRef.current !== undefined) {
+      const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+      currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
+    } else if (targetSegmentRef.current !== undefined) {
+      currentTargetIdx = targetSegmentRef.current;
+    } else {
+      currentTargetIdx = 0;
+    }
+
+    const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
+    const targetRot = 360 - segMid;
+
+    let needed = targetRot - startRotation;
+    needed = ((needed % 360) + 360) % 360;
+    if (needed < 60) needed += 360;
+
+    // Extra spins generated once at start
+    const extra = (5 + Math.floor(Math.random() * 3)) * 360;
+    const totalRotation = needed + extra;
+
+    setIsAnimating(true);
+    onSpinStart?.();
+
+    const animate = () => {
+      if (!isSpinning) {
+        setIsAnimating(false);
+        return;
       }
 
-      const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
-      const targetRot = 360 - segMid;
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
 
-      let needed = targetRot - startRotation;
-      needed = ((needed % 360) + 360) % 360;
-      if (needed < 60) needed += 360;
+      const eased = 1 - Math.pow(1 - progress, 5);
+      const newRotation = startRotation + totalRotation * eased;
 
-      // Generate extra spins once at start
-      const extra = (5 + Math.floor(Math.random() * 3)) * 360;
-      const totalRotation = needed + extra;
+      setRotation(newRotation);
+      currentRotationRef.current = newRotation;
 
-      setIsAnimating(true);
-      onSpinStart?.();
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setIsAnimating(false);
+        currentRotationRef.current = startRotation + totalRotation;
+        const selectedPrize = displayPrizes[currentTargetIdx];
+        onSpinEnd?.(selectedPrize, currentTargetIdx);
+      }
+    };
 
-      const animate = () => {
-        if (!isSpinning) {
-          setIsAnimating(false);
-          return;
-        }
-
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        // Quintic ease-out for smooth deceleration
-        const eased = 1 - Math.pow(1 - progress, 5);
-        const newRotation = startRotation + totalRotation * eased;
-
-        setRotation(newRotation);
-        currentRotationRef.current = newRotation;
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          setIsAnimating(false);
-          currentRotationRef.current = startRotation + totalRotation;
-          const selectedPrize = displayPrizes[currentTargetIdx];
-          onSpinEnd?.(selectedPrize, currentTargetIdx);
-        }
-      };
-
-      requestAnimationFrame(animate);
-    }
+    requestAnimationFrame(animate);
   }, [isSpinning, isAnimating, displayPrizes, segmentAngle, onSpinEnd, onSpinStart]);
 
   const BULB_COUNT = 28;
