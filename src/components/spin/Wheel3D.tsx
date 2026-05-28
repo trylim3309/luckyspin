@@ -38,7 +38,14 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetSegmentRef = useRef<number | undefined>(targetSegment);
   const targetPrizeIdRef = useRef<string | undefined>(targetPrizeId);
-  const animRef = useRef<{ rafId: number; startTime: number; duration: number; totalRotation: number; startRotation: number; targetIdx: number } | null>(null);
+  const animRef = useRef<{
+    rafId: number;
+    startTime: number;
+    duration: number;
+    totalRotation: number;
+    startRotation: number;
+    targetIdx: number;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Responsive sizing
@@ -173,7 +180,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     });
   }, [rotation, displayPrizes, segmentAngle]);
 
-  // Animation loop — reads live from refs, no stale closures
+  // Spin animation — starts when isSpinning becomes true
   useEffect(() => {
     if (!isSpinning) {
       if (animRef.current) {
@@ -189,7 +196,6 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     const startTime = Date.now();
     const startRotation = currentRotationRef.current;
 
-    // Resolve current target
     let targetIdx: number;
     if (targetPrizeIdRef.current !== undefined) {
       const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
@@ -214,10 +220,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
     const animate = () => {
       const anim = animRef.current;
-      if (!anim || !isSpinning) {
-        animRef.current = null;
-        return;
-      }
+      if (!anim) return;
 
       const elapsed = Date.now() - anim.startTime;
       const progress = Math.min(elapsed / anim.duration, 1);
@@ -227,21 +230,24 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       setRotation(newRotation);
       currentRotationRef.current = newRotation;
 
-      if (progress < 1) {
+      if (progress < 1 && isSpinning && animRef.current === anim) {
         anim.rafId = requestAnimationFrame(animate);
       } else {
+        // Animation complete — save targetIdx before nulling the ref
+        const finalTargetIdx = anim.targetIdx;
+        const finalTargetRot = anim.startRotation + anim.totalRotation;
+        currentRotationRef.current = finalTargetRot;
         animRef.current = null;
-        const selectedPrize = displayPrizes[anim.targetIdx];
-        onSpinEnd?.(selectedPrize, anim.targetIdx);
+        const selectedPrize = displayPrizes[finalTargetIdx];
+        onSpinEnd?.(selectedPrize, finalTargetIdx);
       }
     };
 
     animRef.current.rafId = requestAnimationFrame(animate);
   }, [isSpinning, displayPrizes, segmentAngle, onSpinEnd, onSpinStart]);
 
-  // Target update: mid-spin correction via ref, no state restart
+  // Mid-spin target correction
   useEffect(() => {
-    // When target changes while spinning, update the running animation target
     const anim = animRef.current;
     if (!anim || !isSpinning) return;
 
@@ -266,13 +272,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     if (needed < 30 && needed > 0) needed += 360;
 
     const extra = (5 + Math.floor(Math.random() * 4)) * 360;
-    const totalRotation = needed + extra;
-
-    // Update ref — animation loop reads this on next frame
-    anim.targetIdx = newTargetIdx;
     anim.startRotation = currentPos;
     anim.startTime = Date.now();
-    anim.totalRotation = totalRotation;
+    anim.totalRotation = needed + extra;
+    anim.targetIdx = newTargetIdx;
   }, [targetSegment, targetPrizeId, isSpinning, displayPrizes, segmentAngle]);
 
   const BULB_COUNT = 28;
@@ -304,10 +307,10 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
               key={i}
               className="absolute rounded-full"
               style={{
-                width: SIZE * 0.03,
-                height: SIZE * 0.03,
+                width: BULB_SIZE,
+                height: BULB_SIZE,
                 backgroundColor: BULB_COLORS[i % BULB_COLORS.length],
-                boxShadow: `0 0 ${SIZE * 0.03}px ${BULB_COLORS[i % BULB_COLORS.length]}`,
+                boxShadow: `0 0 ${BULB_SIZE}px ${BULB_COLORS[i % BULB_COLORS.length]}`,
                 left: `calc(50% + ${x}px)`,
                 top: `calc(50% + ${y}px)`,
                 transform: "translate(-50%, -50%)",
