@@ -188,12 +188,31 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
   // Spin animation
   useEffect(() => {
-    console.log("Spin effect running", { isSpinning, isAnimating, targetPrizeId: targetPrizeIdRef.current, targetSegment: targetSegmentRef.current });
     if (isSpinning && !isAnimating) {
-      // Start animation - target will be checked on each frame
-      const duration = 4000;
+      const duration = 6000;
       const startTime = Date.now();
       const startRotation = currentRotationRef.current;
+
+      let currentTargetIdx: number;
+      if (targetPrizeIdRef.current !== undefined) {
+        const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
+        currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
+      } else if (targetSegmentRef.current !== undefined) {
+        currentTargetIdx = targetSegmentRef.current;
+      } else {
+        currentTargetIdx = Math.floor(Math.random() * displayPrizes.length);
+      }
+
+      const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
+      const targetRot = 360 - segMid;
+
+      let needed = targetRot - startRotation;
+      needed = ((needed % 360) + 360) % 360;
+      if (needed < 60) needed += 360;
+
+      // Generate extra spins once at start
+      const extra = (5 + Math.floor(Math.random() * 3)) * 360;
+      const totalRotation = needed + extra;
 
       setIsAnimating(true);
       onSpinStart?.();
@@ -204,32 +223,12 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
           return;
         }
 
-        // Check current target on each frame
-        let currentTargetIdx: number;
-        if (targetPrizeIdRef.current !== undefined) {
-          const foundIndex = displayPrizes.findIndex(p => p.id === targetPrizeIdRef.current);
-          currentTargetIdx = foundIndex !== -1 ? foundIndex : 0;
-        } else if (targetSegmentRef.current !== undefined) {
-          currentTargetIdx = targetSegmentRef.current;
-        } else {
-          currentTargetIdx = Math.floor(Math.random() * displayPrizes.length);
-        }
-        targetIndexRef.current = currentTargetIdx;
-
-        const segMid = currentTargetIdx * segmentAngle + segmentAngle / 2;
-        const targetRot = 360 - segMid;
-
-        let needed = targetRot - startRotation;
-        needed = ((needed % 360) + 360) % 360;
-        if (needed < 30 && needed > 0) needed += 360;
-
-        const extra = (5 + Math.floor(Math.random() * 4)) * 360;
-        const totalRotation = needed + extra;
-
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        const newRotation = startRotation + (totalRotation - 0) * easeOut;
+
+        // Quintic ease-out for smooth deceleration
+        const eased = 1 - Math.pow(1 - progress, 5);
+        const newRotation = startRotation + totalRotation * eased;
 
         setRotation(newRotation);
         currentRotationRef.current = newRotation;
@@ -237,9 +236,8 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
-          setRotation(newRotation);
-          currentRotationRef.current = newRotation;
           setIsAnimating(false);
+          currentRotationRef.current = startRotation + totalRotation;
           const selectedPrize = displayPrizes[currentTargetIdx];
           onSpinEnd?.(selectedPrize, currentTargetIdx);
         }
