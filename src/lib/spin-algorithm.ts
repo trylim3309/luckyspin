@@ -116,26 +116,30 @@ export async function calculateSpinResult(ctx: SpinContext): Promise<SpinResultD
   const totalWeight = prizesWithStock.reduce((sum, p) => sum + p.probability, 0);
   let random = Math.random() * totalWeight;
 
+  // Find segment index in the FULL prizes array (for wheel display)
   for (let i = 0; i < prizesWithStock.length; i++) {
     random -= prizesWithStock[i].probability;
     if (random <= 0) {
       const selectedPrize = prizesWithStock[i];
+      // Find actual index in original prizes array for wheel segment
+      const originalIndex = prizes.findIndex(p => p.id === selectedPrize.id);
       return {
         prize: selectedPrize,
         isWin: selectedPrize.type !== "EMPTY" && selectedPrize.type !== "NO_WIN",
         resultSource: "RANDOM",
-        segmentIndex: i,
+        segmentIndex: originalIndex >= 0 ? originalIndex : i,
         message: selectedPrize.type === "EMPTY" ? "Better luck next time!" : `អ្នកទទួលបាន ${selectedPrize.name}!`,
       };
     }
   }
 
   // Fallback to first prize
+  const firstIndex = prizes.findIndex(p => p.id === prizesWithStock[0].id);
   return {
     prize: prizesWithStock[0],
     isWin: prizesWithStock[0].type !== "EMPTY",
     resultSource: "RANDOM",
-    segmentIndex: 0,
+    segmentIndex: firstIndex >= 0 ? firstIndex : 0,
     message: `អ្នកទទួលបាន ${prizesWithStock[0].name}!`,
   };
 }
