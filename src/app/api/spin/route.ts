@@ -80,12 +80,26 @@ export async function POST(req: NextRequest) {
     });
 
     // Fetch updated data in parallel
-    const [updatedUser, dailySpin] = await Promise.all([
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [updatedUser, dailySpin, condition] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),
       prisma.dailySpinCount.findUnique({
-        where: { userId_date: { userId: user.id, date: new Date() } },
+        where: { userId_date: { userId: user.id, date: today } },
+      }),
+      prisma.spinCondition.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
       }),
     ]);
+
+    // Calculate remaining spins with condition limits
+    const usedToday = dailySpin?.spinCount || 0;
+    const lifetimeRemaining = (updatedUser?.totalSpins || 0) - usedToday;
+    let remaining = lifetimeRemaining;
+    if (condition && condition.maxSpinsPerDay > 0) {
+      remaining = Math.min(remaining, Math.max(0, condition.maxSpinsPerDay - usedToday));
+    }
 
     return NextResponse.json({
       success: true,
@@ -106,7 +120,7 @@ export async function POST(req: NextRequest) {
         totalSpins: updatedUser?.totalSpins,
         totalWins: updatedUser?.totalWins,
       },
-      remainingSpins: Math.max(0, (updatedUser?.totalSpins || 0) - (dailySpin?.spinCount || 0)),
+      remainingSpins: Math.max(0, remaining),
     });
   } catch (error) {
     console.error("Spin error:", error);
