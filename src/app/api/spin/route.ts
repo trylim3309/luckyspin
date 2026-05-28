@@ -98,13 +98,9 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    // Calculate remaining spins with condition limits
+    // Calculate remaining spins
     const usedToday = dailySpin?.spinCount || 0;
-    const lifetimeRemaining = (updatedUser?.totalSpins || 0) - usedToday;
-    let remaining = lifetimeRemaining;
-    if (latestCondition && latestCondition.maxSpinsPerDay > 0) {
-      remaining = Math.min(remaining, Math.max(0, latestCondition.maxSpinsPerDay - usedToday));
-    }
+    const remaining = (updatedUser?.totalSpins || 0) - usedToday;
 
     return NextResponse.json({
       success: true,
