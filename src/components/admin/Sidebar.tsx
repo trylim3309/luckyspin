@@ -19,6 +19,7 @@ const adminNavItems = [
   { href: "/admin/prizes", label: "Prizes", icon: Gift },
   { href: "/admin/conditions", label: "Conditions", icon: Settings },
   { href: "/admin/result-control", label: "Result Control", icon: Volume2 },
+  { href: "/admin/settings", label: "Wheel Logo", icon: LayoutDashboard },
   { href: "/admin/users", label: "Accounts", icon: Users },
   { href: "/admin/admin-users", label: "Admin Users", icon: Users },
   { href: "/admin/spin-history", label: "Spin History", icon: History },
