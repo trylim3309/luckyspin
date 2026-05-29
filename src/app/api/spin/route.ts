@@ -40,67 +40,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: spinResult.message }, { status: 400 });
     }
 
-    // Do all writes in single transaction and get updated counts
-    const [_, today] = await Promise.all([
-      prisma.$transaction(async (tx) => {
-        if (spinResult.prize && spinResult.prize.type !== "EMPTY" && spinResult.prize.type !== "NO_WIN") {
-          const updateData: any = {
-            dailyWinCount: { increment: 1 },
-            totalWinCount: { increment: 1 },
-          };
-          if (!spinResult.prize.unlimitedStock) {
-            updateData.stock = { decrement: 1 };
-          }
-          await tx.prize.update({ where: { id: spinResult.prize.id }, data: updateData });
+    // Minimal transaction: only prize stock + spin record need atomicity
+    await prisma.$transaction(async (tx) => {
+      if (spinResult.prize && spinResult.prize.type !== "EMPTY" && spinResult.prize.type !== "NO_WIN") {
+        if (!spinResult.prize.unlimitedStock) {
+          await tx.prize.update({ where: { id: spinResult.prize.id }, data: { stock: { decrement: 1 } } });
         }
+      }
+      await tx.spinResult.create({
+        data: {
+          userId: user.id,
+          prizeId: spinResult.prize?.id,
+          isWin: spinResult.isWin,
+          resultSource: spinResult.resultSource,
+          ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown",
+          userAgent: req.headers.get("user-agent"),
+        },
+      });
+    });
 
-        await tx.spinResult.create({
-          data: {
-            userId: user.id,
-            prizeId: spinResult.prize?.id,
-            isWin: spinResult.isWin,
-            resultSource: spinResult.resultSource,
-            ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown",
-            userAgent: req.headers.get("user-agent"),
-          },
-        });
+    // These are independent — run in parallel, no transaction needed
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-        await tx.user.update({
-          where: { id: user.id },
-          data: { totalWins: spinResult.isWin ? { increment: 1 } : undefined },
-        });
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        await tx.dailySpinCount.upsert({
-          where: { userId_date: { userId: user.id, date: today } },
-          update: { spinCount: { increment: 1 } },
-          create: { userId: user.id, date: today, spinCount: 1 },
-        });
-      }),
-      (async () => {
-        const t = new Date();
-        t.setHours(0, 0, 0, 0);
-        return t;
-      })(),
-    ]);
-
-    // Fetch updated data in parallel AFTER transaction commits
-    const [updatedUser, dailySpin, latestCondition] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.dailySpinCount.findUnique({
+    await Promise.all([
+      prisma.user.update({ where: { id: user.id }, data: { totalWins: spinResult.isWin ? { increment: 1 } : undefined } }),
+      prisma.dailySpinCount.upsert({
         where: { userId_date: { userId: user.id, date: today } },
-      }),
-      prisma.spinCondition.findFirst({
-        where: { isActive: true },
-        orderBy: { createdAt: "desc" },
+        update: { spinCount: { increment: 1 } },
+        create: { userId: user.id, date: today, spinCount: 1 },
       }),
     ]);
-
-    // Calculate remaining spins
-    const usedToday = dailySpin?.spinCount || 0;
-    const remaining = (updatedUser?.totalSpins || 0) - usedToday;
 
     return NextResponse.json({
       success: true,
@@ -117,11 +87,11 @@ export async function POST(req: NextRequest) {
         message: spinResult.message,
       },
       user: {
-        balance: updatedUser?.balance,
-        totalSpins: updatedUser?.totalSpins,
-        totalWins: updatedUser?.totalWins,
+        balance: user.balance,
+        totalSpins: user.totalSpins,
+        totalWins: user.totalWins,
       },
-      remainingSpins: Math.max(0, remaining),
+      remainingSpins: Math.max(0, (user.totalSpins || 0) - 1),
     });
   } catch (error) {
     console.error("Spin error:", error);
