@@ -174,7 +174,7 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
 
   useEffect(() => {
     if (isSpinning && !isAnimating) {
-      const duration = 2500;
+      const duration = 4000;
       const startTime = Date.now();
       const startRotation = currentRotationRef.current;
 
