@@ -325,35 +325,14 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
           ref={canvasRef}
           width={SIZE * 2}
           height={SIZE * 2}
+          onClick={onSpinTrigger}
+          className="cursor-pointer"
           style={{
             width: SIZE,
             height: SIZE,
             filter: "drop-shadow(0 12px 32px rgba(0,0,0,0.5))",
           }}
         />
-
-        <div
-          className="absolute rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition-transform duration-150"
-          style={{
-            width: 90,
-            height: 90,
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "linear-gradient(145deg, #fef3c7 0%, #fbbf24 30%, #f59e0b 70%, #d97706 100%)",
-            boxShadow: `
-              0 6px 0 #b45309,
-              0 8px 30px rgba(0,0,0,0.4),
-              inset 0 3px 6px rgba(255,255,255,0.5),
-              inset 0 -3px 6px rgba(0,0,0,0.15)
-            `,
-            border: "4px solid rgba(255,255,255,0.5)",
-            zIndex: 10,
-          }}
-          onClick={onSpinTrigger}
-        >
-          <span className="text-lg font-black text-amber-900 tracking-wider">SPIN</span>
-        </div>
       </div>
 
       <div
