@@ -24,9 +24,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ settings: updated });
     }
 
-    // Create if no id provided
+    // Create new if no id — try to find existing inactive one first
+    const existing = await prisma.campaignSetting.findFirst();
+    if (existing) {
+      const updated = await prisma.campaignSetting.update({
+        where: { id: existing.id },
+        data: { wheelLogoUrl, isActive: true, ...rest },
+      });
+      return NextResponse.json({ settings: updated });
+    }
+
     const created = await prisma.campaignSetting.create({
-      data: { wheelLogoUrl, ...rest },
+      data: { name: "default", isActive: true, wheelLogoUrl, ...rest },
     });
     return NextResponse.json({ settings: created });
   } catch (error) {
