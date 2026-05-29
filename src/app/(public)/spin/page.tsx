@@ -25,6 +25,7 @@ export default function SpinPage() {
   const [user, setUser] = useState<{ username?: string; firstName?: string } | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [wheelLogoUrl, setWheelLogoUrl] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{
     prize: Prize | null;
     isWin: boolean;
@@ -62,6 +63,12 @@ export default function SpinPage() {
       .catch(() => {
         setIsLoading(false);
       });
+
+    // Fetch campaign settings for wheel logo
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => setWheelLogoUrl(data.wheelLogoUrl || null))
+      .catch(() => {});
 
     // Fetch user data
     fetch("/api/auth/me")
@@ -228,6 +235,7 @@ export default function SpinPage() {
             onSpinTrigger={handleSpin}
             targetSegment={targetSegment}
             targetPrizeId={targetPrizeId}
+            wheelLogoUrl={wheelLogoUrl}
           />
         </div>
 

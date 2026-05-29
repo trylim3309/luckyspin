@@ -20,6 +20,7 @@ interface Wheel3DProps {
   onSpinTrigger?: () => void;
   targetSegment?: number;
   targetPrizeId?: string;
+  wheelLogoUrl?: string | null;
 }
 
 const PRIZE_ICONS: Record<string, string> = {
@@ -31,10 +32,11 @@ const PRIZE_ICONS: Record<string, string> = {
   NO_WIN: "😢",
 };
 
-export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, onSpinTrigger, targetSegment, targetPrizeId }: Wheel3DProps) {
+export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, onSpinTrigger, targetSegment, targetPrizeId, wheelLogoUrl }: Wheel3DProps) {
   const [rotation, setRotation] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [wheelSize, setWheelSize] = useState(480);
+  const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
   const currentRotationRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const targetSegmentRef = useRef<number | undefined>(targetSegment);
@@ -59,6 +61,19 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
     targetSegmentRef.current = targetSegment;
     targetPrizeIdRef.current = targetPrizeId;
   }, [targetSegment, targetPrizeId]);
+
+  // Load logo image when URL changes
+  useEffect(() => {
+    if (!wheelLogoUrl) {
+      setLogoImage(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => setLogoImage(img);
+    img.onerror = () => setLogoImage(null);
+    img.src = wheelLogoUrl;
+  }, [wheelLogoUrl]);
 
   const displayPrizes = prizes.slice(0, 8);
   const segmentAngle = displayPrizes.length > 0 ? 360 / displayPrizes.length : 45;
@@ -168,9 +183,27 @@ export function Wheel3D({ prizes, onSpinStart, onSpinEnd, isSpinning = false, on
       ctx.lineWidth = SIZE * 0.02;
       ctx.stroke();
 
+      // Draw logo in center if provided, otherwise leave blank/dark
+      const logoRadius = CENTER_RADIUS * 2 - 4;
+      if (logoImage && logoImage.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, logoRadius, 0, Math.PI * 2);
+        ctx.clip();
+        const scale = Math.min((logoRadius * 2) / logoImage.width, (logoRadius * 2) / logoImage.height);
+        ctx.drawImage(
+          logoImage,
+          -logoImage.width * scale / 2,
+          -logoImage.height * scale / 2,
+          logoImage.width * scale,
+          logoImage.height * scale
+        );
+        ctx.restore();
+      }
+
       ctx.restore();
     });
-  }, [rotation, displayPrizes, segmentAngle]);
+  }, [rotation, displayPrizes, segmentAngle, logoImage]);
 
   useEffect(() => {
     if (isSpinning && !isAnimating) {

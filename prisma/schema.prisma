@@ -108,14 +108,15 @@ model SpinResult {
 }
 
 model CampaignSetting {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  title      String   @default("Lucky Spin")
-  subtitle   String?
-  isActive   Boolean  @default(true)
-  themeColor String   @default("#FFD700")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique
+  title        String   @default("Lucky Spin")
+  subtitle     String?
+  isActive     Boolean  @default(true)
+  themeColor   String   @default("#FFD700")
+  wheelLogoUrl String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model DailySpinCount {
