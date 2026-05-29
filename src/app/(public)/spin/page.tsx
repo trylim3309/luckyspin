@@ -119,10 +119,6 @@ export default function SpinPage() {
         return;
       }
 
-      if (data.remainingSpins !== undefined) {
-        setRemainingSpins(data.remainingSpins);
-      }
-
       const result = {
         prize: data.result ? {
           id: data.result.prizeId,
@@ -149,17 +145,23 @@ export default function SpinPage() {
   }, [isSpinning, remainingSpins, prizes]);
 
   const handleSpinEnd = useCallback((prize: Prize, segmentIndex: number) => {
-    console.log("handleSpinEnd called", { segmentIndex, lastResult: lastResultRef.current });
     setIsSpinning(false);
-    // Use ref to get the latest result
     const result = lastResultRef.current;
     if (result) {
-      console.log("Showing result:", result);
       if (result.isWin) {
         setShowConfetti(true);
       }
       setShowPopup(true);
     }
+    // Refetch accurate remaining spins from database
+    fetch("/api/spin/remaining", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.remaining !== undefined) {
+          setRemainingSpins(data.remaining);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   if (isLoading) {
