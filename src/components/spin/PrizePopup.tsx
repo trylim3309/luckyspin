@@ -32,9 +32,16 @@ export function PrizePopup({ isOpen, onClose, prize, isWin }: PrizePopupProps) {
     return "Better luck next time!";
   };
 
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[90vw] max-w-md sm:max-w-md bg-gradient-to-br from-purple-900 to-indigo-900 border-yellow-500 p-4 sm:p-6">
+        <div className="absolute top-3 left-4 text-xs text-white/50">
+          {dateStr} · {timeStr}
+        </div>
         <DialogHeader className="text-center">
           {prize.imageUrl ? (
             <div className="mx-auto mb-3 sm:mb-4 w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-white/10">
