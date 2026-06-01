@@ -11,6 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/dashboard")
@@ -54,9 +55,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <AdminSidebar />
-      <AdminHeader user={currentUser} />
-      <main className="ml-64 pt-16 p-8">{children}</main>
+      <AdminSidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
+      <AdminHeader user={currentUser} sidebarCollapsed={sidebarCollapsed} />
+      <main className={`pt-16 p-8 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-64"}`}>
+        {children}
+      </main>
     </div>
   );
 }

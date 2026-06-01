@@ -9,7 +9,12 @@ interface AdminUser {
   role: string;
 }
 
-export function AdminHeader({ user }: { user: AdminUser | null }) {
+interface AdminHeaderProps {
+  user: AdminUser | null;
+  sidebarCollapsed: boolean;
+}
+
+export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleSignOut = async () => {
@@ -22,7 +27,7 @@ export function AdminHeader({ user }: { user: AdminUser | null }) {
   };
 
   return (
-    <header className="fixed top-0 right-0 left-64 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-30">
+    <header className={`fixed top-0 right-0 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-30 transition-all duration-300 ${sidebarCollapsed ? "left-16" : "left-64"}`}>
       <div className="flex items-center gap-4">
         <h2 className="text-lg font-semibold text-slate-700">Admin Panel</h2>
       </div>
