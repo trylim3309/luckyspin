@@ -50,8 +50,7 @@ export default function ResultControlPage() {
   });
 
   useEffect(() => {
-    fetchControls();
-    fetchPrizes();
+    Promise.all([fetchControls(), fetchPrizes()]);
   }, []);
 
   const fetchControls = async () => {
@@ -65,8 +64,6 @@ export default function ResultControlPage() {
       }
     } catch (error) {
       console.error("Failed to fetch controls:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -81,6 +78,8 @@ export default function ResultControlPage() {
       }
     } catch (error) {
       console.error("Failed to fetch prizes:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 

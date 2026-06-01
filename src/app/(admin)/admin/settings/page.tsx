@@ -94,13 +94,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-hidden">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Wheel Logo</h1>
         <p className="text-slate-500 mt-1">Upload a logo to display in the center of the wheel</p>
       </div>
 
-      <div className="bg-white rounded-lg border shadow-sm p-6 max-w-xl space-y-6">
+      <div className="bg-white rounded-lg border shadow-sm p-6 max-w-xl space-y-6 overflow-hidden">
         <div className="space-y-2">
           <Label>Upload Image</Label>
           <input
@@ -108,7 +108,7 @@ export default function SettingsPage() {
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+            className="block w-full max-w-md text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
           />
           <p className="text-sm text-slate-500">PNG, JPG, or WebP. Recommended 200x200px. Max 2MB.</p>
         </div>

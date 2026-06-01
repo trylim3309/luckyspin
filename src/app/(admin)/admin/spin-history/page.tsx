@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/admin/DataTable";
@@ -28,6 +28,14 @@ interface SpinHistoryItem {
 }
 
 export default function SpinHistoryPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-96"><div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" /></div>}>
+      <SpinHistoryContent />
+    </Suspense>
+  );
+}
+
+function SpinHistoryContent() {
   const searchParams = useSearchParams();
   const urlUsername = searchParams.get("search") || "";
 

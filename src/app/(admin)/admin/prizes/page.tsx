@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/admin/DataTable";
 import { Plus, Edit, ToggleLeft, ToggleRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import useSWR from "swr";
 
 interface Prize {
   id: string;
@@ -24,56 +25,18 @@ interface Prize {
   displayOrder: number;
 }
 
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+
 export default function PrizesPage() {
-  const [prizes, setPrizes] = useState<Prize[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading, mutate } = useSWR<{ prizes: Prize[] }>("/api/admin/prizes", fetcher);
+  const prizes = data?.prizes || [];
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPrize, setEditingPrize] = useState<Prize | null>(null);
-  const [formData, setFormData] = useState<{
-    name: string;
-    description: string;
-    imageUrl: string;
-    color: string;
-    value: number;
-    type: string;
-    stock: number;
-    unlimitedStock: boolean;
-    probability: number;
-    isActive: boolean;
-    displayOrder: number;
-  }>({
-    name: "",
-    description: "",
-    imageUrl: "",
-    color: "#ffffff",
-    value: 0,
-    type: "MONEY",
-    stock: 0,
-    unlimitedStock: false,
-    probability: 0,
-    isActive: true,
-    displayOrder: 0,
+  const [formData, setFormData] = useState({
+    name: "", description: "", imageUrl: "", color: "#ffffff", value: 0, type: "MONEY",
+    stock: 0, unlimitedStock: false, probability: 0, isActive: true, displayOrder: 0,
   });
-
-  useEffect(() => {
-    fetchPrizes();
-  }, []);
-
-  const fetchPrizes = async () => {
-    try {
-      const response = await fetch("/api/admin/prizes", {
-        credentials: "include",
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPrizes(data.prizes);
-      }
-    } catch (error) {
-      console.error("Failed to fetch prizes:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleOpenDialog = (prize?: Prize) => {
     if (prize) {
@@ -128,7 +91,7 @@ export default function PrizesPage() {
       });
 
       if (response.ok) {
-        fetchPrizes();
+        mutate();
         setIsDialogOpen(false);
       } else {
         const data = await response.json();
@@ -148,7 +111,7 @@ export default function PrizesPage() {
         body: JSON.stringify({ id: prize.id, isActive: !prize.isActive }),
         credentials: "include",
       });
-      fetchPrizes();
+      mutate();
     } catch (error) {
       console.error("Failed to toggle prize:", error);
     }
@@ -226,7 +189,7 @@ export default function PrizesPage() {
                   credentials: "include",
                 });
                 if (res.ok) {
-                  fetchPrizes();
+                  mutate();
                 } else {
                   const data = await res.json();
                   alert(data.error || "Failed to delete prize");

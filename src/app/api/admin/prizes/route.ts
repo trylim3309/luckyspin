@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { broadcast, REALTIME_EVENTS } from "@/lib/realtime";
 
 function getAdminFromSession(req: NextRequest) {
   const adminSession = req.cookies.get("admin_session");
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    broadcast(REALTIME_EVENTS.PRIZE_CREATED, prize);
     return NextResponse.json({ prize });
   } catch (error) {
     console.error("Prizes POST error:", error);
@@ -107,6 +109,8 @@ export async function PUT(req: NextRequest) {
       },
     });
 
+    broadcast(REALTIME_EVENTS.PRIZE_UPDATED, prize);
+
     return NextResponse.json({ prize });
   } catch (error) {
     console.error("Prizes PUT error:", error);
@@ -131,6 +135,8 @@ export async function DELETE(req: NextRequest) {
     await prisma.prize.delete({
       where: { id },
     });
+
+    broadcast(REALTIME_EVENTS.PRIZE_DELETED, { id });
 
     return NextResponse.json({ success: true });
   } catch (error) {

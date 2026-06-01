@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { broadcast, REALTIME_EVENTS } from "@/lib/realtime";
 
 export async function GET() {
   try {
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
     const condition = await prisma.spinCondition.create({
       data: {
         name: body.name,
+        spinType: body.spinType || "FIXED",
+        maxSpins: body.maxSpins ?? 0,
         maxSpinsPerDay: body.maxSpinsPerDay ?? 10,
         minBalanceRequired: body.minBalanceRequired ?? 0,
         zeroBalanceCanSpin: body.zeroBalanceCanSpin ?? false,
@@ -33,6 +36,8 @@ export async function POST(req: NextRequest) {
         isActive: body.isActive ?? true,
       },
     });
+
+    broadcast(REALTIME_EVENTS.CONDITION_UPDATED, condition);
 
     return NextResponse.json({ condition });
   } catch (error) {
@@ -53,7 +58,9 @@ export async function PUT(req: NextRequest) {
       where: { id: body.id },
       data: {
         name: body.name,
-        maxSpinsPerDay: body.maxSpinsPerDay,
+        spinType: body.spinType || "FIXED",
+        maxSpins: body.maxSpins ?? 0,
+        maxSpinsPerDay: body.maxSpinsPerDay ?? 10,
         minBalanceRequired: body.minBalanceRequired,
         zeroBalanceCanSpin: body.zeroBalanceCanSpin,
         freeSpinEnabled: body.freeSpinEnabled,
@@ -65,6 +72,8 @@ export async function PUT(req: NextRequest) {
         isActive: body.isActive,
       },
     });
+
+    broadcast(REALTIME_EVENTS.CONDITION_UPDATED, condition);
 
     return NextResponse.json({ condition });
   } catch (error) {

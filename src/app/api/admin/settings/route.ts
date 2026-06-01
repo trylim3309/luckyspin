@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { broadcast, REALTIME_EVENTS } from "@/lib/realtime";
 
 export async function GET() {
   try {
@@ -21,6 +22,7 @@ export async function PUT(req: NextRequest) {
         where: { id },
         data: { wheelLogoUrl, ...rest },
       });
+      broadcast(REALTIME_EVENTS.SETTINGS_UPDATED, updated);
       return NextResponse.json({ settings: updated });
     }
 
@@ -31,12 +33,14 @@ export async function PUT(req: NextRequest) {
         where: { id: existing.id },
         data: { wheelLogoUrl, isActive: true, ...rest },
       });
+      broadcast(REALTIME_EVENTS.SETTINGS_UPDATED, updated);
       return NextResponse.json({ settings: updated });
     }
 
     const created = await prisma.campaignSetting.create({
       data: { name: "default", isActive: true, wheelLogoUrl, ...rest },
     });
+    broadcast(REALTIME_EVENTS.SETTINGS_UPDATED, created);
     return NextResponse.json({ settings: created });
   } catch (error) {
     console.error("Failed to update settings:", error);

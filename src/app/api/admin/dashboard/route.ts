@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Single query for all stats + prizes in parallel
+    // Single parallel query structure
     const [totalUsers, totalSpins, todaySpins, totalWins, recentSpins, prizes] = await Promise.all([
       prisma.user.count(),
       prisma.spinResult.count(),

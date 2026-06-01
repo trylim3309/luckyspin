@@ -2,13 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { broadcast, REALTIME_EVENTS } from "@/lib/realtime";
 
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search") || "";
+    const id = searchParams.get("id");
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+    // If fetching single user by ID
+    if (id) {
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: { spinCondition: true },
+      });
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      const activeCondition = await prisma.spinCondition.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json({
+        user: {
+          ...user,
+          spinType: user.spinCondition?.spinType || activeCondition?.spinType || "FIXED",
+        }
+      });
+    }
 
     const where = search
       ? (Prisma.validator<Prisma.UserWhereInput>()({
@@ -20,37 +43,60 @@ export async function GET(req: NextRequest) {
         }))
       : {};
 
-    const [users, total] = await Promise.all([
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Fetch active condition, all daily spins, and all spin results in parallel
+    const [users, total, dailySpins, allSpinResults, activeCondition] = await Promise.all([
       prisma.user.findMany({
         where,
         orderBy: { createdAt: "desc" },
         take: limit,
         skip: offset,
+        include: { spinCondition: true },
       }),
       prisma.user.count({ where }),
+      prisma.dailySpinCount.findMany({
+        where: { date: today },
+      }),
+      prisma.spinResult.findMany({
+        select: { userId: true },
+      }),
+      prisma.spinCondition.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+      }),
     ]);
 
-    // Get today's date for daily spin count calculation
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Get daily spin counts for all users
-    const userIds = users.map(u => u.id);
-    const dailySpins = await prisma.dailySpinCount.findMany({
-      where: {
-        userId: { in: userIds },
-        date: today,
-      },
-    });
-
-    // Create a map of userId -> spinCount
     const dailySpinMap = new Map(dailySpins.map(ds => [ds.userId, ds.spinCount]));
 
-    // Add spinsLeft to each user
-    const usersWithSpinsLeft = users.map(user => ({
-      ...user,
-      spinsLeft: user.totalSpins - (dailySpinMap.get(user.id) || 0),
-    }));
+    // Count lifetime spins per user
+    const lifetimeSpinMap = new Map<string, number>();
+    for (const result of allSpinResults) {
+      lifetimeSpinMap.set(result.userId, (lifetimeSpinMap.get(result.userId) || 0) + 1);
+    }
+
+    const usersWithSpinsLeft = users.map(user => {
+      const dailyUsed = dailySpinMap.get(user.id) || 0;
+      const lifetimeUsed = lifetimeSpinMap.get(user.id) || 0;
+      let spinsLeft: number;
+
+      if (!activeCondition || activeCondition.spinType === "FIXED") {
+        // FIXED: spinsLeft = totalSpins (what admin deposited)
+        spinsLeft = user.totalSpins;
+      } else {
+        // DAILY: maxSpinsPerDay resets each day, doesn't use user.totalSpins
+        spinsLeft = Math.max(0, activeCondition.maxSpinsPerDay - dailyUsed);
+      }
+
+      return {
+        ...user,
+        spinsLeft,
+        spinType: user.spinCondition?.spinType || activeCondition?.spinType || "FIXED",
+        dailyUsed,
+        lifetimeUsed,
+      };
+    });
 
     return NextResponse.json({ users: usersWithSpinsLeft, total, limit, offset });
   } catch (error) {
@@ -96,7 +142,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(body.password, 12);
+    const passwordHash = await bcrypt.hash(body.password, 10);
 
     const user = await prisma.user.create({
       data: {
@@ -110,6 +156,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    broadcast(REALTIME_EVENTS.USER_CREATED, user);
     return NextResponse.json({
       user: {
         id: user.id,
@@ -151,16 +198,31 @@ export async function PUT(req: NextRequest) {
     if (typeof body.balance === "number") updateData.balance = body.balance;
     if (typeof body.isBlocked === "boolean") updateData.isBlocked = body.isBlocked;
     if (typeof body.totalSpins === "number") updateData.totalSpins = body.totalSpins;
+    if (body.spinConditionId !== undefined) updateData.spinConditionId = body.spinConditionId;
 
     // If password is being updated, hash it
     if (body.password) {
-      updateData.passwordHash = await bcrypt.hash(body.password, 12);
+      updateData.passwordHash = await bcrypt.hash(body.password, 10);
     }
 
     const user = await prisma.user.update({
       where: { id: body.id },
       data: updateData,
     });
+
+    // Record deposit/withdraw transaction
+    if (body.transactionType && body.transactionAmount) {
+      await prisma.spinTransaction.create({
+        data: {
+          userId: body.id,
+          type: body.transactionType,
+          amount: body.transactionAmount,
+          note: body.note || null,
+        },
+      });
+    }
+
+    broadcast(REALTIME_EVENTS.USER_UPDATED, user);
 
     return NextResponse.json({
       user: {

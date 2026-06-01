@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/admin/DataTable";
-import { Plus, Settings } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus } from "lucide-react";
+import useSWR from "swr";
 
 interface SpinCondition {
   id: string;
   name: string;
+  spinType: "FIXED" | "DAILY";
+  maxSpins: number;
   maxSpinsPerDay: number;
   minBalanceRequired: number;
   zeroBalanceCanSpin: boolean;
@@ -19,46 +23,26 @@ interface SpinCondition {
   isActive: boolean;
 }
 
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
+
 export default function ConditionsPage() {
-  const [conditions, setConditions] = useState<SpinCondition[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading, mutate } = useSWR<{ conditions: SpinCondition[] }>("/api/admin/conditions", fetcher);
+  const conditions = data?.conditions || [];
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCondition, setEditingCondition] = useState<SpinCondition | null>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    maxSpinsPerDay: 10,
-    minBalanceRequired: 0,
-    zeroBalanceCanSpin: false,
-    freeSpinEnabled: true,
-    winCooldownMinutes: 0,
-    isActive: true,
+    name: "", spinType: "FIXED" as "FIXED" | "DAILY", maxSpins: 10, maxSpinsPerDay: 10,
+    minBalanceRequired: 0, zeroBalanceCanSpin: false, freeSpinEnabled: true, winCooldownMinutes: 0, isActive: true,
   });
-
-  useEffect(() => {
-    fetchConditions();
-  }, []);
-
-  const fetchConditions = async () => {
-    try {
-      const response = await fetch("/api/admin/conditions", {
-        credentials: "include",
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setConditions(data.conditions);
-      }
-    } catch (error) {
-      console.error("Failed to fetch conditions:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleOpenDialog = (condition?: SpinCondition) => {
     if (condition) {
       setEditingCondition(condition);
       setFormData({
         name: condition.name,
+        spinType: (condition as any).spinType || "FIXED",
+        maxSpins: (condition as any).maxSpins || 0,
         maxSpinsPerDay: condition.maxSpinsPerDay,
         minBalanceRequired: condition.minBalanceRequired,
         zeroBalanceCanSpin: condition.zeroBalanceCanSpin,
@@ -70,6 +54,8 @@ export default function ConditionsPage() {
       setEditingCondition(null);
       setFormData({
         name: "",
+        spinType: "FIXED",
+        maxSpins: 10,
         maxSpinsPerDay: 10,
         minBalanceRequired: 0,
         zeroBalanceCanSpin: false,
@@ -94,7 +80,7 @@ export default function ConditionsPage() {
       });
 
       if (response.ok) {
-        fetchConditions();
+        mutate();
         setIsDialogOpen(false);
       }
     } catch (error) {
@@ -105,9 +91,14 @@ export default function ConditionsPage() {
   const columns = [
     { key: "name", label: "Name" },
     {
-      key: "maxSpinsPerDay",
-      label: "Max Spins/Day",
-      render: (c: SpinCondition) => c.maxSpinsPerDay || "Unlimited",
+      key: "spinType",
+      label: "Spin Type",
+      render: (c: SpinCondition) => c.spinType === "FIXED" ? "Fixed Spins" : "Daily Spins",
+    },
+    {
+      key: "maxSpins",
+      label: "Spins",
+      render: (c: SpinCondition) => c.spinType === "FIXED" ? (c.maxSpins || 0) : c.maxSpinsPerDay,
     },
     {
       key: "minBalanceRequired",
@@ -183,22 +174,48 @@ export default function ConditionsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Max Spins Per Day</label>
-                <Input
-                  type="number"
-                  value={formData.maxSpinsPerDay}
-                  onChange={(e) => setFormData({ ...formData, maxSpinsPerDay: parseInt(e.target.value) || 0 })}
-                />
+                <label className="text-sm font-medium">Spin Type</label>
+                <Select
+                  value={formData.spinType}
+                  onValueChange={(value) => setFormData({ ...formData, spinType: value as "FIXED" | "DAILY" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FIXED">Fixed Spins</SelectItem>
+                    <SelectItem value="DAILY">Daily Spins</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Min Balance Required ($)</label>
+                <label className="text-sm font-medium">
+                  {formData.spinType === "FIXED" ? "Total Spins" : "Spins Per Day"}
+                </label>
                 <Input
                   type="number"
-                  step="0.01"
-                  value={formData.minBalanceRequired}
-                  onChange={(e) => setFormData({ ...formData, minBalanceRequired: parseFloat(e.target.value) || 0 })}
+                  value={formData.spinType === "FIXED" ? formData.maxSpins : formData.maxSpinsPerDay}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (formData.spinType === "FIXED") {
+                      setFormData({ ...formData, maxSpins: val });
+                    } else {
+                      setFormData({ ...formData, maxSpinsPerDay: val });
+                    }
+                  }}
+                  min={0}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Min Balance Required ($)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.minBalanceRequired}
+                onChange={(e) => setFormData({ ...formData, minBalanceRequired: parseFloat(e.target.value) || 0 })}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

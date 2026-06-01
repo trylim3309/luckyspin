@@ -20,6 +20,7 @@ export default function SpinPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSpinning, setIsSpinning] = useState(false);
   const [remainingSpins, setRemainingSpins] = useState<number | null>(null);
+  const [spinType, setSpinType] = useState<string>("FIXED");
   const [targetSegment, setTargetSegment] = useState<number | undefined>(undefined);
   const [targetPrizeId, setTargetPrizeId] = useState<string | undefined>(undefined);
   const [user, setUser] = useState<{ username?: string; firstName?: string } | null>(null);
@@ -31,6 +32,7 @@ export default function SpinPage() {
     isWin: boolean;
     message: string;
   } | null>(null);
+  const [lastResultDate, setLastResultDate] = useState<string | null>(null);
   const lastResultRef = useRef(lastResult);
 
   // Keep ref in sync with state
@@ -82,6 +84,7 @@ export default function SpinPage() {
             .then((spinData) => {
               if (spinData.remaining !== undefined) {
                 setRemainingSpins(spinData.remaining);
+                setSpinType(spinData.spinType || "FIXED");
               } else {
                 setRemainingSpins(0);
               }
@@ -131,6 +134,9 @@ export default function SpinPage() {
         isWin: data.result?.isWin || false,
         message: data.result?.message || "",
       };
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      setLastResultDate(dateStr);
       setLastResult(result);
       lastResultRef.current = result;
 
@@ -198,12 +204,16 @@ export default function SpinPage() {
                     </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] sm:text-xs text-yellow-400 font-medium">Welcome back</span>
+                    <span className="text-[10px] sm:text-xs text-yellow-400 font-medium">
+                      {lastResultDate || "Welcome back"}
+                    </span>
                     <span className="text-sm sm:text-base font-bold text-white">{user.username || user.firstName}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full bg-black/20">
-                  <span className="text-[10px] sm:text-xs text-white/60">ការបង្វិលនៅសល់</span>
+                  <span className="text-[10px] sm:text-xs text-white/60">
+                    {spinType === "DAILY" ? "នេះថ្ងៃ" : "នៅសល់"}
+                  </span>
                   <span className="text-base sm:text-lg font-bold text-yellow-400">{remainingSpins === null ? "..." : remainingSpins}</span>
                 </div>
               </div>
@@ -216,7 +226,9 @@ export default function SpinPage() {
                   </h1>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full bg-black/20">
-                  <span className="text-[10px] sm:text-xs text-white/60">ការបង្វិលនៅសល់</span>
+                  <span className="text-[10px] sm:text-xs text-white/60">
+                    {spinType === "DAILY" ? "នេះថ្ងៃ" : "នៅសល់"}
+                  </span>
                   <span className="text-base sm:text-lg font-bold text-yellow-400">{remainingSpins === null ? "..." : remainingSpins}</span>
                 </div>
               </div>

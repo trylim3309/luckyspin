@@ -5,6 +5,7 @@ export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search") || "";
+    const userId = searchParams.get("userId");
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const isWin = searchParams.get("isWin");
@@ -19,6 +20,10 @@ export async function GET(req: NextRequest) {
           { firstName: { contains: search, mode: "insensitive" } },
         ],
       };
+    }
+
+    if (userId) {
+      where.userId = userId;
     }
 
     if (isWin !== null && isWin !== undefined) {

@@ -35,6 +35,9 @@ model User {
   phone        String?          @unique
   dailySpins   DailySpinCount[]
   spinResults  SpinResult[]
+  transactions SpinTransaction[]
+  spinConditionId String?
+  spinCondition   SpinCondition? @relation(fields: [spinConditionId], references: [id])
 }
 
 model Prize {
@@ -64,18 +67,26 @@ model Prize {
 model SpinCondition {
   id                 String    @id @default(cuid())
   name               String
-  maxSpinsPerDay     Int       @default(10)
+  spinType           SpinType  @default(FIXED)
+  maxSpins           Int       @default(0) // Total spins for FIXED type
+  maxSpinsPerDay     Int       @default(10) // Spins per day for DAILY type
   minBalanceRequired Float     @default(0)
   zeroBalanceCanSpin Boolean   @default(false)
   freeSpinEnabled    Boolean   @default(true)
   ipLimitEnabled     Boolean   @default(false)
   deviceLimitEnabled Boolean   @default(false)
   winCooldownMinutes Int       @default(0)
-  startDate          DateTime?
-  endDate            DateTime?
-  isActive           Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  startDate         DateTime?
+  endDate           DateTime?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  users             User[]
+}
+
+enum SpinType {
+  FIXED
+  DAILY
 }
 
 model ResultControl {
@@ -127,6 +138,21 @@ model DailySpinCount {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, date])
+}
+
+model SpinTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  type      TransactionType
+  amount    Int
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAW
 }
 
 enum Role {
