@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         totalSpins: true,
         totalWins: true,
         isBlocked: true,
+        isOnline: true,
       },
     });
 

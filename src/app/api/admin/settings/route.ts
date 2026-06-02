@@ -15,12 +15,12 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, wheelLogoUrl, ...rest } = body;
+    const { id, wheelLogoUrl, adminLogoUrl, ...rest } = body;
 
     if (id) {
       const updated = await prisma.campaignSetting.update({
         where: { id },
-        data: { wheelLogoUrl, ...rest },
+        data: { wheelLogoUrl, adminLogoUrl, ...rest },
       });
       broadcast(REALTIME_EVENTS.SETTINGS_UPDATED, updated);
       return NextResponse.json({ settings: updated });
@@ -31,14 +31,14 @@ export async function PUT(req: NextRequest) {
     if (existing) {
       const updated = await prisma.campaignSetting.update({
         where: { id: existing.id },
-        data: { wheelLogoUrl, isActive: true, ...rest },
+        data: { wheelLogoUrl, adminLogoUrl, isActive: true, ...rest },
       });
       broadcast(REALTIME_EVENTS.SETTINGS_UPDATED, updated);
       return NextResponse.json({ settings: updated });
     }
 
     const created = await prisma.campaignSetting.create({
-      data: { name: "default", isActive: true, wheelLogoUrl, ...rest },
+      data: { name: "default", isActive: true, wheelLogoUrl, adminLogoUrl, ...rest },
     });
     broadcast(REALTIME_EVENTS.SETTINGS_UPDATED, created);
     return NextResponse.json({ settings: created });

@@ -1,54 +1,23 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, RefreshCw, Trophy, Gift, Clock } from "lucide-react";
+import { StatCard } from "@/components/admin/StatCard";
+import { Users, RefreshCw, Trophy, Gift, Clock, TrendingUp, Eye, Award } from "lucide-react";
 import { useAdminData } from "@/hooks/useAdminData";
 
-interface DashboardData {
-  stats: {
-    totalUsers: number;
-    totalSpins: number;
-    todaySpins: number;
-    totalWinners: number;
-    totalPrizesClaimed: number;
-    totalRemainingStock: number;
-  };
-  recentSpins: Array<{
-    id: string;
-    isWin: boolean;
-    createdAt: string;
-    user: { firstName: string; username: string | null; telegramId: string };
-    prize: { name: string; type: string } | null;
-  }>;
-  topPrizes: Array<{ name: string; wins: number }>;
-}
-
-function StatCard({ title, value, icon: Icon, description }: { title: string; value: number; icon: any; description: string }) {
-  return (
-    <Card className="bg-white">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{value.toLocaleString()}</p>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-            <Icon className="w-6 h-6 text-yellow-600" />
-          </div>
-        </div>
-        <p className="text-sm text-slate-400 mt-2">{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function DashboardPage() {
-  const { data, isLoading } = useAdminData<{ stats: any; recentSpins: any[]; topPrizes: any[] }>("/api/admin/dashboard");
+  const { data, isLoading } = useAdminData<{
+    stats: any;
+    recentSpins: any[];
+    topPrizes: any[];
+  }>("/api/admin/dashboard");
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" />
+      <div className="flex items-center justify-center h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-[#6D41D7] border-t-transparent" />
+          <p className="text-[14px] text-[#6B7280]">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -63,72 +32,170 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Welcome back! Here's an overview of Lucky Spin.</p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[22px] font-bold text-[#212529]">Dashboard</h1>
+          <p className="text-[14px] text-[#6B7280] mt-1">Welcome back! Here&apos;s what&apos;s happening with Lucky Spin.</p>
+        </div>
+        <div className="hidden md:flex items-center gap-2 text-[12px] text-[#6B7280] bg-white px-3 py-2 rounded-lg border border-[#E2E8F0]">
+          <Eye className="w-4 h-4" />
+          <span>Last updated: Just now</span>
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="Total Accounts" value={stats.totalUsers} icon={Users} description="All registered accounts" />
-        <StatCard title="Total Spins" value={stats.totalSpins} icon={RefreshCw} description="All time spins" />
-        <StatCard title="Today's Spins" value={stats.todaySpins} icon={Clock} description="Spins in the last 24 hours" />
-        <StatCard title="Total Winners" value={stats.totalWinners} icon={Trophy} description="Users who won" />
-        <StatCard title="Prizes Claimed" value={stats.totalPrizesClaimed} icon={Gift} description="Total prizes won" />
-        <StatCard title="Remaining Stock" value={stats.totalRemainingStock} icon={Gift} description="Available prizes" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+        <StatCard
+          title="Total Accounts"
+          value={stats.totalUsers.toLocaleString()}
+          icon={Users}
+          description="All registered accounts"
+        />
+        <StatCard
+          title="Total Spins"
+          value={stats.totalSpins.toLocaleString()}
+          icon={RefreshCw}
+          description="All time spins"
+        />
+        <StatCard
+          title="Today's Spins"
+          value={stats.todaySpins.toLocaleString()}
+          icon={Clock}
+          description="Spins in last 24 hours"
+        />
+        <StatCard
+          title="Total Winners"
+          value={stats.totalWinners.toLocaleString()}
+          icon={Trophy}
+          description="Users who won"
+        />
+        <StatCard
+          title="Prizes Claimed"
+          value={stats.totalPrizesClaimed.toLocaleString()}
+          icon={Gift}
+          description="Total prizes won"
+        />
+        <StatCard
+          title="Remaining Stock"
+          value={stats.totalRemainingStock.toLocaleString()}
+          icon={Award}
+          description="Available prizes"
+        />
       </div>
 
-      {/* Recent Spins */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Spins</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data?.recentSpins && data.recentSpins.length > 0 ? (
-            <div className="space-y-4">
-              {data.recentSpins.map((spin) => (
-                <div key={spin.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${spin.isWin ? "bg-green-100 text-green-600" : "bg-slate-200 text-slate-600"}`}>
-                      {spin.isWin ? "🎉" : "😅"}
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Recent Spins */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+            <h2 className="text-[14px] font-semibold text-[#495057]">Recent Spins</h2>
+            <span className="text-[11px] text-[#6B7280] bg-[#F4F5F7] px-2 py-1 rounded-full">
+              Latest 5
+            </span>
+          </div>
+          <div className="p-5">
+            {data?.recentSpins && data.recentSpins.length > 0 ? (
+              <div className="space-y-3">
+                {data.recentSpins.map((spin: any) => (
+                  <div
+                    key={spin.id}
+                    className="flex items-center justify-between p-4 rounded-xl bg-[#F8F9FA] hover:bg-[#F4F5F7] transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shadow-sm ${
+                          spin.isWin
+                            ? "bg-gradient-to-br from-[#4CAF50] to-[#66BB6A] text-white"
+                            : "bg-gradient-to-br from-[#9E9E9E] to-[#BDBDBD] text-white"
+                        }`}
+                      >
+                        {spin.isWin ? "🎁" : "😢"}
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-semibold text-[#495057]">{spin.user.firstName}</p>
+                        <p className="text-[12px] text-[#6B7280]">
+                          {spin.prize?.name || "No prize"} • {spin.prize?.type || "N/A"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{spin.user.firstName}</p>
-                      <p className="text-sm text-slate-500">{spin.prize?.name || "No prize"} ({spin.prize?.type || "N/A"})</p>
+                    <div className="text-right">
+                      <span className={`text-[12px] font-medium ${spin.isWin ? "text-[#4CAF50]" : "text-[#6B7280]"}`}>
+                        {spin.isWin ? "WIN" : "LOSE"}
+                      </span>
+                      <p className="text-[11px] text-[#A0A0B2] mt-1">
+                        {new Date(spin.createdAt).toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-sm text-slate-400">{new Date(spin.createdAt).toLocaleString()}</span>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-[#F4F5F7] flex items-center justify-center mb-4">
+                  <RefreshCw className="w-8 h-8 text-[#E2E8F0]" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-slate-500 text-center py-8">No spins yet</p>
-          )}
-        </CardContent>
-      </Card>
+                <p className="text-[14px] text-[#6B7280]">No spins recorded yet</p>
+                <p className="text-[12px] text-[#A0A0B2] mt-1">Spins will appear here once users start playing</p>
+              </div>
+            )}
+          </div>
+        </div>
 
-      {/* Top Prizes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Winning Prizes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data?.topPrizes && data.topPrizes.length > 0 ? (
-            <div className="space-y-3">
-              {data.topPrizes.map((prize, index) => (
-                <div key={prize.name} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 font-bold">{index + 1}</div>
-                  <div className="flex-1"><p className="font-medium">{prize.name}</p></div>
-                  <span className="font-bold text-yellow-600">{prize.wins} wins</span>
+        {/* Top Prizes */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+            <h2 className="text-[14px] font-semibold text-[#495057]">Top Winning Prizes</h2>
+            <span className="text-[11px] text-[#6B7280] bg-[#F4F5F7] px-2 py-1 rounded-full">
+              By frequency
+            </span>
+          </div>
+          <div className="p-5">
+            {data?.topPrizes && data.topPrizes.length > 0 ? (
+              <div className="space-y-3">
+                {data.topPrizes.map((prize: any, index: number) => (
+                  <div
+                    key={prize.name}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-[#F8F9FA] hover:bg-[#F4F5F7] transition-all cursor-pointer group"
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-[14px] font-bold text-white shadow-md"
+                      style={{
+                        background: index === 0
+                          ? "linear-gradient(135deg, #FFB90F 0%, #FFD54F 100%)"
+                          : index === 1
+                          ? "linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%)"
+                          : index === 2
+                          ? "linear-gradient(135deg, #CD7F32 0%, #DDA15E 100%)"
+                          : "linear-gradient(135deg, #6D41D7 0%, #9B7CF4 100%)"
+                      }}
+                    >
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[14px] font-semibold text-[#495057]">{prize.name}</p>
+                      <p className="text-[12px] text-[#6B7280]">Most won prize</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[16px] font-bold text-[#6D41D7]">{prize.wins}</span>
+                      <p className="text-[11px] text-[#A0A0B2]">wins</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-[#F4F5F7] flex items-center justify-center mb-4">
+                  <Award className="w-8 h-8 text-[#E2E8F0]" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-slate-500 text-center py-8">No prize data yet</p>
-          )}
-        </CardContent>
-      </Card>
+                <p className="text-[14px] text-[#6B7280]">No prize data yet</p>
+                <p className="text-[12px] text-[#A0A0B2] mt-1">Top prizes will appear here</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

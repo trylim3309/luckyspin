@@ -1,21 +1,12 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { Search } from "lucide-react";
 
 interface Column<T> {
   key: string;
   label: string;
-  render?: (item: T) => React.ReactNode;
+  render?: (item: T, index: number) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -47,74 +38,132 @@ export function DataTable<T extends { id: string }>({
   };
 
   return (
-    <div className="space-y-4">
+    <div
+      style={{
+        background: "#FFFFFF",
+        borderRadius: "8px",
+        border: "1px solid #E2E8F0",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
       {searchable && (
-        <div className="flex items-center gap-4">
-          <Input
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="max-w-xs"
-          />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px",
+            borderBottom: "1px solid #E2E8F0",
+          }}
+        >
+          <div style={{ position: "relative", width: "280px" }}>
+            <Search
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "16px",
+                height: "16px",
+                color: "#A0A0B2",
+              }}
+            />
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              style={{
+                width: "100%",
+                height: "36px",
+                paddingLeft: "36px",
+                paddingRight: "12px",
+                borderRadius: "6px",
+                border: "1px solid #E2E8F0",
+                fontSize: "14px",
+                outline: "none",
+                transition: "border-color 0.2s",
+              }}
+              onFocus={(e) => e.target.style.borderColor = "#6D41D7"}
+              onBlur={(e) => e.target.style.borderColor = "#E2E8F0"}
+            />
+          </div>
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
+      {/* Table Container - Scrollable */}
+      <div style={{ maxHeight: "500px", overflowY: "auto" }}>
+        <table style={{ width: "100%", tableLayout: "auto", borderCollapse: "collapse", margin: 0 }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#F8F9FA" }}>
+            <tr>
               {columns.map((col) => (
-                <TableHead key={col.key}>{col.label}</TableHead>
+                <th
+                  key={col.key}
+                  style={{
+                    padding: "12px 16px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "#6B7280",
+                    textTransform: "uppercase",
+                    borderBottom: "2px solid #E2E8F0",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {col.label}
+                </th>
               ))}
-              {(onEdit || onDelete) && (
-                <TableHead className="text-right">Actions</TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            </tr>
+          </thead>
+          <tbody>
             {data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="text-center h-24 text-muted-foreground">
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  style={{
+                    textAlign: "center",
+                    padding: "48px 16px",
+                    color: "#A0A0B2",
+                    fontSize: "14px",
+                  }}
+                >
                   {emptyMessage}
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : (
-              data.map((item) => (
-                <TableRow key={item.id}>
+              data.map((item, index) => (
+                <tr
+                  key={item.id}
+                  style={{
+                    borderBottom: "1px solid #F0F0F0",
+                    transition: "background 0.2s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#FAFAFA"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
                   {columns.map((col) => (
-                    <TableCell key={col.key}>
-                      {col.render ? col.render(item) : (item as Record<string, unknown>)[col.key] as React.ReactNode}
-                    </TableCell>
+                    <td
+                      key={col.key}
+                      style={{
+                        padding: "12px 16px",
+                        fontSize: "14px",
+                        color: "#495057",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {col.render
+                        ? col.render(item, index)
+                        : (item as Record<string, unknown>)[col.key] as React.ReactNode}
+                    </td>
                   ))}
-                  {(onEdit || onDelete) && (
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {onEdit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(item)}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                        {onDelete && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => onDelete(item)}
-                          >
-                            Delete
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
+                </tr>
               ))
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );

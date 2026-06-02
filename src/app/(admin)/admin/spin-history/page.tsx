@@ -29,7 +29,7 @@ interface SpinHistoryItem {
 
 export default function SpinHistoryPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-96"><div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-96"><div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6D41D7] border-t-transparent" /></div>}>
       <SpinHistoryContent />
     </Suspense>
   );
@@ -129,12 +129,12 @@ function SpinHistoryContent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/admin/users" className="text-slate-500 hover:text-slate-700">
+          <Link href="/admin/users" className="text-[#868D9E] hover:text-[#233446]">
             ← Back to Users
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Spin History</h1>
-            <p className="text-slate-500 mt-1">
+            <h1 className="text-2xl font-bold text-[#233446]">Spin History</h1>
+            <p className="text-[#868D9E] mt-1">
               {urlUsername ? `Results for @${urlUsername}` : "View all spin results and outcomes"}
             </p>
           </div>
@@ -143,12 +143,17 @@ function SpinHistoryContent() {
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
-        <Input
-          placeholder="Search by user..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
-        />
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#868D9E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <Input
+            placeholder="Search by user..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 w-[200px] h-10 rounded-lg border-[#E2E8F0] focus:border-[#6D41D7] focus:ring-1 focus:ring-[#6D41D7]"
+          />
+        </div>
 
         <Select value={isWinFilter} onValueChange={(val) => setIsWinFilter(val || "all")}>
           <SelectTrigger className="w-32">
@@ -178,7 +183,7 @@ function SpinHistoryContent() {
 
       {isLoading ? (
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" />
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6D41D7] border-t-transparent" />
         </div>
       ) : (
         <>
@@ -187,7 +192,7 @@ function SpinHistoryContent() {
             columns={columns}
             emptyMessage="No spin history found"
           />
-          <p className="text-sm text-slate-500">Total: {total} records</p>
+          <p className="text-sm text-[#868D9E]">Total: {total} records</p>
         </>
       )}
     </div>

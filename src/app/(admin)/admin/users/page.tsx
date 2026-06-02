@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/admin/DataTable";
-import { Ban, Trash2, Plus, Edit } from "lucide-react";
+import { Ban, Trash2, Plus, Edit, LogOut } from "lucide-react";
 import Link from "next/link";
 import useSWR from "swr";
 
@@ -26,6 +26,7 @@ interface User {
   dailyUsed?: number;
   lifetimeUsed?: number;
   createdAt: string;
+  isOnline?: boolean;
 }
 
 interface SpinCondition {
@@ -41,6 +42,7 @@ const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((re
 
 export default function UsersPage() {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
@@ -49,6 +51,8 @@ export default function UsersPage() {
   const [adjustingUser, setAdjustingUser] = useState<User | null>(null);
   const [adjustAmount, setAdjustAmount] = useState(0);
   const [adjustType, setAdjustType] = useState<"add" | "remove">("add");
+
+  const limit = 20;
 
   const [formData, setFormData] = useState({
     username: "", password: "", firstName: "", lastName: "", phone: "", email: "", balance: 0,
@@ -61,7 +65,7 @@ export default function UsersPage() {
   const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
   const [withdrawSpins, setWithdrawSpins] = useState(0);
 
-  const { data: usersData, isLoading, mutate } = useSWR(`/api/admin/users?search=${encodeURIComponent(search)}`, fetcher);
+  const { data: usersData, isLoading, mutate } = useSWR(`/api/admin/users?search=${encodeURIComponent(search)}&page=${page}&limit=${limit}`, fetcher);
   const users = usersData?.users || [];
   const total = usersData?.total || 0;
 
@@ -112,6 +116,29 @@ export default function UsersPage() {
   const handleBlockToggle = async (user: User) => {
     await fetch("/api/admin/users", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: user.id, isBlocked: !user.isBlocked }), credentials: "include" });
     fetchUsers();
+  };
+
+  const handleLogout = async (user: User) => {
+    const confirmed = window.confirm(`Are you sure you want to logout ${user.firstName}?`);
+    if (!confirmed) return;
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (response.ok) {
+        window.alert(`${user.firstName} has been logged out successfully.`);
+        fetchUsers();
+      } else {
+        window.alert(data.error || "Failed to logout user");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.alert("Failed to logout user");
+    }
   };
 
   const handleAddSpins = (user: User) => {
@@ -172,7 +199,10 @@ export default function UsersPage() {
   };
 
   const columns = [
-    { key: "account", label: "Account", render: (user: User) => <Link href={`/admin/users/${user.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">@{user.username}</Link> },
+    { key: "no", label: "#", render: (_: User, index: number) => (
+      <span className="font-bold text-black">{(page - 1) * limit + index + 1}</span>
+    )},
+    { key: "account", label: "Account", render: (user: User) => <Link href={`/admin/users/${user.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">{user.username}</Link> },
     { key: "name", label: "Name", render: (user: User) => <span>{user.firstName} {user.lastName || ""}</span> },
     { key: "phone", label: "Phone", render: (user: User) => <span className="text-slate-600">{user.phone || "-"}</span> },
     { key: "spinType", label: "Type", render: (user: User) => (
@@ -192,12 +222,21 @@ export default function UsersPage() {
         <button onClick={() => handleRemoveSpins(user)} className="px-3 py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium transition-colors">Withdraw</button>
       </div>
     )},
-    { key: "status", label: "Status", render: (user: User) => <Badge variant={user.isBlocked ? "destructive" : "default"}>{user.isBlocked ? "Blocked" : "Active"}</Badge> },
+    { key: "status", label: "Status", render: (user: User) => (
+      <div className="flex items-center gap-2">
+        <span
+          className={`w-2 h-2 rounded-full ${user.isOnline ? "bg-green-500" : "bg-gray-400"}`}
+          title={user.isOnline ? "Online (logged in)" : "Offline (logged out)"}
+        />
+        <Badge variant={user.isBlocked ? "destructive" : "default"}>{user.isBlocked ? "Blocked" : "Active"}</Badge>
+      </div>
+    ) },
     { key: "actions", label: "Actions", render: (user: User) => (
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => handleOpenEdit(user)}><Edit className="w-4 h-4" /></Button>
         <Button variant={user.isBlocked ? "default" : "destructive"} size="sm" onClick={() => handleBlockToggle(user)}><Ban className="w-4 h-4" /></Button>
         <Button variant="destructive" size="sm" onClick={() => { setDeletingUser(user); setIsDeleteDialogOpen(true); }}><Trash2 className="w-4 h-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => handleLogout(user)} title="Logout User"><LogOut className="w-4 h-4 text-orange-600" /></Button>
       </div>
     )},
   ];
@@ -205,18 +244,69 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-bold text-slate-900">User Management</h1><p className="text-slate-500 mt-1">Manage spin game accounts</p></div>
-        <Button onClick={handleOpenCreate} className="bg-yellow-500 hover:bg-yellow-600"><Plus className="w-4 h-4 mr-2" />Add User</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-[#233446]">User Management</h1>
+          <p className="text-[#868D9E] mt-1">Manage spin game accounts</p>
+        </div>
+        <Button
+          onClick={handleOpenCreate}
+          className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add User
+        </Button>
       </div>
 
       <div className="flex items-center gap-4">
-        <Input placeholder="Search by name, username, or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-md" />
+        <div className="relative flex-1 max-w-md">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#868D9E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <Input
+            placeholder="Search by name, username, or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-10 rounded-lg border-[#E2E8F0] focus:border-[#6D41D7] focus:ring-1 focus:ring-[#6D41D7]"
+          />
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-96"><div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" /></div>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6D41D7] border-t-transparent" />
+        </div>
       ) : (
-        <><DataTable data={users} columns={columns} searchable={false} /><p className="text-sm text-slate-500">Total: {total} users</p></>
+        <>
+          <DataTable data={users} columns={columns} searchable={false} />
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-[#868D9E]">Total: {total} users</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="h-8 rounded-md px-3"
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-gray-600">
+                Page {page} of {Math.ceil(total / limit) || 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= Math.ceil(total / limit)}
+                className="h-8 rounded-md px-3"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Create/Edit Dialog */}
@@ -235,8 +325,20 @@ export default function UsersPage() {
             <div className="space-y-2"><label className="text-sm font-medium">Balance ($)</label><Input type="number" step="0.01" value={formData.balance} onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })} /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600">{editingUser ? "Update" : "Create"}</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="h-10 rounded-lg border-[#E2E8F0]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
+            >
+              {editingUser ? "Update" : "Create"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

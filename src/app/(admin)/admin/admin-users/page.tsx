@@ -163,32 +163,41 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Admin Users</h1>
-          <p className="text-slate-500 mt-1">Manage admin accounts</p>
+          <h1 className="text-2xl font-bold text-[#233446]">Admin Users</h1>
+          <p className="text-[#868D9E] mt-1">Manage admin accounts</p>
         </div>
-        <Button onClick={handleOpenCreate} className="bg-yellow-500 hover:bg-yellow-600">
+        <Button
+          onClick={handleOpenCreate}
+          className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Admin User
         </Button>
       </div>
 
       <div className="flex items-center gap-4">
-        <Input
-          placeholder="Search by name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-md"
-        />
+        <div className="relative flex-1 max-w-md">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#868D9E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <Input
+            placeholder="Search by name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-10 rounded-lg border-[#E2E8F0] focus:border-[#6D41D7] focus:ring-1 focus:ring-[#6D41D7]"
+          />
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" />
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6D41D7] border-t-transparent" />
         </div>
       ) : (
         <>
           <DataTable data={users} columns={columns} searchPlaceholder="Search users..." />
-          <p className="text-sm text-slate-500">Total: {total} users</p>
+          <p className="text-sm text-[#868D9E]">Total: {total} users</p>
         </>
       )}
 
@@ -228,8 +237,20 @@ export default function AdminUsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600">{editingUser ? "Update" : "Create"}</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="h-10 rounded-lg border-[#E2E8F0]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
+            >
+              {editingUser ? "Update" : "Create"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -241,8 +262,20 @@ export default function AdminUsersPage() {
             <p className="text-slate-600">Are you sure you want to delete <span className="font-medium">{deletingUser.name}</span>? This action cannot be undone.</p>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="h-10 rounded-lg border-[#E2E8F0]"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              className="h-10 rounded-lg bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

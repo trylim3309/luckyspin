@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const id = searchParams.get("id");
     const limit = parseInt(searchParams.get("limit") || "20", 10);
-    const offset = parseInt(searchParams.get("offset") || "0", 10);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const offset = (page - 1) * limit;
 
     // If fetching single user by ID
     if (id) {
@@ -253,6 +254,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
     }
 
+    // Delete related records first
+    await prisma.spinTransaction.deleteMany({ where: { userId: id } });
+    await prisma.dailySpinCount.deleteMany({ where: { userId: id } });
+    await prisma.spinResult.deleteMany({ where: { userId: id } });
+
+    // Delete the user
     await prisma.user.delete({
       where: { id },
     });

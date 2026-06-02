@@ -26,6 +26,7 @@ model User {
   photoUrl     String?
   balance      Float            @default(0)
   isBlocked    Boolean          @default(false)
+  isOnline     Boolean          @default(false)
   totalSpins   Int              @default(0)
   totalWins    Int              @default(0)
   createdAt    DateTime         @default(now())
@@ -125,9 +126,10 @@ model CampaignSetting {
   subtitle     String?
   isActive     Boolean  @default(true)
   themeColor   String   @default("#FFD700")
-  wheelLogoUrl String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  wheelLogoUrl String?
+  adminLogoUrl String?
 }
 
 model DailySpinCount {

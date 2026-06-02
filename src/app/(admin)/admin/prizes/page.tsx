@@ -163,10 +163,14 @@ export default function PrizesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Prize Management</h1>
-          <p className="text-slate-500 mt-1">Manage your spin wheel prizes</p>
+          <h1 className="text-2xl font-bold text-[#233446]">Prize Management</h1>
+          <p className="text-[#868D9E] mt-1">Manage your spin wheel prizes</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-yellow-500 hover:bg-yellow-600">
+        <Button
+          onClick={() => handleOpenDialog()}
+          className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Prize
         </Button>
@@ -174,7 +178,7 @@ export default function PrizesPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" />
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6D41D7] border-t-transparent" />
         </div>
       ) : (
         <DataTable
@@ -371,10 +375,18 @@ export default function PrizesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="h-10 rounded-lg border-[#E2E8F0]"
+            >
               Cancel
             </Button>
-            <Button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600">
+            <Button
+              onClick={handleSave}
+              className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
+            >
               {editingPrize ? "Update" : "Create"}
             </Button>
           </DialogFooter>
