@@ -52,7 +52,7 @@ export default function UsersPage() {
   const [adjustAmount, setAdjustAmount] = useState(0);
   const [adjustType, setAdjustType] = useState<"add" | "remove">("add");
 
-  const limit = 20;
+  const limit = 50;
 
   const [formData, setFormData] = useState({
     username: "", password: "", firstName: "", lastName: "", phone: "", email: "", balance: 0,
