@@ -132,7 +132,7 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
                 fontWeight: 500,
               }}
             >
-              <item.icon style={{ width: "20px", height: "20px", flexShrink: 0 }} />
+              <item.icon style={{ width: "20px", height: "20px", flexShrink: 0, pointerEvents: "none" }} />
               {!collapsed && <span>{item.label}</span>}
             </a>
           );
