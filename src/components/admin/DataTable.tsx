@@ -40,13 +40,15 @@ export function DataTable<T extends { id: string }>({
   return (
     <div
       style={{
+        display: "flex",
+        flexDirection: "column",
         background: "#FFFFFF",
         borderRadius: "8px",
         border: "1px solid #E2E8F0",
         overflow: "hidden",
+        height: "100%",
       }}
     >
-      {/* Header */}
       {searchable && (
         <div
           style={{
@@ -92,8 +94,7 @@ export function DataTable<T extends { id: string }>({
         </div>
       )}
 
-      {/* Table Container - Scrollable */}
-      <div style={{ maxHeight: "500px", overflowY: "auto" }}>
+      <div style={{ flex: 1, overflowY: "auto" }}>
         <table style={{ width: "100%", tableLayout: "auto", borderCollapse: "collapse", margin: 0 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#F8F9FA" }}>
             <tr>
@@ -149,9 +150,10 @@ export function DataTable<T extends { id: string }>({
                         padding: "12px 16px",
                         fontSize: "14px",
                         color: "#495057",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        overflow: "visible",
+                        textOverflow: "clip",
+                        whiteSpace: "normal",
+                        minWidth: "120px",
                       }}
                     >
                       {col.render

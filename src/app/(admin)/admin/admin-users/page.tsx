@@ -196,7 +196,9 @@ export default function AdminUsersPage() {
         </div>
       ) : (
         <>
-          <DataTable data={users} columns={columns} searchPlaceholder="Search users..." />
+          <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 280px)", minHeight: "500px" }}>
+            <DataTable data={users} columns={columns} searchPlaceholder="Search users..." />
+          </div>
           <p className="text-sm text-[#868D9E]">Total: {total} users</p>
         </>
       )}

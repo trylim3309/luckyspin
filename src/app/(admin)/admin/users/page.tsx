@@ -232,7 +232,7 @@ export default function UsersPage() {
       </div>
     ) },
     { key: "actions", label: "Actions", render: (user: User) => (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" style={{ overflow: "visible", position: "relative", zIndex: 10 }}>
         <Button variant="outline" size="sm" onClick={() => handleOpenEdit(user)}><Edit className="w-4 h-4" /></Button>
         <Button variant={user.isBlocked ? "default" : "destructive"} size="sm" onClick={() => handleBlockToggle(user)}><Ban className="w-4 h-4" /></Button>
         <Button variant="destructive" size="sm" onClick={() => { setDeletingUser(user); setIsDeleteDialogOpen(true); }}><Trash2 className="w-4 h-4" /></Button>
