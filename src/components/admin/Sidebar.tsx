@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -14,7 +13,6 @@ import {
   Atom,
   FileText,
 } from "lucide-react";
-import { useState, useEffect } from "react";
 
 const adminNavItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,6 +36,7 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
 
   return (
     <aside
+      id="admin-sidebar"
       style={{
         position: "fixed",
         left: 0,
@@ -63,7 +62,10 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
           justifyContent: collapsed ? "center" : "flex-start",
         }}
       >
-        <Link href="/admin/dashboard" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none" }}>
+        <a
+          href="/admin/dashboard"
+          style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none" }}
+        >
           <div
             style={{
               width: "40px",
@@ -94,7 +96,7 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
               Lucky Spin
             </span>
           )}
-        </Link>
+        </a>
       </div>
 
       {/* Menu Label */}
@@ -111,9 +113,10 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
         {adminNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
-            <Link
+            <a
               key={item.href}
               href={item.href}
+              className={`nav-item ${isActive ? "active" : ""}`}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -127,25 +130,11 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
                 color: isActive ? "#FFFFFF" : "#B4B7C5",
                 fontSize: "14px",
                 fontWeight: 500,
-                transition: "all 0.2s ease",
-                boxShadow: isActive ? "0 4px 12px rgba(109, 65, 215, 0.35)" : "none",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "#2D2D3F";
-                  e.currentTarget.style.color = "#FFFFFF";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#B4B7C5";
-                }
               }}
             >
               <item.icon style={{ width: "20px", height: "20px", flexShrink: 0 }} />
               {!collapsed && <span>{item.label}</span>}
-            </Link>
+            </a>
           );
         })}
       </nav>
@@ -169,14 +158,6 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
             justifyContent: collapsed ? "center" : "flex-start",
             transition: "all 0.2s ease",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#2D2D3F";
-            e.currentTarget.style.color = "#FFFFFF";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#B4B7C5";
-          }}
         >
           {collapsed ? (
             <ChevronRight style={{ width: "20px", height: "20px" }} />
@@ -188,6 +169,19 @@ export function AdminSidebar({ collapsed, onCollapsedChange, adminLogoUrl }: Adm
           )}
         </button>
       </div>
+
+      <style>{`
+        #admin-sidebar .nav-item {
+          transition: background 0.2s ease, color 0.2s ease;
+        }
+        #admin-sidebar .nav-item:hover {
+          background: #2D2D3F !important;
+          color: #FFFFFF !important;
+        }
+        #admin-sidebar .nav-item.active {
+          box-shadow: 0 4px 12px rgba(109, 65, 215, 0.35);
+        }
+      `}</style>
     </aside>
   );
 }

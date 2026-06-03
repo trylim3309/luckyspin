@@ -94,7 +94,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F4F5F7" }}>
+    <div style={{ minHeight: "100vh", background: "#F4F5F7", zIndex: 1 }}>
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
@@ -107,6 +107,8 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
           paddingLeft: isSmallScreen ? "76px" : (sidebarCollapsed ? "76px" : "260px"),
           minHeight: "100vh",
           transition: "padding-left 0.3s ease",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         <div style={{ padding: "24px" }}>{children}</div>
