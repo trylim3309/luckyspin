@@ -413,42 +413,56 @@ export async function processTelegramWebhook(
   // Handle /start command
   if (message.text === "/start") {
     const chatId = String(message.chat.id);
-    const username = message.chat.username;
+    const telegramUsername = message.chat.username;
     const firstName = message.chat.first_name;
 
-    // Try to find user by telegram username and update their chat ID
-    if (username) {
-      const user = await prisma.user.findUnique({
-        where: { username },
-      });
+    // Find existing user with this Telegram chat ID (already linked)
+    const existingUser = await prisma.user.findFirst({
+      where: { telegramChatId: chatId },
+    });
 
-      if (user) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            telegramChatId: chatId,
-            telegramUsername: username,
-          },
-        });
-
-        await telegramService.sendMessage(
-          chatId,
-          `Welcome back, ${firstName}! You've been linked to your ${user.username} account.`
-        );
-      } else {
-        await telegramService.sendMessage(
-          chatId,
-          `Hello ${firstName}! Your Telegram is not linked to any account yet. Please login to your account first to link it.`
-        );
-      }
-    } else {
+    if (existingUser) {
       await telegramService.sendMessage(
         chatId,
-        `Hello ${firstName}! Please set a username in your Telegram settings to link your account.`
+        `Welcome back, ${firstName}! You're already linked to your ${existingUser.username} account.`
       );
+    } else {
+      // Try to find user by telegram username
+      let linked = false;
+      if (telegramUsername) {
+        const userByTelegram = await prisma.user.findUnique({
+          where: { username: telegramUsername },
+        });
+
+        if (userByTelegram) {
+          // Link Telegram to existing user
+          await prisma.user.update({
+            where: { id: userByTelegram.id },
+            data: {
+              telegramChatId: chatId,
+              telegramUsername: telegramUsername,
+            },
+          });
+          linked = true;
+          await telegramService.sendMessage(
+            chatId,
+            `Hello ${firstName}! You've been linked to your ${userByTelegram.username} account.`
+          );
+        }
+      }
+
+      if (!linked) {
+        // Save Telegram info even without linking to a user account
+        // User needs to be manually linked or use another linking method
+        await telegramService.sendMessage(
+          chatId,
+          `Hello ${firstName}! Your Telegram (ID: ${chatId}) has been registered. ` +
+          `To link your account, please login to your account on the website first, or contact admin to link your account manually.`
+        );
+      }
     }
 
-    return { action: "start", data: { chatId, username, firstName } };
+    return { action: "start", data: { chatId, telegramUsername, firstName } };
   }
 
   // Handle /help command

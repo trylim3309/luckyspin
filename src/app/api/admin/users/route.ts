@@ -47,9 +47,12 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Add telegram filter - only users with linked Telegram
+    // Add telegram filter - users with any Telegram data (chatId OR username)
     if (telegram) {
-      where.telegramChatId = { not: null };
+      where.OR = [
+        { telegramChatId: { not: null } },
+        { telegramUsername: { not: null } },
+      ];
     }
 
     const today = new Date();
