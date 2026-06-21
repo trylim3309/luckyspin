@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lucky Spin - Spin to Win!",
-  description: "A fun lucky spin wheel game where you can win amazing prizes including cash, coupons, and free spins!",
+  title: "CUS System",
+  description: "CUS System - Spin to Win!",
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>",
+    icon: "/logo.png?favicon",
   },
 };
 
@@ -34,6 +34,7 @@ export default function RootLayout({
     >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <link rel="icon" href="/logo.png" type="image/png" />
       </head>
       <body className="h-full max-w-full overflow-x-hidden antialiased">
         {children}

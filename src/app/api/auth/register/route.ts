@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Set session cookies
-    response.cookies.set("session_token", crypto.randomUUID(), {
+    response.cookies.set("spin_session_token", crypto.randomUUID(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    response.cookies.set("user_id", user.id, {
+    response.cookies.set("spin_user_id", user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

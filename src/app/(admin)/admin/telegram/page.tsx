@@ -1,0 +1,358 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { Send, Users, Radio, CheckCircle, XCircle, RefreshCw, Settings, MessageSquare } from "lucide-react";
+import { useAdminData } from "@/hooks/useAdminData";
+
+interface TelegramUser {
+  id: string;
+  username: string;
+  firstName: string;
+  telegramChatId: string | null;
+  telegramUsername: string | null;
+}
+
+interface WebhookStatus {
+  bot?: {
+    id: number;
+    username: string;
+    is_bot: boolean;
+  };
+  webhook?: {
+    url: string;
+    pending_updates: number;
+  };
+}
+
+export default function TelegramPage() {
+  const [isSending, setIsSending] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [setupStatus, setSetupStatus] = useState<string | null>(null);
+  const [isSettingUp, setIsSettingUp] = useState(false);
+
+  const { data: usersData, mutate: mutateUsers } = useAdminData<{ users: TelegramUser[] }>(
+    "/api/admin/users? telegram=true"
+  );
+  const { data: webhookData, mutate: mutateWebhook } = useAdminData<WebhookStatus>(
+    "/api/telegram/setup"
+  );
+
+  const users = usersData?.users || [];
+  const linkedUsers = users.filter((u) => u.telegramChatId);
+
+  useEffect(() => {
+    checkWebhookStatus();
+  }, []);
+
+  const checkWebhookStatus = async () => {
+    try {
+      const res = await fetch("/api/telegram/setup");
+      if (res.ok) {
+        const data = await res.json();
+        mutateWebhook({ ...data }, false);
+      }
+    } catch (error) {
+      console.error("Failed to check webhook:", error);
+    }
+  };
+
+  const handleSetupWebhook = async () => {
+    setIsSettingUp(true);
+    setSetupStatus(null);
+    try {
+      const res = await fetch("/api/telegram/setup", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSetupStatus("success");
+        checkWebhookStatus();
+      } else {
+        setSetupStatus("error: " + (data.error || "Failed to setup webhook"));
+      }
+    } catch (error) {
+      setSetupStatus("error: Network error");
+      console.error(error);
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastMessage.trim()) {
+      alert("Please enter a message to broadcast");
+      return;
+    }
+
+    setIsSending(true);
+    setSendResult(null);
+
+    try {
+      const res = await fetch("/api/telegram/broadcast", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: broadcastMessage,
+          parseMode: "HTML",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSendResult({ sent: data.sent, failed: data.failed });
+        setBroadcastMessage("");
+      } else {
+        alert(data.error || "Failed to send broadcast");
+      }
+    } catch (error) {
+      console.error("Broadcast error:", error);
+      alert("Failed to send broadcast");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const webhookUrl = webhookData?.webhook?.url;
+  const pendingUpdates = webhookData?.webhook?.pending_updates || 0;
+  const botUsername = webhookData?.bot?.username;
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[22px] font-bold text-[#212529]">Telegram Bot</h1>
+          <p className="text-[14px] text-[#6B7280] mt-1">
+            Manage your Telegram bot and send messages to users
+          </p>
+        </div>
+        {botUsername && (
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-[#E2E8F0]">
+            <div className="w-2 h-2 rounded-full bg-[#4CAF50]" />
+            <span className="text-[12px] text-[#6B7280]">@{botUsername}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Webhook Status Card */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#6D41D7] to-[#8B5CF6] flex items-center justify-center">
+              <Radio className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Webhook Status</h2>
+              <p className="text-[12px] text-[#6B7280]">Telegram bot connection</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {pendingUpdates > 0 && (
+              <span className="text-[11px] bg-[#FEF3C7] text-[#92400E] px-2 py-1 rounded-full">
+                {pendingUpdates} pending
+              </span>
+            )}
+            <button
+              onClick={handleSetupWebhook}
+              disabled={isSettingUp}
+              className="flex items-center gap-2 px-4 py-2 bg-[#6D41D7] text-white text-[13px] font-medium rounded-lg hover:bg-[#5A35B8] transition-all disabled:opacity-50"
+            >
+              {isSettingUp ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Setting up...
+                </>
+              ) : (
+                <>
+                  <Settings className="w-4 h-4" />
+                  Setup Webhook
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-[#F8F9FA] rounded-lg">
+              <p className="text-[12px] text-[#6B7280] mb-1">Webhook URL</p>
+              <p className="text-[14px] font-medium text-[#495057] break-all">
+                {webhookUrl || "Not configured"}
+              </p>
+            </div>
+            <div className="p-4 bg-[#F8F9FA] rounded-lg">
+              <p className="text-[12px] text-[#6B7280] mb-1">Status</p>
+              <div className="flex items-center gap-2">
+                {webhookUrl ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-[#4CAF50]" />
+                    <span className="text-[14px] font-medium text-[#4CAF50]">Active</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4 text-[#DC2626]" />
+                    <span className="text-[14px] font-medium text-[#DC2626]">Not Connected</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {setupStatus && (
+            <div
+              className={`mt-4 p-3 rounded-lg text-[13px] ${
+                setupStatus === "success"
+                  ? "bg-[#D1FAE5] text-[#065F46]"
+                  : "bg-[#FEE2E2] text-[#991B1B]"
+              }`}
+            >
+              {setupStatus === "success"
+                ? "✓ Webhook configured successfully!"
+                : setupStatus}
+            </div>
+          )}
+
+          <div className="mt-4 p-4 bg-[#FEF3C7] rounded-lg border border-[#FDE68A]">
+            <p className="text-[12px] text-[#92400E]">
+              <strong>How it works:</strong> Users find your bot on Telegram and send /start to link
+              their account. Once linked, you can send them messages from this panel.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Broadcast Message Card */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#4CAF50] to-[#66BB6A] flex items-center justify-center">
+              <Send className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Broadcast Message</h2>
+              <p className="text-[12px] text-[#6B7280]">Send message to all Telegram users</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-[#F3F4F6] px-3 py-1.5 rounded-full">
+            <Users className="w-4 h-4 text-[#6B7280]" />
+            <span className="text-[12px] text-[#6B7280]">{linkedUsers.length} linked</span>
+          </div>
+        </div>
+
+        <div className="p-5">
+          <div className="mb-4">
+            <label className="block text-[13px] font-medium text-[#495057] mb-2">
+              Message (HTML supported)
+            </label>
+            <textarea
+              value={broadcastMessage}
+              onChange={(e) => setBroadcastMessage(e.target.value)}
+              placeholder="Enter your message... <b>Bold</b>, <i>Italic</i>, <a href='link'>Link</a>"
+              className="w-full h-32 px-4 py-3 border border-[#E2E8F0] rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-[#6D41D7] focus:border-transparent"
+            />
+            <p className="text-[11px] text-[#6B7280] mt-2">
+              HTML tags supported: &lt;b&gt;, &lt;i&gt;, &lt;a&gt;, &lt;code&gt;, &lt;pre&gt;
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBroadcast}
+              disabled={isSending || !broadcastMessage.trim()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#4CAF50] to-[#66BB6A] text-white text-[13px] font-medium rounded-lg hover:from-[#43A047] hover:to-[#4CAF50] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              {isSending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Send Broadcast
+                </>
+              )}
+            </button>
+
+            {sendResult && (
+              <div className="flex items-center gap-4 text-[13px]">
+                <span className="text-[#4CAF50]">✓ Sent: {sendResult.sent}</span>
+                {sendResult.failed > 0 && (
+                  <span className="text-[#DC2626]">✗ Failed: {sendResult.failed}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Linked Users List */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#0088CC] to-[#00A0E0] flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Linked Users</h2>
+              <p className="text-[12px] text-[#6B7280]">Users who connected their Telegram</p>
+            </div>
+          </div>
+          <button
+            onClick={() => mutateUsers()}
+            className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#6B7280] hover:text-[#495057] transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Refresh
+          </button>
+        </div>
+
+        <div className="p-5">
+          {linkedUsers.length > 0 ? (
+            <div className="space-y-3">
+              {linkedUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-4 bg-[#F8F9FA] rounded-lg hover:bg-[#F4F5F7] transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6D41D7] to-[#8B5CF6] flex items-center justify-center text-white font-medium">
+                      {user.firstName?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#495057]">{user.username}</p>
+                      <p className="text-[12px] text-[#6B7280]">
+                        {user.telegramUsername ? `@${user.telegramUsername}` : "No Telegram username"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] bg-[#D1FAE5] text-[#065F46] px-2 py-1 rounded-full">
+                      Linked
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#F4F5F7] flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-[#E2E8F0]" />
+              </div>
+              <p className="text-[14px] text-[#6B7280]">No users linked yet</p>
+              <p className="text-[12px] text-[#A0A0B2] mt-1">
+                Users will appear here once they message the bot with /start
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

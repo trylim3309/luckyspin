@@ -12,8 +12,20 @@ interface AdminUser {
   id: string;
   name: string;
   role: "ADMIN" | "SUPER_ADMIN";
+  permissions: string[];
   createdAt: string;
 }
+
+const PERMISSIONS = [
+  { key: "prizes", label: "Prizes Management" },
+  { key: "conditions", label: "Spin Conditions" },
+  { key: "result_control", label: "Result Control" },
+  { key: "users", label: "Accounts" },
+  { key: "spin_history", label: "Spin History" },
+  { key: "promotions", label: "Promotions" },
+  { key: "team", label: "Team Management" },
+  { key: "settings", label: "Settings" },
+];
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -24,10 +36,15 @@ export default function AdminUsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    password: string;
+    role: "ADMIN" | "SUPER_ADMIN";
+    permissions?: string[];
+  }>({
     name: "",
     password: "",
-    role: "ADMIN" as "ADMIN" | "SUPER_ADMIN",
+    role: "ADMIN",
   });
 
   useEffect(() => {
@@ -59,7 +76,12 @@ export default function AdminUsersPage() {
 
   const handleOpenEdit = (user: AdminUser) => {
     setEditingUser(user);
-    setFormData({ name: user.name, password: "", role: user.role });
+    setFormData({
+      name: user.name,
+      password: "",
+      role: user.role,
+      permissions: user.permissions && user.permissions.length > 0 ? user.permissions : undefined
+    });
     setIsDialogOpen(true);
   };
 
@@ -87,6 +109,9 @@ export default function AdminUsersPage() {
       };
       if (editingUser) body.id = editingUser.id;
       if (formData.password) body.password = formData.password;
+      if (formData.permissions && formData.permissions.length > 0) {
+        body.permissions = formData.permissions;
+      }
 
       const response = await fetch("/api/admin/admin-users", {
         method,
@@ -136,6 +161,26 @@ export default function AdminUsersPage() {
         <Badge variant={user.role === "SUPER_ADMIN" ? "default" : "secondary"}>
           {user.role}
         </Badge>
+      ),
+    },
+    {
+      key: "permissions",
+      label: "Permissions",
+      render: (user: AdminUser) => (
+        <div className="flex flex-wrap gap-1">
+          {!user.permissions || user.permissions.length === 0 ? (
+            <span className="text-[#868D9E] text-sm">All</span>
+          ) : (
+            <>
+              {user.permissions.slice(0, 3).map((p) => (
+                <Badge key={p} variant="outline" className="text-xs">{p}</Badge>
+              ))}
+              {user.permissions.length > 3 && (
+                <Badge variant="outline" className="text-xs">+{user.permissions.length - 3}</Badge>
+              )}
+            </>
+          )}
+        </div>
       ),
     },
     {
@@ -236,6 +281,29 @@ export default function AdminUsersPage() {
                 <option value="ADMIN">Admin</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
               </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Permissions</label>
+              <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-lg">
+                {PERMISSIONS.map((perm) => (
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.permissions?.includes(perm.key) || false}
+                      onChange={(e) => {
+                        const current = formData.permissions || [];
+                        const updated = e.target.checked
+                          ? [...current, perm.key]
+                          : current.filter(p => p !== perm.key);
+                        setFormData({ ...formData, permissions: updated });
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{perm.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-[#868D9E]">Leave all unchecked for full access</p>
             </div>
           </div>
           <DialogFooter>

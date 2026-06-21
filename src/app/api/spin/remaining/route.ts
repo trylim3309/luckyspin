@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.cookies.get("user_id")?.value;
+    const userId = req.cookies.get("spin_user_id")?.value;
     if (!userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

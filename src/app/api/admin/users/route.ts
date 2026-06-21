@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search") || "";
     const id = searchParams.get("id");
+    const telegram = searchParams.get("telegram") === "true";
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
     const offset = (page - 1) * limit;
@@ -34,15 +35,22 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const where = search
-      ? (Prisma.validator<Prisma.UserWhereInput>()({
-          OR: [
-            { username: { contains: search, mode: "insensitive" } },
-            { firstName: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search, mode: "insensitive" } },
-          ],
-        }))
-      : {};
+    // Build where clause
+    const where: Prisma.UserWhereInput = {};
+
+    // Add search filter
+    if (search) {
+      where.OR = [
+        { username: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // Add telegram filter - only users with linked Telegram
+    if (telegram) {
+      where.telegramChatId = { not: null };
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

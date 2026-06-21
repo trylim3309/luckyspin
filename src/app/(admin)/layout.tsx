@@ -1,5 +1,10 @@
 import { AdminLayoutClient } from "@/components/admin/AdminLayoutClient";
+import { LanguageProvider } from "@/components/LanguageProvider";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <AdminLayoutClient>{children}</AdminLayoutClient>;
+  return (
+    <LanguageProvider>
+      <AdminLayoutClient>{children}</AdminLayoutClient>
+    </LanguageProvider>
+  );
 }

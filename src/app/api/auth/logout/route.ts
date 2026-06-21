@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
       message: `User ${user.username} logged out successfully`
     });
 
-    // Clear session cookies to invalidate the client session
-    response.cookies.set("session_token", "", {
+    // Clear spin user session cookies (not NextAuth admin cookies)
+    response.cookies.set("spin_session_token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    response.cookies.set("user_id", "", {
+    response.cookies.set("spin_user_id", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

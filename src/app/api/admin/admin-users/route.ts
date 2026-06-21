@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
         email: body.name.toLowerCase().replace(/\s+/g, "") + "@admin.local",
         passwordHash,
         role: body.role || "ADMIN",
+        permissions: body.permissions || [],
       },
     });
 
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
         id: user.id,
         name: user.name,
         role: user.role,
+        permissions: user.permissions,
         createdAt: user.createdAt,
       },
     });
@@ -88,10 +90,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
     }
 
+    const updateData: Record<string, unknown> = {};
+
     if (body.name) {
       const existingUser = await prisma.adminUser.findFirst({
         where: {
-          name: body.name,
+          username: body.name.toLowerCase().replace(/\s+/g, ""),
           NOT: { id: body.id },
         },
       });
@@ -102,12 +106,12 @@ export async function PUT(req: NextRequest) {
           { status: 409 }
         );
       }
+
+      updateData.name = body.name;
+      updateData.username = body.name.toLowerCase().replace(/\s+/g, "");
     }
-
-    const updateData: Record<string, unknown> = {};
-
-    if (body.name) updateData.name = body.name;
     if (body.role) updateData.role = body.role;
+    if (body.permissions) updateData.permissions = body.permissions;
 
     if (body.password) {
       updateData.passwordHash = await bcrypt.hash(body.password, 12);
@@ -123,6 +127,7 @@ export async function PUT(req: NextRequest) {
         id: user.id,
         name: user.name,
         role: user.role,
+        permissions: user.permissions,
         createdAt: user.createdAt,
       },
     });

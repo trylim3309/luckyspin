@@ -1,4 +1,9 @@
 import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
+
+// ============================================================================
+// EXISTING: Telegram Widget / Mini App Verification Utilities
+// ============================================================================
 
 export interface TelegramUser {
   id: number;
@@ -38,7 +43,10 @@ function validateTelegramHash(
     .map((key) => `${key}=${data[key]}`)
     .join("\n");
 
-  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+  const hmac = crypto
+    .createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
   return hmac === hash;
 }
 
@@ -55,7 +63,6 @@ export function verifyTelegramWidgetData(
       return { valid: false, error: "Missing auth_date" };
     }
 
-    // Check if auth_date is too old (24 hours)
     const authDate = parseInt(data.auth_date, 10);
     const now = Math.floor(Date.now() / 1000);
     if (now - authDate > 86400) {
@@ -110,7 +117,6 @@ export function verifyTelegramMiniAppInitData(
       return { valid: false, error: "Missing auth_date" };
     }
 
-    // Check if initData is too old (24 hours)
     const authDateTimestamp = parseInt(authDate, 10);
     const now = Math.floor(Date.now() / 1000);
     if (now - authDateTimestamp > 86400) {
@@ -147,9 +153,14 @@ export function verifyTelegramMiniAppInitData(
   }
 }
 
-export function parseTelegramWidgetData(formData: FormData): TelegramWidgetData | null {
+export function parseTelegramWidgetData(
+  formData: FormData
+): TelegramWidgetData | null {
   try {
-    const id = formData.get("id")?.toString() || formData.get("user")?.toString() || "";
+    const id =
+      formData.get("id")?.toString() ||
+      formData.get("user")?.toString() ||
+      "";
     const first_name = formData.get("first_name")?.toString() || "";
     const last_name = formData.get("last_name")?.toString();
     const username = formData.get("username")?.toString();
@@ -171,7 +182,9 @@ export function parseTelegramWidgetData(formData: FormData): TelegramWidgetData 
   }
 }
 
-export function parseTelegramMiniAppData(initData: string): TelegramWidgetData | null {
+export function parseTelegramMiniAppData(
+  initData: string
+): TelegramWidgetData | null {
   try {
     const params = new URLSearchParams(initData);
     const userJson = params.get("user");
@@ -202,4 +215,352 @@ export function parseTelegramMiniAppData(initData: string): TelegramWidgetData |
   } catch {
     return null;
   }
+}
+
+// ============================================================================
+// NEW: Telegram Bot API Service (for sending/receiving messages via webhooks)
+// ============================================================================
+
+const TELEGRAM_API_BASE = "https://api.telegram.org/bot";
+
+interface TelegramMessage {
+  message_id: number;
+  from: {
+    id: number;
+    is_bot: boolean;
+    first_name: string;
+    username?: string;
+    language_code?: string;
+  };
+  chat: {
+    id: number;
+    first_name: string;
+    username?: string;
+    type: string;
+  };
+  date: number;
+  text?: string;
+}
+
+interface TelegramWebhookPayload {
+  update_id: number;
+  message?: TelegramMessage;
+}
+
+export class TelegramBotService {
+  private botToken: string;
+
+  constructor(botToken: string) {
+    this.botToken = botToken;
+  }
+
+  private async callMethod<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>
+  ): Promise<T> {
+    const response = await fetch(
+      `${TELEGRAM_API_BASE}${this.botToken}/${method}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: params ? JSON.stringify(params) : undefined,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Telegram API error: ${response.status} - ${error}`);
+    }
+
+    const result = await response.json();
+    if (!result.ok) {
+      throw new Error(`Telegram API error: ${result.description}`);
+    }
+
+    return result.result as T;
+  }
+
+  /**
+   * Send a message to a specific chat
+   */
+  async sendMessage(
+    chatId: string | number,
+    text: string,
+    options?: {
+      parseMode?: "HTML" | "Markdown";
+      replyMarkup?: Record<string, unknown>;
+    }
+  ): Promise<{ message_id: number; chat: { id: number } }> {
+    return this.callMethod("sendMessage", {
+      chat_id: chatId,
+      text,
+      parse_mode: options?.parseMode,
+      reply_markup: options?.replyMarkup,
+    });
+  }
+
+  /**
+   * Send a message to a user by their Telegram chat ID
+   */
+  async sendMessageToUser(
+    telegramChatId: string,
+    text: string,
+    options?: { parseMode?: "HTML" | "Markdown" }
+  ): Promise<boolean> {
+    try {
+      await this.sendMessage(telegramChatId, text, options);
+      return true;
+    } catch (error) {
+      console.error("Failed to send Telegram message:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Send an inline keyboard with buttons
+   */
+  async sendInlineKeyboard(
+    chatId: string | number,
+    text: string,
+    buttons: Array<Array<{ text: string; callback_data: string }>>
+  ): Promise<{ message_id: number }> {
+    return this.sendMessage(chatId, text, {
+      replyMarkup: {
+        inline_keyboard: buttons,
+      },
+    });
+  }
+
+  /**
+   * Answer a callback query (required for inline buttons)
+   */
+  async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<boolean> {
+    try {
+      await this.callMethod("answerCallbackQuery", {
+        callback_query_id: callbackQueryId,
+        text,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get bot info
+   */
+  async getMe(): Promise<{
+    id: number;
+    is_bot: boolean;
+    first_name: string;
+    username: string;
+  }> {
+    return this.callMethod("getMe");
+  }
+
+  /**
+   * Set webhook URL for the bot
+   */
+  async setWebhook(url: string, secretToken?: string): Promise<boolean> {
+    try {
+      await this.callMethod("setWebhook", {
+        url,
+        secret_token: secretToken,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Delete webhook
+   */
+  async deleteWebhook(): Promise<boolean> {
+    try {
+      await this.callMethod("deleteWebhook");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get webhook info
+   */
+  async getWebhookInfo(): Promise<{
+    url?: string;
+    has_custom_certificate: boolean;
+    pending_update_count: number;
+  }> {
+    return this.callMethod("getWebhookInfo");
+  }
+}
+
+/**
+ * Process incoming webhook update
+ */
+export async function processTelegramWebhook(
+  payload: TelegramWebhookPayload,
+  botToken: string
+): Promise<{ action: string; data?: Record<string, unknown> } | null> {
+  const message = payload.message;
+
+  if (!message) return null;
+
+  const telegramService = new TelegramBotService(botToken);
+
+  // Handle /start command
+  if (message.text === "/start") {
+    const chatId = String(message.chat.id);
+    const username = message.chat.username;
+    const firstName = message.chat.first_name;
+
+    // Try to find user by telegram username and update their chat ID
+    if (username) {
+      const user = await prisma.user.findUnique({
+        where: { username },
+      });
+
+      if (user) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            telegramChatId: chatId,
+            telegramUsername: username,
+          },
+        });
+
+        await telegramService.sendMessage(
+          chatId,
+          `Welcome back, ${firstName}! You've been linked to your ${user.username} account.`
+        );
+      } else {
+        await telegramService.sendMessage(
+          chatId,
+          `Hello ${firstName}! Your Telegram is not linked to any account yet. Please login to your account first to link it.`
+        );
+      }
+    } else {
+      await telegramService.sendMessage(
+        chatId,
+        `Hello ${firstName}! Please set a username in your Telegram settings to link your account.`
+      );
+    }
+
+    return { action: "start", data: { chatId, username, firstName } };
+  }
+
+  // Handle /help command
+  if (message.text === "/help") {
+    await telegramService.sendMessage(
+      message.chat.id,
+      "Available commands:\n/start - Link your account\n/help - Show this help\n/balance - Check your balance"
+    );
+    return { action: "help" };
+  }
+
+  // Handle /balance command
+  if (message.text === "/balance") {
+    const chatId = String(message.chat.id);
+    const user = await prisma.user.findFirst({
+      where: { telegramChatId: chatId },
+    });
+
+    if (user) {
+      await telegramService.sendMessage(
+        chatId,
+        `Your balance: $${user.balance.toFixed(2)}\nTotal spins: ${user.totalSpins}\nTotal wins: ${user.totalWins}`
+      );
+    } else {
+      await telegramService.sendMessage(
+        chatId,
+        "Your Telegram is not linked to any account."
+      );
+    }
+
+    return { action: "balance" };
+  }
+
+  return null;
+}
+
+/**
+ * Send a notification to a user via Telegram
+ */
+export async function sendTelegramNotification(
+  userId: string,
+  message: string
+): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user?.telegramChatId) {
+    console.error(`User ${userId} has no Telegram chat ID`);
+    return false;
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    console.error("TELEGRAM_BOT_TOKEN is not set");
+    return false;
+  }
+
+  const telegramService = new TelegramBotService(botToken);
+  return telegramService.sendMessageToUser(user.telegramChatId, message);
+}
+
+/**
+ * Send a broadcast message to all users with Telegram linked
+ */
+export async function sendTelegramBroadcast(
+  message: string,
+  options?: { parseMode?: "HTML" | "Markdown" }
+): Promise<{ sent: number; failed: number }> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    throw new Error("TELEGRAM_BOT_TOKEN is not set");
+  }
+
+  const telegramService = new TelegramBotService(botToken);
+
+  const usersWithTelegram = await prisma.user.findMany({
+    where: {
+      telegramChatId: { not: null },
+    },
+    select: { id: true, telegramChatId: true },
+  });
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const user of usersWithTelegram) {
+    if (user.telegramChatId) {
+      const success = await telegramService.sendMessageToUser(
+        user.telegramChatId,
+        message,
+        options
+      );
+      if (success) {
+        sent++;
+      } else {
+        failed++;
+      }
+
+      // Rate limiting - be nice to Telegram API
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  return { sent, failed };
+}
+
+// Factory function to get Telegram service instance
+export function getTelegramBotService(): TelegramBotService {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    throw new Error("TELEGRAM_BOT_TOKEN is not configured");
+  }
+  return new TelegramBotService(botToken);
 }

@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
             <div className="admin-login-logo">
               <Image
                 src="/logo.png"
-                alt="Lucky Spin"
+                alt="CUS System"
                 width={140}
                 height={56}
                 priority
@@ -65,8 +65,8 @@ export default function AdminLoginPage() {
               />
             </div>
             <div className="admin-login-title">
-              <h1>Admin Portal</h1>
-              <p>Sign in to manage your lottery system</p>
+              <h1>CUS System</h1>
+              <p>Sign in to manage your system</p>
             </div>
           </div>
 
@@ -172,7 +172,7 @@ export default function AdminLoginPage() {
           </form>
 
           <div className="admin-login-footer">
-            <p>&copy; {new Date().getFullYear()} Lucky Spin. Admin access restricted.</p>
+            <p>&copy; {new Date().getFullYear()} CUS System. Admin access restricted.</p>
           </div>
         </div>
       </div>

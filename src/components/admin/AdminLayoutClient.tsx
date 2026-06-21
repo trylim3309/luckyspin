@@ -9,17 +9,19 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string; permissions?: string[] } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null);
+  const [sidebarHidden, setSidebarHidden] = useState(false);
 
   // Check screen size immediately
   useEffect(() => {
     const checkScreenSize = () => {
       const isSmall = window.innerWidth < 1024;
       setIsSmallScreen(isSmall);
-      setSidebarCollapsed(isSmall);
+      setSidebarCollapsed(false);
+      setSidebarHidden(isSmall); // Hidden on small screens, visible on large screens
     };
 
     checkScreenSize();
@@ -42,12 +44,20 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
       });
   }, [router]);
 
+  // Fetch current admin user
   useEffect(() => {
     if (isAuthenticated) {
-      fetch("/api/admin/dashboard", { credentials: "include" })
+      fetch("/api/admin/me", { credentials: "include" })
         .then((res) => res.json())
         .then((data) => {
-          if (data.admin) setCurrentUser(data.admin);
+          if (data.admin) {
+            setCurrentUser({
+              id: data.admin.id,
+              name: data.admin.name,
+              role: data.admin.role,
+              permissions: data.admin.permissions || [],
+            });
+          }
         })
         .catch(() => {});
     }
@@ -97,14 +107,25 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
     <div style={{ minHeight: "100vh", background: "#F4F5F7", zIndex: 1 }}>
       <AdminSidebar
         collapsed={sidebarCollapsed}
+        hidden={isSmallScreen ? sidebarHidden : false}
         onCollapsedChange={setSidebarCollapsed}
+        onHiddenChange={setSidebarHidden}
         adminLogoUrl={adminLogoUrl}
+        permissions={currentUser?.permissions}
+        role={currentUser?.role}
       />
-      <AdminHeader user={currentUser} sidebarCollapsed={sidebarCollapsed} />
+      <AdminHeader
+        user={currentUser}
+        sidebarCollapsed={sidebarCollapsed}
+        sidebarHidden={isSmallScreen ? sidebarHidden : false}
+        onSidebarToggle={() => setSidebarHidden(!sidebarHidden)}
+      />
       <main
         style={{
           paddingTop: "60px",
-          paddingLeft: isSmallScreen ? "76px" : (sidebarCollapsed ? "76px" : "260px"),
+          paddingLeft: isSmallScreen
+            ? (sidebarHidden ? "0" : "260px")
+            : (sidebarCollapsed ? "76px" : "260px"),
           minHeight: "100vh",
           transition: "padding-left 0.3s ease",
           position: "relative",

@@ -14,31 +14,34 @@ model AdminUser {
   email        String   @unique
   passwordHash String
   role         Role     @default(ADMIN)
+  permissions  String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
 model User {
-  id           String           @id @default(cuid())
-  username     String           @unique
-  firstName    String
-  lastName     String?
-  photoUrl     String?
-  balance      Float            @default(0)
-  isBlocked    Boolean          @default(false)
-  isOnline     Boolean          @default(false)
-  totalSpins   Int              @default(0)
-  totalWins    Int              @default(0)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  email        String?          @unique
-  passwordHash String
-  phone        String?          @unique
-  dailySpins   DailySpinCount[]
-  spinResults  SpinResult[]
-  transactions SpinTransaction[]
-  spinConditionId String?
-  spinCondition   SpinCondition? @relation(fields: [spinConditionId], references: [id])
+  id               String           @id @default(cuid())
+  username         String           @unique
+  firstName        String
+  lastName         String?
+  photoUrl         String?
+  balance          Float            @default(0)
+  isBlocked        Boolean          @default(false)
+  isOnline         Boolean          @default(false)
+  totalSpins       Int              @default(0)
+  totalWins        Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  email            String?          @unique
+  passwordHash     String
+  phone            String?          @unique
+  telegramChatId   String?          @unique
+  telegramUsername String?
+  dailySpins       DailySpinCount[]
+  spinResults      SpinResult[]
+  transactions     SpinTransaction[]
+  spinConditionId  String?
+  spinCondition    SpinCondition?   @relation(fields: [spinConditionId], references: [id])
 }
 
 model Prize {
@@ -150,6 +153,36 @@ model SpinTransaction {
   note      String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model Promotion {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  remarks      String?
+  imageUrl     String?
+  type         PromotionType @default(DISCOUNT)
+  discount     Float    @default(0) // percentage or fixed amount
+  team         Team     @default(KING88)
+  startDate    DateTime
+  endDate      DateTime
+  isActive     Boolean  @default(true)
+  isClosed     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum PromotionType {
+  DISCOUNT
+  FREE_SPIN
+  CASHBACK
+  OTHER
+}
+
+enum Team {
+  KING88
+  SKY24
+  B88
 }
 
 enum TransactionType {

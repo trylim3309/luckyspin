@@ -6,6 +6,8 @@ import { Search } from "lucide-react";
 interface Column<T> {
   key: string;
   label: string;
+  width?: string;
+  minWidth?: string;
   render?: (item: T, index: number) => React.ReactNode;
 }
 
@@ -102,7 +104,7 @@ export function DataTable<T extends { id: string }>({
                 <th
                   key={col.key}
                   style={{
-                    padding: "12px 16px",
+                    padding: "8px 12px",
                     textAlign: "left",
                     fontSize: "12px",
                     fontWeight: 600,
@@ -110,6 +112,8 @@ export function DataTable<T extends { id: string }>({
                     textTransform: "uppercase",
                     borderBottom: "2px solid #E2E8F0",
                     whiteSpace: "nowrap",
+                    width: col.width,
+                    minWidth: col.minWidth,
                   }}
                 >
                   {col.label}
@@ -147,13 +151,14 @@ export function DataTable<T extends { id: string }>({
                     <td
                       key={col.key}
                       style={{
-                        padding: "12px 16px",
+                        padding: "8px 12px",
                         fontSize: "14px",
                         color: "#495057",
-                        overflow: "visible",
-                        textOverflow: "clip",
-                        whiteSpace: "normal",
-                        minWidth: "120px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        minWidth: col.minWidth || "80px",
+                        width: col.width,
                       }}
                     >
                       {col.render

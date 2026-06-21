@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         id: session.id,
         name: session.name,
         role: session.role,
+        permissions: session.permissions || [],
       },
     });
   } catch {

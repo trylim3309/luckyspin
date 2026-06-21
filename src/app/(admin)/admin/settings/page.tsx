@@ -123,9 +123,13 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!settings) return;
+    if (!settings) {
+      alert("Settings not loaded yet. Please wait and try again.");
+      return;
+    }
     setIsSaving(true);
     try {
+      console.log("Saving with id:", settings.id);
       const response = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -136,14 +140,17 @@ export default function SettingsPage() {
         }),
         credentials: "include",
       });
+      const data = await response.json();
+      console.log("Save response:", response.status, data);
       if (response.ok) {
-        const data = await response.json();
         setSettings(data.settings);
         alert("Saved!");
-        window.location.reload();
+      } else {
+        alert(data.error || "Failed to save settings");
       }
     } catch (error) {
       console.error("Failed to save settings:", error);
+      alert("Failed to save settings");
     } finally {
       setIsSaving(false);
     }

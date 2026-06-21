@@ -9,6 +9,7 @@ import { DataTable } from "@/components/admin/DataTable";
 import { Ban, Trash2, Plus, Edit, LogOut } from "lucide-react";
 import Link from "next/link";
 import useSWR from "swr";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface User {
   id: string;
@@ -41,6 +42,7 @@ interface SpinCondition {
 const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json());
 
 export default function UsersPage() {
+  const { t, locale } = useLanguage();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -199,36 +201,36 @@ export default function UsersPage() {
   };
 
   const columns = [
-    { key: "no", label: "#", render: (_: User, index: number) => (
+    { key: "no", label: "#", width: "3%", minWidth: "30px", render: (_: User, index: number) => (
       <span className="font-bold text-black">{(page - 1) * limit + index + 1}</span>
     )},
-    { key: "account", label: "Account", render: (user: User) => <Link href={`/admin/users/${user.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">{user.username}</Link> },
+    { key: "account", label: "Account", minWidth: "120px", render: (user: User) => <Link href={`/admin/users/${user.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">{user.username}</Link> },
     { key: "name", label: "Name", render: (user: User) => <span>{user.firstName} {user.lastName || ""}</span> },
     { key: "phone", label: "Phone", render: (user: User) => <span className="text-slate-600">{user.phone || "-"}</span> },
-    { key: "spinType", label: "Type", render: (user: User) => (
+    { key: "spinType", label: t("userManagement.type"), render: (user: User) => (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.spinType === "FIXED" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>
-        {user.spinType === "FIXED" ? "📊 Fixed" : "📅 Daily"}
+        {user.spinType === "FIXED" ? `📊 ${t("userManagement.fixed")}` : `📅 ${t("userManagement.daily")}`}
       </span>
     )},
-    { key: "spinsLeft", label: "Spins Left", render: (user: User) => (
+    { key: "spinsLeft", label: t("userManagement.spinsLeft"), render: (user: User) => (
       <div className="text-center">
         <span className="font-bold text-lg text-blue-600">{user.spinsLeft}</span>
-        <p className="text-xs text-slate-500">{user.lifetimeUsed !== undefined ? `Used: ${user.lifetimeUsed}` : ""}</p>
+        <p className="text-xs text-slate-500">{user.lifetimeUsed !== undefined ? `${t("userManagement.used")}: ${user.lifetimeUsed}` : ""}</p>
       </div>
     )},
-    { key: "balance", label: "Deposit/Withdraw", render: (user: User) => (
+    { key: "balance", label: t("userManagement.depositWithdraw"), render: (user: User) => (
       <div className="flex items-center justify-center gap-2">
-        <button onClick={() => handleAddSpins(user)} className="px-3 py-1 rounded-full bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium transition-colors">Deposit</button>
-        <button onClick={() => handleRemoveSpins(user)} className="px-3 py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium transition-colors">Withdraw</button>
+        <button onClick={() => handleAddSpins(user)} className="px-3 py-1 rounded-full bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium transition-colors">{t("dialogs.deposit")}</button>
+        <button onClick={() => handleRemoveSpins(user)} className="px-3 py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium transition-colors">{t("dialogs.withdraw")}</button>
       </div>
     )},
-    { key: "status", label: "Status", render: (user: User) => (
+    { key: "status", label: t("userManagement.status"), render: (user: User) => (
       <div className="flex items-center gap-2">
         <span
           className={`w-2 h-2 rounded-full ${user.isOnline ? "bg-green-500" : "bg-gray-400"}`}
-          title={user.isOnline ? "Online (logged in)" : "Offline (logged out)"}
+          title={user.isOnline ? t("userManagement.online") : t("userManagement.offline")}
         />
-        <Badge variant={user.isBlocked ? "destructive" : "default"}>{user.isBlocked ? "Blocked" : "Active"}</Badge>
+        <Badge variant={user.isBlocked ? "destructive" : "default"}>{user.isBlocked ? t("userManagement.blocked") : t("userManagement.active")}</Badge>
       </div>
     ) },
     { key: "actions", label: "Actions", render: (user: User) => (
@@ -245,8 +247,8 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#233446]">User Management</h1>
-          <p className="text-[#868D9E] mt-1">Manage spin game accounts</p>
+          <h1 className="text-2xl font-bold text-[#233446]">{t("userManagement.title")}</h1>
+          <p className="text-[#868D9E] mt-1">{t("userManagement.description")}</p>
         </div>
         <Button
           onClick={handleOpenCreate}
@@ -254,7 +256,7 @@ export default function UsersPage() {
           style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
         >
           <Plus className="w-4 h-4 mr-2" />
-          Add User
+          {t("userManagement.addUser")}
         </Button>
       </div>
 
@@ -264,7 +266,7 @@ export default function UsersPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <Input
-            placeholder="Search by name, username, or phone..."
+            placeholder={t("userManagement.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 h-10 rounded-lg border-[#E2E8F0] focus:border-[#6D41D7] focus:ring-1 focus:ring-[#6D41D7]"
@@ -281,7 +283,7 @@ export default function UsersPage() {
           <DataTable data={users} columns={columns} searchable={false} />
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-[#868D9E]">Total: {total} users</p>
+            <p className="text-sm text-[#868D9E]">{t("userManagement.total")}: {total} users</p>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -290,7 +292,7 @@ export default function UsersPage() {
                 disabled={page === 1}
                 className="h-8 rounded-md px-3"
               >
-                Previous
+                {t("userManagement.previous") || "Previous"}
               </Button>
               <span className="text-sm text-gray-600">
                 Page {page} of {Math.ceil(total / limit) || 1}
@@ -302,7 +304,7 @@ export default function UsersPage() {
                 disabled={page >= Math.ceil(total / limit)}
                 className="h-8 rounded-md px-3"
               >
-                Next
+                {t("userManagement.next") || "Next"}
               </Button>
             </div>
           </div>
@@ -312,10 +314,10 @@ export default function UsersPage() {
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingUser ? t("dialogs.editUser") : t("dialogs.createUser")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><label className="text-sm font-medium">Username *</label><Input value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="Enter username" disabled={!!editingUser} /></div>
-            <div className="space-y-2"><label className="text-sm font-medium">{editingUser ? "New Password" : "Password *"}</label><Input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={editingUser ? "Leave blank to keep current" : "Enter password"} /></div>
+            <div className="space-y-2"><label className="text-sm font-medium">{editingUser ? t("dialogs.update") : t("dialogs.create")}</label><Input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={editingUser ? "Leave blank to keep current" : "Enter password"} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><label className="text-sm font-medium">First Name *</label><Input value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="First name" /></div>
               <div className="space-y-2"><label className="text-sm font-medium">Last Name</label><Input value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Last name" /></div>
@@ -330,14 +332,14 @@ export default function UsersPage() {
               onClick={() => setIsDialogOpen(false)}
               className="h-10 rounded-lg border-[#E2E8F0]"
             >
-              Cancel
+              {t("dialogs.cancel")}
             </Button>
             <Button
               onClick={handleSave}
               className="h-10 rounded-lg text-white font-medium transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg, #6D41D7 0%, #8B5CF6 100%)" }}
             >
-              {editingUser ? "Update" : "Create"}
+              {editingUser ? t("dialogs.update") : t("dialogs.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -345,16 +347,16 @@ export default function UsersPage() {
 
       {/* Delete Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent><DialogHeader><DialogTitle>Delete User</DialogTitle></DialogHeader>
+        <DialogContent><DialogHeader><DialogTitle>{t("dialogs.deleteUser")}</DialogTitle></DialogHeader>
           {deletingUser && <p className="text-slate-600">Are you sure you want to delete user <span className="font-medium">{deletingUser.firstName}</span>?</p>}
-          <DialogFooter><Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button><Button variant="destructive" onClick={handleDelete}>Delete</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>{t("dialogs.cancel")}</Button><Button variant="destructive" onClick={handleDelete}>{t("dialogs.delete")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Deposit Dialog */}
       <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Deposit Spins</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("dialogs.depositSpins")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {conditions.length > 0 && (
               <div className="space-y-2">
@@ -372,8 +374,8 @@ export default function UsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDepositDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleDepositSpins} className="bg-green-600 hover:bg-green-700">Deposit</Button>
+            <Button variant="outline" onClick={() => setIsDepositDialogOpen(false)}>{t("dialogs.cancel")}</Button>
+            <Button onClick={handleDepositSpins} className="bg-green-600 hover:bg-green-700">{t("dialogs.deposit")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -381,7 +383,7 @@ export default function UsersPage() {
       {/* Withdraw Dialog */}
       <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Withdraw Spins</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("dialogs.withdrawSpins")}</DialogTitle></DialogHeader>
           {adjustingUser && (
             <div className="space-y-4">
               <p className="text-sm text-slate-600">Withdraw spins from <span className="font-medium">{adjustingUser.firstName}</span>. Current spins: <span className="font-semibold">{adjustingUser.totalSpins}</span></p>
@@ -389,8 +391,8 @@ export default function UsersPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsWithdrawDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleWithdrawSpins} disabled={!adjustingUser || withdrawSpins <= 0 || withdrawSpins > adjustingUser.totalSpins} className="bg-red-600 hover:bg-red-700">Withdraw</Button>
+            <Button variant="outline" onClick={() => setIsWithdrawDialogOpen(false)}>{t("dialogs.cancel")}</Button>
+            <Button onClick={handleWithdrawSpins} disabled={!adjustingUser || withdrawSpins <= 0 || withdrawSpins > adjustingUser.totalSpins} className="bg-red-600 hover:bg-red-700">{t("dialogs.withdraw")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
         name: admin.name,
         role: admin.role,
         type: "admin",
+        permissions: admin.permissions || [],
       })
     ).toString("base64");
 

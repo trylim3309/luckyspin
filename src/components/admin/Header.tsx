@@ -1,7 +1,8 @@
 "use client";
 
-import { LogOut, Bell, Search, Settings, User } from "lucide-react";
+import { LogOut, Settings, User, List, Globe } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface AdminUser {
   id: string;
@@ -12,21 +13,36 @@ interface AdminUser {
 interface AdminHeaderProps {
   user: AdminUser | null;
   sidebarCollapsed: boolean;
+  sidebarHidden: boolean;
+  onSidebarToggle: () => void;
 }
 
-export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
+const languages = [
+  { code: "en", name: "English", flag: "🇬🇧" },
+  { code: "kh", name: "Khmer", flag: "🇰🇭" },
+];
+
+export function AdminHeader({ user, sidebarCollapsed, sidebarHidden, onSidebarToggle }: AdminHeaderProps) {
+  const { locale, setLocale, t } = useLanguage();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [currentLang, setCurrentLang] = useState(languages[1]); // Default to Khmer
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const notifMenuRef = useRef<HTMLDivElement>(null);
+  const langMenuRef = useRef<HTMLDivElement>(null);
+
+  // Sync currentLang when locale changes
+  useEffect(() => {
+    const lang = languages.find((l) => l.code === locale) || languages[1];
+    setCurrentLang(lang);
+  }, [locale]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
-      if (notifMenuRef.current && !notifMenuRef.current.contains(event.target as Node)) {
-        setShowNotifMenu(false);
+      if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
+        setShowLangMenu(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -42,7 +58,13 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
     }
   };
 
-  const sidebarWidth = sidebarCollapsed ? 76 : 260;
+  const handleLanguageChange = (lang: typeof languages[0]) => {
+    setLocale(lang.code as "en" | "kh");
+    setCurrentLang(lang);
+    setShowLangMenu(false);
+  };
+
+  const sidebarWidth = sidebarHidden ? 0 : (sidebarCollapsed ? 76 : 260);
 
   return (
     <header
@@ -62,98 +84,68 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
         transition: "left 0.3s ease",
       }}
     >
-      {/* Page Title */}
-      <h1 style={{ fontSize: "16px", fontWeight: 600, color: "#495057", margin: 0 }}>
-        Admin Panel
-      </h1>
-
-      {/* Right Actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-        {/* Search */}
-        <div style={{ position: "relative", width: "280px" }}>
-          <Search
-            style={{
-              position: "absolute",
-              left: "12px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: "16px",
-              height: "16px",
-              color: "#A0A0B2",
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Search..."
-            style={{
-              width: "100%",
-              height: "36px",
-              paddingLeft: "36px",
-              paddingRight: "12px",
-              borderRadius: "6px",
-              border: "1px solid #E2E8F0",
-              fontSize: "14px",
-              outline: "none",
-              transition: "border-color 0.2s",
-            }}
-            onFocus={(e) => e.target.style.borderColor = "#6D41D7"}
-            onBlur={(e) => e.target.style.borderColor = "#E2E8F0"}
-          />
-        </div>
-
-        {/* Notifications */}
-        <div style={{ position: "relative" }} ref={notifMenuRef}>
+      {/* Left side - Menu button when sidebar is hidden */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {sidebarHidden && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowNotifMenu(!showNotifMenu);
-              setShowUserMenu(false);
-            }}
+            id="sidebar-toggle-btn"
+            onClick={onSidebarToggle}
             style={{
               width: "36px",
               height: "36px",
-              borderRadius: "50%",
+              borderRadius: "8px",
               border: "none",
               background: "transparent",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              position: "relative",
               transition: "background 0.2s",
             }}
             onMouseEnter={(e) => e.currentTarget.style.background = "#F4F5F7"}
             onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
           >
-            <Bell style={{ width: "20px", height: "20px", color: "#6B7280" }} />
-            <span
-              style={{
-                position: "absolute",
-                top: "2px",
-                right: "2px",
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                background: "#EA3943",
-                color: "#FFFFFF",
-                fontSize: "10px",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              3
-            </span>
+            <List style={{ width: "20px", height: "20px", color: "#6B7280" }} />
+          </button>
+        )}
+      </div>
+
+      {/* Right Actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+        {/* Language Selector */}
+        <div style={{ position: "relative" }} ref={langMenuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowLangMenu(!showLangMenu);
+              setShowUserMenu(false);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              border: "1px solid #E2E8F0",
+              background: "transparent",
+              cursor: "pointer",
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "#F4F5F7"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+          >
+            <span style={{ fontSize: "20px" }}>{currentLang.flag}</span>
+            <span style={{ fontSize: "14px", color: "#495057" }}>{currentLang.code.toUpperCase()}</span>
+            <Globe style={{ width: "16px", height: "16px", color: "#6B7280" }} />
           </button>
 
-          {showNotifMenu && (
+          {showLangMenu && (
             <div
               style={{
                 position: "absolute",
                 top: "calc(100% + 8px)",
                 right: 0,
-                width: "320px",
+                width: "160px",
                 background: "#FFFFFF",
                 borderRadius: "8px",
                 boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
@@ -162,41 +154,30 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
                 zIndex: 200,
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "12px 16px",
-                  borderBottom: "1px solid #E2E8F0",
-                }}
-              >
-                <span style={{ fontSize: "14px", fontWeight: 600, color: "#495057" }}>
-                  Notifications
-                </span>
-                <a
-                  href="#"
+              {languages.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang)}
                   style={{
-                    fontSize: "12px",
-                    color: "#6D41D7",
-                    textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    width: "100%",
+                    padding: "10px 16px",
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    color: "#495057",
+                    transition: "background 0.2s",
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#F4F5F7"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
-                  Mark all read
-                </a>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  padding: "32px 16px",
-                  color: "#A0A0B0",
-                }}
-              >
-                <Bell style={{ width: "40px", height: "40px", opacity: 0.3, marginBottom: "8px" }} />
-                <p style={{ fontSize: "14px", margin: 0 }}>No notifications yet</p>
-              </div>
+                  <span style={{ fontSize: "20px" }}>{lang.flag}</span>
+                  <span>{lang.name}</span>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -207,7 +188,7 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
             onClick={(e) => {
               e.stopPropagation();
               setShowUserMenu(!showUserMenu);
-              setShowNotifMenu(false);
+              setShowLangMenu(false);
             }}
             style={{
               display: "flex",
@@ -291,7 +272,7 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   <User style={{ width: "16px", height: "16px" }} />
-                  <span>Profile</span>
+                  <span>{t("common.profile")}</span>
                 </a>
                 <a
                   href="#"
@@ -309,7 +290,7 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   <Settings style={{ width: "16px", height: "16px" }} />
-                  <span>Settings</span>
+                  <span>{t("common.settings")}</span>
                 </a>
               </div>
               <div style={{ padding: "8px 0", borderTop: "1px solid #E2E8F0" }}>
@@ -332,7 +313,7 @@ export function AdminHeader({ user, sidebarCollapsed }: AdminHeaderProps) {
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   <LogOut style={{ width: "16px", height: "16px" }} />
-                  <span>Sign Out</span>
+                  <span>{t("common.signOut")}</span>
                 </button>
               </div>
             </div>

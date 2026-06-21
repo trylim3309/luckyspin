@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/admin/DataTable";
-import { Plus, Edit, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import useSWR from "swr";
 
@@ -155,6 +155,48 @@ export default function PrizesPage() {
         <Badge variant={prize.isActive ? "default" : "secondary"}>
           {prize.isActive ? "Active" : "Inactive"}
         </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (prize: Prize) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleToggleActive(prize)}
+            className="p-1 hover:bg-slate-100 rounded"
+            title={prize.isActive ? "Deactivate" : "Activate"}
+          >
+            {prize.isActive ? (
+              <ToggleRight className="w-5 h-5 text-green-600" />
+            ) : (
+              <ToggleLeft className="w-5 h-5 text-slate-400" />
+            )}
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Delete prize "${prize.name}"?`)) {
+                fetch(`/api/admin/prizes?id=${prize.id}`, {
+                  method: "DELETE",
+                  credentials: "include",
+                }).then((res) => {
+                  if (res.ok) mutate();
+                });
+              }
+            }}
+            className="p-1 hover:bg-slate-100 rounded"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4 text-red-500" />
+          </button>
+          <button
+            onClick={() => handleOpenDialog(prize)}
+            className="p-1 hover:bg-slate-100 rounded"
+            title="Edit"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+        </div>
       ),
     },
   ];

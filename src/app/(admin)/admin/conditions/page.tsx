@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/admin/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, Edit, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import useSWR from "swr";
 
 interface SpinCondition {
@@ -88,6 +88,20 @@ export default function ConditionsPage() {
     }
   };
 
+  const handleToggleActive = async (condition: SpinCondition) => {
+    try {
+      await fetch("/api/admin/conditions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: condition.id, isActive: !condition.isActive }),
+        credentials: "include",
+      });
+      mutate();
+    } catch (error) {
+      console.error("Failed to toggle condition:", error);
+    }
+  };
+
   const columns = [
     { key: "name", label: "Name" },
     {
@@ -127,6 +141,48 @@ export default function ConditionsPage() {
         <Badge variant={c.isActive ? "default" : "secondary"}>
           {c.isActive ? "Active" : "Inactive"}
         </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (c: SpinCondition) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleToggleActive(c)}
+            className="p-1 hover:bg-slate-100 rounded"
+            title={c.isActive ? "Deactivate" : "Activate"}
+          >
+            {c.isActive ? (
+              <ToggleRight className="w-5 h-5 text-green-600" />
+            ) : (
+              <ToggleLeft className="w-5 h-5 text-slate-400" />
+            )}
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Delete condition "${c.name}"?`)) {
+                fetch(`/api/admin/conditions?id=${c.id}`, {
+                  method: "DELETE",
+                  credentials: "include",
+                }).then((res) => {
+                  if (res.ok) mutate();
+                });
+              }
+            }}
+            className="p-1 hover:bg-slate-100 rounded"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4 text-red-500" />
+          </button>
+          <button
+            onClick={() => handleOpenDialog(c)}
+            className="p-1 hover:bg-slate-100 rounded"
+            title="Edit"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+        </div>
       ),
     },
   ];

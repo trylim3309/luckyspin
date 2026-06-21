@@ -973,3 +973,14 @@
     font-size: 22px;
   }
 }
+
+/* Khmer Font */
+html[data-locale="kh"] {
+  font-family: "Khmer Battambang", "Niroth", "Battambang", "Moul", "Khmer OS", system-ui, sans-serif !important;
+}
+
+html[data-locale="kh"] *,
+html[data-locale="kh"] *::before,
+html[data-locale="kh"] *::after {
+  font-family: inherit !important;
+}
