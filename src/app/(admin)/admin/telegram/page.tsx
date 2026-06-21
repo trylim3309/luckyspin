@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Send, Users, Radio, CheckCircle, XCircle, RefreshCw, Settings, MessageSquare } from "lucide-react";
+import { Send, Users, Radio, CheckCircle, XCircle, RefreshCw, Settings, MessageSquare, Upload, Link2 } from "lucide-react";
 import { useAdminData } from "@/hooks/useAdminData";
 
 interface TelegramUser {
@@ -24,15 +24,24 @@ interface WebhookStatus {
   };
 }
 
+interface BulkLinkResult {
+  linked: number;
+  notFound: string[];
+  errors: { username: string; error: string }[];
+}
+
 export default function TelegramPage() {
   const [isSending, setIsSending] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
   const [setupStatus, setSetupStatus] = useState<string | null>(null);
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkLinkResult | null>(null);
 
   const { data: usersData, mutate: mutateUsers } = useAdminData<{ users: TelegramUser[] }>(
-    "/api/admin/users? telegram=true"
+    "/api/admin/users?telegram=true"
   );
   const { data: webhookData, mutate: mutateWebhook } = useAdminData<WebhookStatus>(
     "/api/telegram/setup"
@@ -115,6 +124,62 @@ export default function TelegramPage() {
       alert("Failed to send broadcast");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!bulkImportText.trim()) {
+      alert("Please paste user data to import");
+      return;
+    }
+
+    setIsBulkImporting(true);
+    setBulkResult(null);
+
+    try {
+      // Parse the text - expected format: username,telegramChatId per line
+      const lines = bulkImportText.trim().split("\n");
+      const users = lines
+        .map((line) => {
+          const parts = line.split(",").map((p) => p.trim());
+          if (parts.length >= 2) {
+            return {
+              username: parts[0],
+              telegramChatId: parts[1],
+              telegramUsername: parts[2] || null,
+            };
+          }
+          return null;
+        })
+        .filter((u) => u !== null);
+
+      if (users.length === 0) {
+        alert("No valid users found. Format: username,telegramChatId per line");
+        setIsBulkImporting(false);
+        return;
+      }
+
+      const res = await fetch("/api/admin/telegram/bulk-link", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ users }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setBulkResult(data.results);
+        setBulkImportText("");
+        mutateUsers();
+      } else {
+        alert(data.error || "Failed to import users");
+      }
+    } catch (error) {
+      console.error("Bulk import error:", error);
+      alert("Failed to import users");
+    } finally {
+      setIsBulkImporting(false);
     }
   };
 
@@ -288,6 +353,79 @@ export default function TelegramPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk Import Card */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center">
+              <Upload className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Bulk Import Users</h2>
+              <p className="text-[12px] text-[#6B7280]">Link existing users by their Telegram Chat ID</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5">
+          <div className="mb-4">
+            <label className="block text-[13px] font-medium text-[#495057] mb-2">
+              User Data (one per line)
+            </label>
+            <textarea
+              value={bulkImportText}
+              onChange={(e) => setBulkImportText(e.target.value)}
+              placeholder={"Format: username,telegramChatId\nExample:\njohn123,123456789\njane456,987654321"}
+              className="w-full h-40 px-4 py-3 border border-[#E2E8F0] rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-[#6D41D7] focus:border-transparent font-mono"
+            />
+            <p className="text-[11px] text-[#6B7280] mt-2">
+              One user per line: <code className="bg-[#F4F5F7] px-1 rounded">username,telegramChatId</code>
+            </p>
+          </div>
+
+          {bulkResult && (
+            <div className="mb-4 p-4 bg-[#F8F9FA] rounded-lg">
+              <h3 className="text-[14px] font-medium text-[#495057] mb-2">Import Results:</h3>
+              <div className="flex items-center gap-4 text-[13px]">
+                <span className="text-[#4CAF50]">✓ Linked: {bulkResult.linked}</span>
+                {bulkResult.notFound.length > 0 && (
+                  <span className="text-[#F59E0B]">⚠ Not found: {bulkResult.notFound.length}</span>
+                )}
+                {bulkResult.errors.length > 0 && (
+                  <span className="text-[#DC2626]">✗ Errors: {bulkResult.errors.length}</span>
+                )}
+              </div>
+              {bulkResult.notFound.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[12px] text-[#6B7280]">Not found usernames:</p>
+                  <code className="text-[11px] text-[#92400E]">{bulkResult.notFound.join(", ")}</code>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBulkImport}
+              disabled={isBulkImporting || !bulkImportText.trim()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white text-[13px] font-medium rounded-lg hover:from-[#D97706] hover:to-[#B45309] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              {isBulkImporting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Link2 className="w-4 h-4" />
+                  Import Users
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
