@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { Send, Users, Radio, CheckCircle, XCircle, RefreshCw, Settings, MessageSquare, Upload, Link2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Send, Users, Radio, CheckCircle, XCircle, RefreshCw, Settings, MessageSquare, Upload, Link2, Clock } from "lucide-react";
 import { useAdminData } from "@/hooks/useAdminData";
 
 interface TelegramUser {
@@ -10,6 +10,14 @@ interface TelegramUser {
   firstName: string;
   telegramChatId: string | null;
   telegramUsername: string | null;
+}
+
+interface PendingLink {
+  id: string;
+  telegramChatId: string;
+  telegramUsername: string | null;
+  firstName: string | null;
+  createdAt: string;
 }
 
 interface WebhookStatus {
@@ -27,6 +35,7 @@ interface WebhookStatus {
 interface BulkLinkResult {
   linked: number;
   notFound: string[];
+  noPendingLink: string[];
   errors: { username: string; error: string }[];
 }
 
@@ -39,6 +48,8 @@ export default function TelegramPage() {
   const [bulkImportText, setBulkImportText] = useState("");
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkLinkResult | null>(null);
+  const [pendingLinks, setPendingLinks] = useState<PendingLink[]>([]);
+  const [isLoadingPending, setIsLoadingPending] = useState(false);
 
   const { data: usersData, mutate: mutateUsers } = useAdminData<{ users: TelegramUser[] }>(
     "/api/admin/users?telegram=true"
@@ -52,7 +63,23 @@ export default function TelegramPage() {
 
   useEffect(() => {
     checkWebhookStatus();
+    fetchPendingLinks();
   }, []);
+
+  const fetchPendingLinks = async () => {
+    setIsLoadingPending(true);
+    try {
+      const res = await fetch("/api/admin/telegram/pending", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingLinks(data.pendingLinks || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch pending links:", error);
+    } finally {
+      setIsLoadingPending(false);
+    }
+  };
 
   const checkWebhookStatus = async () => {
     try {
@@ -129,7 +156,7 @@ export default function TelegramPage() {
 
   const handleBulkImport = async () => {
     if (!bulkImportText.trim()) {
-      alert("Please paste user data to import");
+      alert("Please paste usernames to import");
       return;
     }
 
@@ -137,33 +164,20 @@ export default function TelegramPage() {
     setBulkResult(null);
 
     try {
-      // Parse the text - expected format: username,telegramChatId per line
-      const lines = bulkImportText.trim().split("\n");
-      const users = lines
-        .map((line) => {
-          const parts = line.split(",").map((p) => p.trim());
-          if (parts.length >= 2) {
-            return {
-              username: parts[0],
-              telegramChatId: parts[1],
-              telegramUsername: parts[2] || null,
-            };
-          }
-          return null;
-        })
-        .filter((u) => u !== null);
+      // Parse usernames - one per line
+      const usernames = bulkImportText.trim().split("\n").map((u) => u.trim()).filter((u) => u);
 
-      if (users.length === 0) {
-        alert("No valid users found. Format: username,telegramChatId per line");
+      if (usernames.length === 0) {
+        alert("No usernames found");
         setIsBulkImporting(false);
         return;
       }
 
-      const res = await fetch("/api/admin/telegram/bulk-link", {
+      const res = await fetch("/api/admin/telegram/link", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ users }),
+        body: JSON.stringify({ usernames }),
       });
 
       const data = await res.json();
@@ -172,12 +186,13 @@ export default function TelegramPage() {
         setBulkResult(data.results);
         setBulkImportText("");
         mutateUsers();
+        fetchPendingLinks();
       } else {
-        alert(data.error || "Failed to import users");
+        alert(data.error || "Failed to link users");
       }
     } catch (error) {
-      console.error("Bulk import error:", error);
-      alert("Failed to import users");
+      console.error("Bulk link error:", error);
+      alert("Failed to link users");
     } finally {
       setIsBulkImporting(false);
     }
@@ -357,16 +372,81 @@ export default function TelegramPage() {
         </div>
       </div>
 
-      {/* Bulk Import Card */}
+      {/* Pending Links - Users who sent /start but not linked */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center">
+              <Clock className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Pending Links</h2>
+              <p className="text-[12px] text-[#6B7280]">Users who sent /start - ready to link</p>
+            </div>
+          </div>
+          <button
+            onClick={fetchPendingLinks}
+            disabled={isLoadingPending}
+            className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#6B7280] hover:text-[#495057] transition-colors"
+          >
+            <RefreshCw className={`w-3 h-3 ${isLoadingPending ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        <div className="p-5">
+          {pendingLinks.length > 0 ? (
+            <div className="space-y-3">
+              {pendingLinks.map((link) => (
+                <div
+                  key={link.id}
+                  className="flex items-center justify-between p-4 bg-[#FEF3C7] rounded-lg border border-[#FDE68A]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center text-white font-medium">
+                      {link.firstName?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#495057]">
+                        {link.firstName || "Unknown"}
+                      </p>
+                      <p className="text-[12px] text-[#6B7280]">
+                        {link.telegramUsername ? `@${link.telegramUsername}` : `ID: ${link.telegramChatId}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] bg-[#FEF3C7] text-[#92400E] px-2 py-1 rounded-full">
+                      Pending
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#F4F5F7] flex items-center justify-center mb-3">
+                <Clock className="w-6 h-6 text-[#E2E8F0]" />
+              </div>
+              <p className="text-[13px] text-[#6B7280]">No pending links</p>
+              <p className="text-[11px] text-[#A0A0B2] mt-1">
+                Users will appear here after sending /start to the bot
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bulk Import Card */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center">
               <Upload className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-[#495057]">Bulk Import Users</h2>
-              <p className="text-[12px] text-[#6B7280]">Link existing users by their Telegram Chat ID</p>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Link Users by Username</h2>
+              <p className="text-[12px] text-[#6B7280]">Paste usernames to link with pending Telegram accounts</p>
             </div>
           </div>
         </div>
@@ -374,35 +454,41 @@ export default function TelegramPage() {
         <div className="p-5">
           <div className="mb-4">
             <label className="block text-[13px] font-medium text-[#495057] mb-2">
-              User Data (one per line)
+              Usernames (one per line)
             </label>
             <textarea
               value={bulkImportText}
               onChange={(e) => setBulkImportText(e.target.value)}
-              placeholder={"Format: username,telegramChatId\nExample:\njohn123,123456789\njane456,987654321"}
+              placeholder={"Enter usernames:\njohn123\njane456\nbob789"}
               className="w-full h-40 px-4 py-3 border border-[#E2E8F0] rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-[#6D41D7] focus:border-transparent font-mono"
             />
             <p className="text-[11px] text-[#6B7280] mt-2">
-              One user per line: <code className="bg-[#F4F5F7] px-1 rounded">username,telegramChatId</code>
+              The bot will match these usernames with the pending Telegram accounts above
             </p>
           </div>
 
           {bulkResult && (
             <div className="mb-4 p-4 bg-[#F8F9FA] rounded-lg">
-              <h3 className="text-[14px] font-medium text-[#495057] mb-2">Import Results:</h3>
+              <h3 className="text-[14px] font-medium text-[#495057] mb-2">Link Results:</h3>
               <div className="flex items-center gap-4 text-[13px]">
                 <span className="text-[#4CAF50]">✓ Linked: {bulkResult.linked}</span>
                 {bulkResult.notFound.length > 0 && (
-                  <span className="text-[#F59E0B]">⚠ Not found: {bulkResult.notFound.length}</span>
+                  <span className="text-[#DC2626]">✗ Not found: {bulkResult.notFound.length}</span>
                 )}
-                {bulkResult.errors.length > 0 && (
-                  <span className="text-[#DC2626]">✗ Errors: {bulkResult.errors.length}</span>
+                {bulkResult.noPendingLink.length > 0 && (
+                  <span className="text-[#F59E0B]">⚠ No Telegram: {bulkResult.noPendingLink.length}</span>
                 )}
               </div>
               {bulkResult.notFound.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-[12px] text-[#6B7280]">Not found usernames:</p>
+                  <p className="text-[12px] text-[#6B7280]">Users not found in system:</p>
                   <code className="text-[11px] text-[#92400E]">{bulkResult.notFound.join(", ")}</code>
+                </div>
+              )}
+              {bulkResult.noPendingLink.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[12px] text-[#6B7280]">Users without Telegram /start:</p>
+                  <code className="text-[11px] text-[#92400E]">{bulkResult.noPendingLink.join(", ")}</code>
                 </div>
               )}
             </div>
@@ -412,17 +498,17 @@ export default function TelegramPage() {
             <button
               onClick={handleBulkImport}
               disabled={isBulkImporting || !bulkImportText.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white text-[13px] font-medium rounded-lg hover:from-[#D97706] hover:to-[#B45309] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#10B981] to-[#059669] text-white text-[13px] font-medium rounded-lg hover:from-[#059669] hover:to-[#047857] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
             >
               {isBulkImporting ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Importing...
+                  Linking...
                 </>
               ) : (
                 <>
                   <Link2 className="w-4 h-4" />
-                  Import Users
+                  Link Users
                 </>
               )}
             </button>

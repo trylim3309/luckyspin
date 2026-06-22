@@ -452,12 +452,24 @@ export async function processTelegramWebhook(
       }
 
       if (!linked) {
-        // Save Telegram info even without linking to a user account
-        // User needs to be manually linked or use another linking method
+        // Save to pending links so admin can manually link later
+        await prisma.pendingTelegramLink.upsert({
+          where: { telegramChatId: chatId },
+          create: {
+            telegramChatId: chatId,
+            telegramUsername: telegramUsername,
+            firstName: firstName,
+          },
+          update: {
+            telegramUsername: telegramUsername,
+            firstName: firstName,
+          },
+        });
+
         await telegramService.sendMessage(
           chatId,
-          `Hello ${firstName}! Your Telegram (ID: ${chatId}) has been registered. ` +
-          `To link your account, please login to your account on the website first, or contact admin to link your account manually.`
+          `Hello ${firstName}! Your Telegram has been registered. ` +
+          `Contact admin to link your account.`
         );
       }
     }
