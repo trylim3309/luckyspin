@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const id = searchParams.get("id");
     const telegram = searchParams.get("telegram") === "true";
+    const team = searchParams.get("team");
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
     const offset = (page - 1) * limit;
@@ -37,6 +38,11 @@ export async function GET(req: NextRequest) {
 
     // Build where clause
     const where: Prisma.UserWhereInput = {};
+
+    // Add team filter
+    if (team && ["KING88", "SKY24", "B88"].includes(team)) {
+      where.team = team as "KING88" | "SKY24" | "B88";
+    }
 
     // Add search filter
     if (search) {

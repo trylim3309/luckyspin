@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 /**
  * Broadcast a Telegram message to all users with linked Telegram accounts
  * POST /api/telegram/broadcast
- * Body: { message: string, parseMode?: "HTML" | "Markdown" }
+ * Body: { message: string, team?: "KING88" | "SKY24" | "B88", parseMode?: "HTML" | "Markdown" }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { message, parseMode } = body;
+    const { message, team, parseMode } = body;
 
     if (!message) {
       return NextResponse.json(
@@ -25,21 +25,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (!botToken) {
-      return NextResponse.json(
-        { error: "Telegram bot token not configured" },
-        { status: 500 }
-      );
-    }
-
-    const result = await sendTelegramBroadcast(message, { parseMode });
+    const result = await sendTelegramBroadcast(message, {
+      team: team || "SKY24",
+      parseMode,
+    });
 
     return NextResponse.json({
       success: true,
       sent: result.sent,
       failed: result.failed,
       total: result.sent + result.failed,
+      team: team || "SKY24",
     });
   } catch (error) {
     console.error("Error broadcasting Telegram message:", error);

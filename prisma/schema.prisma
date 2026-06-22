@@ -37,6 +37,7 @@ model User {
   phone            String?          @unique
   telegramChatId   String?          @unique
   telegramUsername String?
+  team             Team             @default(KING88)
   dailySpins       DailySpinCount[]
   spinResults      SpinResult[]
   transactions     SpinTransaction[]
@@ -50,6 +51,7 @@ model PendingTelegramLink {
   telegramChatId   String   @unique
   telegramUsername String?
   firstName        String?
+  team             Team     @default(KING88)
   linked           Boolean  @default(false)
   linkedAt         DateTime?
   createdAt        DateTime @default(now())

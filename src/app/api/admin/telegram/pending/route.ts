@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 /**
  * Get pending Telegram links
- * GET /api/admin/telegram/pending
+ * GET /api/admin/telegram/pending?team=SKY24
  */
 export async function GET(req: NextRequest) {
   try {
@@ -13,8 +13,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const searchParams = req.nextUrl.searchParams;
+    const team = searchParams.get("team") || "SKY24";
+
     const pendingLinks = await prisma.pendingTelegramLink.findMany({
-      where: { linked: false },
+      where: {
+        linked: false,
+        team: team as "KING88" | "SKY24" | "B88",
+      },
       orderBy: { createdAt: "desc" },
     });
 

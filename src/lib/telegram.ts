@@ -2,6 +2,45 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
 // ============================================================================
+// Team Bot Configuration
+// ============================================================================
+
+type Team = "KING88" | "SKY24" | "B88";
+
+interface TeamBotConfig {
+  token: string;
+  secret: string;
+}
+
+// Get bot token for a specific team
+function getBotTokenForTeam(team: Team): string | undefined {
+  const tokens: Record<Team, string | undefined> = {
+    KING88: process.env.TELEGRAM_BOT_TOKEN_KING88,
+    SKY24: process.env.TELEGRAM_BOT_TOKEN_SKY24,
+    B88: process.env.TELEGRAM_BOT_TOKEN_B88,
+  };
+  return tokens[team] || process.env.TELEGRAM_BOT_TOKEN;
+}
+
+// Get bot secret for a specific team
+function getBotSecretForTeam(team: Team): string | undefined {
+  const secrets: Record<Team, string | undefined> = {
+    KING88: process.env.TELEGRAM_BOT_SECRET_KING88,
+    SKY24: process.env.TELEGRAM_BOT_SECRET_SKY24,
+    B88: process.env.TELEGRAM_BOT_SECRET_B88,
+  };
+  return secrets[team] || process.env.TELEGRAM_BOT_SECRET;
+}
+
+// Get team from bot token
+function getTeamFromToken(token: string): Team {
+  if (token === process.env.TELEGRAM_BOT_TOKEN_KING88) return "KING88";
+  if (token === process.env.TELEGRAM_BOT_TOKEN_SKY24) return "SKY24";
+  if (token === process.env.TELEGRAM_BOT_TOKEN_B88) return "B88";
+  return "SKY24"; // default
+}
+
+// ============================================================================
 // EXISTING: Telegram Widget / Mini App Verification Utilities
 // ============================================================================
 
@@ -408,6 +447,7 @@ export async function processTelegramWebhook(
 
   if (!message) return null;
 
+  const team = getTeamFromToken(botToken);
   const telegramService = new TelegramBotService(botToken);
 
   // Handle /start command
@@ -430,8 +470,12 @@ export async function processTelegramWebhook(
       // Try to find user by telegram username
       let linked = false;
       if (telegramUsername) {
-        const userByTelegram = await prisma.user.findUnique({
-          where: { username: telegramUsername },
+        // Find user by both username AND team
+        const userByTelegram = await prisma.user.findFirst({
+          where: {
+            username: telegramUsername,
+            team: team as Team
+          },
         });
 
         if (userByTelegram) {
@@ -446,35 +490,37 @@ export async function processTelegramWebhook(
           linked = true;
           await telegramService.sendMessage(
             chatId,
-            `Hello ${firstName}! You've been linked to your ${userByTelegram.username} account.`
+            `Hello ${firstName}! You've been linked to your ${userByTelegram.username} account (${team}).`
           );
         }
       }
 
       if (!linked) {
-        // Save to pending links so admin can manually link later
+        // Save to pending links with team so admin can manually link later
         await prisma.pendingTelegramLink.upsert({
           where: { telegramChatId: chatId },
           create: {
             telegramChatId: chatId,
             telegramUsername: telegramUsername,
             firstName: firstName,
+            team: team as Team,
           },
           update: {
             telegramUsername: telegramUsername,
             firstName: firstName,
+            team: team as Team,
           },
         });
 
         await telegramService.sendMessage(
           chatId,
-          `Hello ${firstName}! Your Telegram has been registered. ` +
+          `Hello ${firstName}! Your Telegram (${team}) has been registered. ` +
           `Contact admin to link your account.`
         );
       }
     }
 
-    return { action: "start", data: { chatId, telegramUsername, firstName } };
+    return { action: "start", data: { chatId, telegramUsername, firstName, team } };
   }
 
   // Handle /help command
@@ -527,9 +573,10 @@ export async function sendTelegramNotification(
     return false;
   }
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const team = user.team as Team;
+  const botToken = getBotTokenForTeam(team);
   if (!botToken) {
-    console.error("TELEGRAM_BOT_TOKEN is not set");
+    console.error(`TELEGRAM_BOT_TOKEN for team ${team} is not set`);
     return false;
   }
 
@@ -538,15 +585,16 @@ export async function sendTelegramNotification(
 }
 
 /**
- * Send a broadcast message to all users with Telegram linked
+ * Send a broadcast message to all users with Telegram linked, filtered by team
  */
 export async function sendTelegramBroadcast(
   message: string,
-  options?: { parseMode?: "HTML" | "Markdown" }
+  options?: { team?: Team; parseMode?: "HTML" | "Markdown" }
 ): Promise<{ sent: number; failed: number }> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const team = options?.team || "SKY24";
+  const botToken = getBotTokenForTeam(team);
   if (!botToken) {
-    throw new Error("TELEGRAM_BOT_TOKEN is not set");
+    throw new Error(`TELEGRAM_BOT_TOKEN for team ${team} is not set`);
   }
 
   const telegramService = new TelegramBotService(botToken);
@@ -554,6 +602,7 @@ export async function sendTelegramBroadcast(
   const usersWithTelegram = await prisma.user.findMany({
     where: {
       telegramChatId: { not: null },
+      team: team,
     },
     select: { id: true, telegramChatId: true },
   });

@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 /**
  * Bulk link pending Telegram users by username
  * POST /api/admin/telegram/link
- * Body: { usernames: string[] }
+ * Body: { usernames: string[], team: "KING88" | "SKY24" | "B88" }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { usernames } = body;
+    const { usernames, team } = body;
 
     if (!Array.isArray(usernames) || usernames.length === 0) {
       return NextResponse.json(
@@ -24,18 +24,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const teamFilter = team || "SKY24";
+
     const results = {
       linked: 0,
       notFound: [] as string[],
       noPendingLink: [] as string[],
+      wrongTeam: [] as string[],
       errors: [] as { username: string; error: string }[],
     };
 
     for (const username of usernames) {
       try {
-        // Find user by username
-        const user = await prisma.user.findUnique({
-          where: { username },
+        // Find user by username AND team
+        const user = await prisma.user.findFirst({
+          where: {
+            username: username,
+            team: teamFilter as "KING88" | "SKY24" | "B88",
+          },
         });
 
         if (!user) {
@@ -43,11 +49,12 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Find pending link by telegramUsername
+        // Find pending link by telegramUsername AND team
         const pendingLink = await prisma.pendingTelegramLink.findFirst({
           where: {
             telegramUsername: username,
             linked: false,
+            team: teamFilter as "KING88" | "SKY24" | "B88",
           },
         });
 

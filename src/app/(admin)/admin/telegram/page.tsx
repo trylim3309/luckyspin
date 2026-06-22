@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { Send, Users, Radio, CheckCircle, XCircle, RefreshCw, Settings, MessageSquare, Upload, Link2, Clock } from "lucide-react";
 import { useAdminData } from "@/hooks/useAdminData";
 
+type Team = "KING88" | "SKY24" | "B88";
+
 interface TelegramUser {
   id: string;
   username: string;
   firstName: string;
   telegramChatId: string | null;
   telegramUsername: string | null;
+  team: Team;
 }
 
 interface PendingLink {
@@ -17,6 +20,7 @@ interface PendingLink {
   telegramChatId: string;
   telegramUsername: string | null;
   firstName: string | null;
+  team: Team;
   createdAt: string;
 }
 
@@ -39,7 +43,14 @@ interface BulkLinkResult {
   errors: { username: string; error: string }[];
 }
 
+const TEAMS: { value: Team; label: string }[] = [
+  { value: "SKY24", label: "SKY24" },
+  { value: "KING88", label: "KING88" },
+  { value: "B88", label: "B88" },
+];
+
 export default function TelegramPage() {
+  const [selectedTeam, setSelectedTeam] = useState<Team>("SKY24");
   const [isSending, setIsSending] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
@@ -52,24 +63,23 @@ export default function TelegramPage() {
   const [isLoadingPending, setIsLoadingPending] = useState(false);
 
   const { data: usersData, mutate: mutateUsers } = useAdminData<{ users: TelegramUser[] }>(
-    "/api/admin/users?telegram=true"
+    `/api/admin/users?telegram=true&team=${selectedTeam}`
   );
   const { data: webhookData, mutate: mutateWebhook } = useAdminData<WebhookStatus>(
-    "/api/telegram/setup"
+    `/api/telegram/setup?team=${selectedTeam}`
   );
 
   const users = usersData?.users || [];
   const linkedUsers = users.filter((u) => u.telegramChatId);
 
   useEffect(() => {
-    checkWebhookStatus();
-    fetchPendingLinks();
-  }, []);
+    fetchPendingLinks(selectedTeam);
+  }, [selectedTeam]);
 
-  const fetchPendingLinks = async () => {
+  const fetchPendingLinks = async (team: Team) => {
     setIsLoadingPending(true);
     try {
-      const res = await fetch("/api/admin/telegram/pending", { credentials: "include" });
+      const res = await fetch(`/api/admin/telegram/pending?team=${team}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setPendingLinks(data.pendingLinks || []);
@@ -83,7 +93,7 @@ export default function TelegramPage() {
 
   const checkWebhookStatus = async () => {
     try {
-      const res = await fetch("/api/telegram/setup");
+      const res = await fetch(`/api/telegram/setup?team=${selectedTeam}`);
       if (res.ok) {
         const data = await res.json();
         mutateWebhook({ ...data }, false);
@@ -101,7 +111,7 @@ export default function TelegramPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ team: selectedTeam }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -134,6 +144,7 @@ export default function TelegramPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: broadcastMessage,
+          team: selectedTeam,
           parseMode: "HTML",
         }),
       });
@@ -164,7 +175,6 @@ export default function TelegramPage() {
     setBulkResult(null);
 
     try {
-      // Parse usernames - one per line
       const usernames = bulkImportText.trim().split("\n").map((u) => u.trim()).filter((u) => u);
 
       if (usernames.length === 0) {
@@ -177,7 +187,7 @@ export default function TelegramPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usernames }),
+        body: JSON.stringify({ usernames, team: selectedTeam }),
       });
 
       const data = await res.json();
@@ -186,7 +196,7 @@ export default function TelegramPage() {
         setBulkResult(data.results);
         setBulkImportText("");
         mutateUsers();
-        fetchPendingLinks();
+        fetchPendingLinks(selectedTeam);
       } else {
         alert(data.error || "Failed to link users");
       }
@@ -212,12 +222,26 @@ export default function TelegramPage() {
             Manage your Telegram bot and send messages to users
           </p>
         </div>
-        {botUsername && (
-          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-[#E2E8F0]">
-            <div className="w-2 h-2 rounded-full bg-[#4CAF50]" />
-            <span className="text-[12px] text-[#6B7280]">@{botUsername}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Team Selector */}
+          <select
+            value={selectedTeam}
+            onChange={(e) => setSelectedTeam(e.target.value as Team)}
+            className="px-4 py-2 border border-[#E2E8F0] rounded-lg text-[14px] font-medium bg-white"
+          >
+            {TEAMS.map((team) => (
+              <option key={team.value} value={team.value}>
+                {team.label}
+              </option>
+            ))}
+          </select>
+          {botUsername && (
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-[#E2E8F0]">
+              <div className="w-2 h-2 rounded-full bg-[#4CAF50]" />
+              <span className="text-[12px] text-[#6B7280]">@{botUsername}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Webhook Status Card */}
@@ -228,7 +252,7 @@ export default function TelegramPage() {
               <Radio className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-[#495057]">Webhook Status</h2>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Webhook Status - {selectedTeam}</h2>
               <p className="text-[12px] text-[#6B7280]">Telegram bot connection</p>
             </div>
           </div>
@@ -300,9 +324,139 @@ export default function TelegramPage() {
 
           <div className="mt-4 p-4 bg-[#FEF3C7] rounded-lg border border-[#FDE68A]">
             <p className="text-[12px] text-[#92400E]">
-              <strong>How it works:</strong> Users find your bot on Telegram and send /start to link
-              their account. Once linked, you can send them messages from this panel.
+              <strong>How it works:</strong> Users find the {selectedTeam} bot on Telegram and send /start.
+              Then link them here and broadcast messages.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Pending Links - Users who sent /start but not linked */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center">
+              <Clock className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Pending Links - {selectedTeam}</h2>
+              <p className="text-[12px] text-[#6B7280]">Users who sent /start - ready to link</p>
+            </div>
+          </div>
+          <button
+            onClick={() => fetchPendingLinks(selectedTeam)}
+            disabled={isLoadingPending}
+            className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#6B7280] hover:text-[#495057] transition-colors"
+          >
+            <RefreshCw className={`w-3 h-3 ${isLoadingPending ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        <div className="p-5">
+          {pendingLinks.length > 0 ? (
+            <div className="space-y-3">
+              {pendingLinks.map((link) => (
+                <div
+                  key={link.id}
+                  className="flex items-center justify-between p-4 bg-[#FEF3C7] rounded-lg border border-[#FDE68A]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center text-white font-medium">
+                      {link.firstName?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#495057]">
+                        {link.firstName || "Unknown"}
+                      </p>
+                      <p className="text-[12px] text-[#6B7280]">
+                        {link.telegramUsername ? `@${link.telegramUsername}` : `ID: ${link.telegramChatId}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] bg-[#FEF3C7] text-[#92400E] px-2 py-1 rounded-full">
+                    Pending
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#F4F5F7] flex items-center justify-center mb-3">
+                <Clock className="w-6 h-6 text-[#E2E8F0]" />
+              </div>
+              <p className="text-[13px] text-[#6B7280]">No pending links for {selectedTeam}</p>
+              <p className="text-[11px] text-[#A0A0B2] mt-1">
+                Users will appear here after sending /start to the {selectedTeam} bot
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bulk Import Card */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center">
+              <Upload className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Link Users by Username</h2>
+              <p className="text-[12px] text-[#6B7280]">Paste usernames to link with pending Telegram accounts</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5">
+          <div className="mb-4">
+            <label className="block text-[13px] font-medium text-[#495057] mb-2">
+              Usernames for {selectedTeam} (one per line)
+            </label>
+            <textarea
+              value={bulkImportText}
+              onChange={(e) => setBulkImportText(e.target.value)}
+              placeholder={"Enter usernames:\njohn123\njane456\nbob789"}
+              className="w-full h-40 px-4 py-3 border border-[#E2E8F0] rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-[#6D41D7] focus:border-transparent font-mono"
+            />
+            <p className="text-[11px] text-[#6B7280] mt-2">
+              Only {selectedTeam} team users will be linked
+            </p>
+          </div>
+
+          {bulkResult && (
+            <div className="mb-4 p-4 bg-[#F8F9FA] rounded-lg">
+              <h3 className="text-[14px] font-medium text-[#495057] mb-2">Link Results:</h3>
+              <div className="flex items-center gap-4 text-[13px]">
+                <span className="text-[#4CAF50]">✓ Linked: {bulkResult.linked}</span>
+                {bulkResult.notFound.length > 0 && (
+                  <span className="text-[#DC2626]">✗ Not found: {bulkResult.notFound.length}</span>
+                )}
+                {bulkResult.noPendingLink.length > 0 && (
+                  <span className="text-[#F59E0B]">⚠ No Telegram: {bulkResult.noPendingLink.length}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBulkImport}
+              disabled={isBulkImporting || !bulkImportText.trim()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#10B981] to-[#059669] text-white text-[13px] font-medium rounded-lg hover:from-[#059669] hover:to-[#047857] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            >
+              {isBulkImporting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                <>
+                  <Link2 className="w-4 h-4" />
+                  Link Users
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -315,7 +469,7 @@ export default function TelegramPage() {
               <Send className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-[#495057]">Broadcast Message</h2>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Broadcast Message - {selectedTeam}</h2>
               <p className="text-[12px] text-[#6B7280]">Send message to all Telegram users</p>
             </div>
           </div>
@@ -333,7 +487,7 @@ export default function TelegramPage() {
             <textarea
               value={broadcastMessage}
               onChange={(e) => setBroadcastMessage(e.target.value)}
-              placeholder="Enter your message... <b>Bold</b>, <i>Italic</i>, <a href='link'>Link</a>"
+              placeholder={"Enter your message... <b>Bold</b>, <i>Italic</i>, <a href='link'>Link</a>"}
               className="w-full h-32 px-4 py-3 border border-[#E2E8F0] rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-[#6D41D7] focus:border-transparent"
             />
             <p className="text-[11px] text-[#6B7280] mt-2">
@@ -372,150 +526,6 @@ export default function TelegramPage() {
         </div>
       </div>
 
-      {/* Pending Links - Users who sent /start but not linked */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center">
-              <Clock className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-[14px] font-semibold text-[#495057]">Pending Links</h2>
-              <p className="text-[12px] text-[#6B7280]">Users who sent /start - ready to link</p>
-            </div>
-          </div>
-          <button
-            onClick={fetchPendingLinks}
-            disabled={isLoadingPending}
-            className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-[#6B7280] hover:text-[#495057] transition-colors"
-          >
-            <RefreshCw className={`w-3 h-3 ${isLoadingPending ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-        </div>
-
-        <div className="p-5">
-          {pendingLinks.length > 0 ? (
-            <div className="space-y-3">
-              {pendingLinks.map((link) => (
-                <div
-                  key={link.id}
-                  className="flex items-center justify-between p-4 bg-[#FEF3C7] rounded-lg border border-[#FDE68A]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center text-white font-medium">
-                      {link.firstName?.charAt(0)?.toUpperCase() || "?"}
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-medium text-[#495057]">
-                        {link.firstName || "Unknown"}
-                      </p>
-                      <p className="text-[12px] text-[#6B7280]">
-                        {link.telegramUsername ? `@${link.telegramUsername}` : `ID: ${link.telegramChatId}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] bg-[#FEF3C7] text-[#92400E] px-2 py-1 rounded-full">
-                      Pending
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#F4F5F7] flex items-center justify-center mb-3">
-                <Clock className="w-6 h-6 text-[#E2E8F0]" />
-              </div>
-              <p className="text-[13px] text-[#6B7280]">No pending links</p>
-              <p className="text-[11px] text-[#A0A0B2] mt-1">
-                Users will appear here after sending /start to the bot
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bulk Import Card */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center">
-              <Upload className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-[14px] font-semibold text-[#495057]">Link Users by Username</h2>
-              <p className="text-[12px] text-[#6B7280]">Paste usernames to link with pending Telegram accounts</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-5">
-          <div className="mb-4">
-            <label className="block text-[13px] font-medium text-[#495057] mb-2">
-              Usernames (one per line)
-            </label>
-            <textarea
-              value={bulkImportText}
-              onChange={(e) => setBulkImportText(e.target.value)}
-              placeholder={"Enter usernames:\njohn123\njane456\nbob789"}
-              className="w-full h-40 px-4 py-3 border border-[#E2E8F0] rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-[#6D41D7] focus:border-transparent font-mono"
-            />
-            <p className="text-[11px] text-[#6B7280] mt-2">
-              The bot will match these usernames with the pending Telegram accounts above
-            </p>
-          </div>
-
-          {bulkResult && (
-            <div className="mb-4 p-4 bg-[#F8F9FA] rounded-lg">
-              <h3 className="text-[14px] font-medium text-[#495057] mb-2">Link Results:</h3>
-              <div className="flex items-center gap-4 text-[13px]">
-                <span className="text-[#4CAF50]">✓ Linked: {bulkResult.linked}</span>
-                {bulkResult.notFound.length > 0 && (
-                  <span className="text-[#DC2626]">✗ Not found: {bulkResult.notFound.length}</span>
-                )}
-                {bulkResult.noPendingLink.length > 0 && (
-                  <span className="text-[#F59E0B]">⚠ No Telegram: {bulkResult.noPendingLink.length}</span>
-                )}
-              </div>
-              {bulkResult.notFound.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-[12px] text-[#6B7280]">Users not found in system:</p>
-                  <code className="text-[11px] text-[#92400E]">{bulkResult.notFound.join(", ")}</code>
-                </div>
-              )}
-              {bulkResult.noPendingLink.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-[12px] text-[#6B7280]">Users without Telegram /start:</p>
-                  <code className="text-[11px] text-[#92400E]">{bulkResult.noPendingLink.join(", ")}</code>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleBulkImport}
-              disabled={isBulkImporting || !bulkImportText.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#10B981] to-[#059669] text-white text-[13px] font-medium rounded-lg hover:from-[#059669] hover:to-[#047857] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-            >
-              {isBulkImporting ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Linking...
-                </>
-              ) : (
-                <>
-                  <Link2 className="w-4 h-4" />
-                  Link Users
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Linked Users List */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
@@ -524,7 +534,7 @@ export default function TelegramPage() {
               <MessageSquare className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-[#495057]">Linked Users</h2>
+              <h2 className="text-[14px] font-semibold text-[#495057]">Linked Users - {selectedTeam}</h2>
               <p className="text-[12px] text-[#6B7280]">Users who connected their Telegram</p>
             </div>
           </div>
@@ -556,11 +566,9 @@ export default function TelegramPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] bg-[#D1FAE5] text-[#065F46] px-2 py-1 rounded-full">
-                      Linked
-                    </span>
-                  </div>
+                  <span className="text-[11px] bg-[#D1FAE5] text-[#065F46] px-2 py-1 rounded-full">
+                    Linked
+                  </span>
                 </div>
               ))}
             </div>
@@ -571,7 +579,7 @@ export default function TelegramPage() {
               </div>
               <p className="text-[14px] text-[#6B7280]">No users linked yet</p>
               <p className="text-[12px] text-[#A0A0B2] mt-1">
-                Users will appear here once they message the bot with /start
+                Users will appear here after linking via the bot
               </p>
             </div>
           )}
