@@ -15,8 +15,10 @@ model AdminUser {
   passwordHash String
   role         Role     @default(ADMIN)
   permissions  String[] @default([])
+  team         Team     @default(KING88)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  customers    Customer[]
 }
 
 model User {
@@ -187,6 +189,51 @@ model Promotion {
   updatedAt    DateTime @updatedAt
 }
 
+model Customer {
+  id         String       @id @default(cuid())
+  accountId  String?
+  name       String
+  phone      String?
+  callStatus CallStatus   @default(NOT_CONTACTED)
+  result     ResultStatus @default(NEW)
+  telegramId String?
+  remarks    String?
+  agentId    String
+  team       Team
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  agent      AdminUser    @relation(fields: [agentId], references: [id])
+
+  @@unique([accountId])
+}
+
+model TelegramContact {
+  id           String   @id @default(cuid())
+  name         String
+  username     String?
+  phone        String?
+  team         Team
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum CallStatus {
+  NOT_CONTACTED
+  CALLED
+  CHATTED
+  NO_ANSWER
+  NOT_INTERESTED
+}
+
+enum ResultStatus {
+  NEW
+  INTERESTED
+  FOLLOW_UP
+  SALE
+  NOT_INTERESTED
+  CLOSED
+}
+
 enum PromotionType {
   DISCOUNT
   FREE_SPIN
@@ -206,8 +253,12 @@ enum TransactionType {
 }
 
 enum Role {
-  ADMIN
   SUPER_ADMIN
+  ADMIN
+  AGENT
+  TEAM_LEADER
+  MANAGER
+  VIEWER
 }
 
 enum PrizeType {

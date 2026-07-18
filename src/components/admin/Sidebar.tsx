@@ -19,6 +19,7 @@ import {
   UserPlus,
   UserCheck,
   MessageSquare,
+  Shield,
 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -51,7 +52,9 @@ const permissionMap: Record<string, string[]> = {
   spin_history: ["/admin/spin-history"],
   promotions: ["/admin/promotions"],
   team: ["/admin/team"],
-  settings: ["/admin/settings", "/admin/admin-users"],
+  settings: ["/admin/settings", "/admin/admin-users", "/admin/roles", "/admin/telegram", "/admin/telegram/contacts"],
+  customers: ["/admin/customers/new", "/admin/customers/old"],
+  telegram: ["/admin/telegram", "/admin/telegram/contacts"],
 };
 
 export function AdminSidebar({ collapsed, hidden, onCollapsedChange, onHiddenChange, adminLogoUrl, permissions, role }: AdminSidebarProps) {
@@ -75,8 +78,10 @@ export function AdminSidebar({ collapsed, hidden, onCollapsedChange, onHiddenCha
     { href: "/admin/team", label: t("common.team"), icon: Handshake },
     { href: "/admin/promotions", label: t("common.promotions"), icon: Tag },
     { href: "/admin/telegram", label: t("common.telegram"), icon: MessageSquare },
+    { href: "/admin/telegram/contacts", label: t("common.telegramContacts"), icon: UserCheck },
     { href: "/admin/customers/new", label: t("common.newCustomers"), icon: UserPlus },
     { href: "/admin/customers/old", label: t("common.oldCustomers"), icon: UserCheck },
+    { href: "/admin/roles", label: t("common.roles"), icon: Shield },
   ];
 
   const spinManagementItems = navItems.filter(item =>
@@ -84,7 +89,7 @@ export function AdminSidebar({ collapsed, hidden, onCollapsedChange, onHiddenCha
   );
 
   const settingItems = navItems.filter(item =>
-    ["/admin/settings", "/admin/admin-users", "/admin/team", "/admin/telegram"].includes(item.href)
+    ["/admin/settings", "/admin/admin-users", "/admin/roles", "/admin/team", "/admin/telegram", "/admin/telegram/contacts"].includes(item.href)
   );
 
   const marketingItems = navItems.filter(item =>

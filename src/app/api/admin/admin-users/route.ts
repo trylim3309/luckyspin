@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         role: body.role || "ADMIN",
         permissions: body.permissions || [],
+        team: body.team || "KING88",
       },
     });
 
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
         role: user.role,
         permissions: user.permissions,
+        team: user.team,
         createdAt: user.createdAt,
       },
     });
@@ -93,25 +95,35 @@ export async function PUT(req: NextRequest) {
     const updateData: Record<string, unknown> = {};
 
     if (body.name) {
-      const existingUser = await prisma.adminUser.findFirst({
-        where: {
-          username: body.name.toLowerCase().replace(/\s+/g, ""),
-          NOT: { id: body.id },
-        },
-      });
+      const currentUser = await prisma.adminUser.findUnique({ where: { id: body.id } });
+      const newUsername = body.name.toLowerCase().replace(/\s+/g, "");
 
-      if (existingUser) {
-        return NextResponse.json(
-          { error: "Username already exists" },
-          { status: 409 }
-        );
+      // Only check for duplicates and update username if name actually changed
+      if (currentUser && currentUser.username !== newUsername) {
+        const existingUser = await prisma.adminUser.findFirst({
+          where: {
+            username: newUsername,
+            NOT: { id: body.id },
+          },
+        });
+
+        if (existingUser) {
+          return NextResponse.json(
+            { error: "Username already exists" },
+            { status: 409 }
+          );
+        }
+
+        updateData.username = newUsername;
       }
 
-      updateData.name = body.name;
-      updateData.username = body.name.toLowerCase().replace(/\s+/g, "");
+      if (currentUser && currentUser.name !== body.name) {
+        updateData.name = body.name;
+      }
     }
     if (body.role) updateData.role = body.role;
     if (body.permissions) updateData.permissions = body.permissions;
+    if (body.team) updateData.team = body.team;
 
     if (body.password) {
       updateData.passwordHash = await bcrypt.hash(body.password, 12);
@@ -128,6 +140,7 @@ export async function PUT(req: NextRequest) {
         name: user.name,
         role: user.role,
         permissions: user.permissions,
+        team: user.team,
         createdAt: user.createdAt,
       },
     });

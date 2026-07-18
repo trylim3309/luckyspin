@@ -17,7 +17,8 @@
     "notifications": "ការជូនដំណឹង",
     "markAllRead": "សម្គាល់ថាបានអានទាំងអស់",
     "noNotifications": "គ្មានការជូនដំណឹងទេ",
-    "telegram": "តេលេក្រាម"
+    "telegram": "តេលេក្រាម",
+    "telegramContacts": "ទំនាក់ទំនង Telegram"
   },
   "userManagement": {
     "title": "គ្រប់គ្រងអ្នកប្រើ",

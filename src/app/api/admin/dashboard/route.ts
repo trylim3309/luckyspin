@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
+    // Allow all authenticated admin roles to access dashboard
+    if (!session || !session.id || !session.type) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

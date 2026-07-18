@@ -7,6 +7,7 @@
     "settings": "Settings",
     "accounts": "Accounts",
     "adminUsers": "Admin Users",
+    "roles": "Roles",
     "spinHistory": "Spin History",
     "customersManagement": "Customers Management",
     "newCustomers": "New Customers",
@@ -17,7 +18,8 @@
     "notifications": "Notifications",
     "markAllRead": "Mark all read",
     "noNotifications": "No notifications yet",
-    "telegram": "Telegram"
+    "telegram": "Telegram",
+    "telegramContacts": "Telegram Contacts"
   },
   "userManagement": {
     "title": "User Management",
@@ -38,6 +40,42 @@
     "online": "Online",
     "offline": "Offline",
     "used": "Used"
+  },
+  "customers": {
+    "newCustomers": "New Customers",
+    "oldCustomers": "Old Customers",
+    "accountId": "Account ID",
+    "callStatus": "Call/Chat",
+    "result": "Result",
+    "followUp": "Follow Up",
+    "remarks": "Remarks",
+    "quickAdd": "Quick Add",
+    "noCustomers": "No customers found",
+    "addFirst": "Add a customer using the form above",
+    "searchPlaceholder": "Search name, phone, account ID...",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "all": "All",
+    "topAgent": "Top Agent Today",
+    "totalToday": "Total Today",
+    "agentsActive": "agents active"
+  },
+  "callStatus": {
+    "NOT_CONTACTED": "Not Contacted",
+    "CALLED": "Called",
+    "CHATTED": "Chatted",
+    "NO_ANSWER": "No Answer",
+    "NOT_INTERESTED": "Not Interested"
+  },
+  "resultStatus": {
+    "NEW": "New",
+    "INTERESTED": "Interested",
+    "FOLLOW_UP": "Follow Up",
+    "SALE": "Sale",
+    "NOT_INTERESTED": "Not Interested",
+    "CLOSED": "Closed"
   },
   "dialogs": {
     "editUser": "Edit User",

@@ -8,11 +8,42 @@ import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/admin/DataTable";
 import { Trash2, Plus, Edit } from "lucide-react";
 
+type Role = "SUPER_ADMIN" | "ADMIN" | "AGENT" | "TEAM_LEADER" | "MANAGER" | "VIEWER";
+
+const ROLE_LABELS: Record<Role, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ADMIN: "Admin",
+  AGENT: "Agent",
+  TEAM_LEADER: "Team Leader",
+  MANAGER: "Manager",
+  VIEWER: "Viewer",
+};
+
+const ROLE_COLORS: Record<Role, string> = {
+  SUPER_ADMIN: "#9333EA",
+  ADMIN: "#6D41D7",
+  AGENT: "#3B82F6",
+  TEAM_LEADER: "#10B981",
+  MANAGER: "#F59E0B",
+  VIEWER: "#6B7280",
+};
+
+// Default permissions per role - can be overridden per user
+const ROLE_DEFAULT_PERMISSIONS: Record<Role, string[]> = {
+  SUPER_ADMIN: ["prizes", "conditions", "result_control", "users", "spin_history", "promotions", "team", "settings", "customers"],
+  ADMIN: ["prizes", "conditions", "result_control", "users", "spin_history", "promotions", "team", "settings", "customers"],
+  AGENT: ["customers", "spin_history"],
+  TEAM_LEADER: ["customers", "spin_history", "team"],
+  MANAGER: ["prizes", "conditions", "spin_history", "promotions", "team", "customers"],
+  VIEWER: ["spin_history"],
+};
+
 interface AdminUser {
   id: string;
   name: string;
-  role: "ADMIN" | "SUPER_ADMIN";
+  role: Role;
   permissions: string[];
+  team: "KING88" | "SKY24" | "B88";
   createdAt: string;
 }
 
@@ -25,6 +56,7 @@ const PERMISSIONS = [
   { key: "promotions", label: "Promotions" },
   { key: "team", label: "Team Management" },
   { key: "settings", label: "Settings" },
+  { key: "customers", label: "Customers" },
 ];
 
 export default function AdminUsersPage() {
@@ -36,19 +68,23 @@ export default function AdminUsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
+  const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>(ROLE_DEFAULT_PERMISSIONS);
   const [formData, setFormData] = useState<{
     name: string;
     password: string;
-    role: "ADMIN" | "SUPER_ADMIN";
+    role: Role;
+    team: "KING88" | "SKY24" | "B88";
     permissions?: string[];
   }>({
     name: "",
     password: "",
-    role: "ADMIN",
+    role: "AGENT",
+    team: "KING88",
   });
 
   useEffect(() => {
     fetchUsers();
+    fetchRolePermissions();
   }, [search]);
 
   const fetchUsers = async () => {
@@ -68,9 +104,27 @@ export default function AdminUsersPage() {
     }
   };
 
+  const fetchRolePermissions = async () => {
+    try {
+      const res = await fetch("/api/admin/roles", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setRolePermissions(data.roles);
+      }
+    } catch (error) {
+      console.error("Failed to fetch role permissions:", error);
+    }
+  };
+
   const handleOpenCreate = () => {
     setEditingUser(null);
-    setFormData({ name: "", password: "", role: "ADMIN" });
+    setFormData({
+      name: "",
+      password: "",
+      role: "AGENT",
+      team: "KING88",
+      permissions: rolePermissions["AGENT"] || []
+    });
     setIsDialogOpen(true);
   };
 
@@ -80,9 +134,24 @@ export default function AdminUsersPage() {
       name: user.name,
       password: "",
       role: user.role,
-      permissions: user.permissions && user.permissions.length > 0 ? user.permissions : undefined
+      team: user.team,
+      permissions: user.permissions && user.permissions.length > 0 ? user.permissions : (rolePermissions[user.role] || [])
     });
     setIsDialogOpen(true);
+  };
+
+  const handleRoleChange = (newRole: Role) => {
+    // When role changes, optionally update permissions to new role defaults
+    // Keep existing custom permissions if user has customized them
+    const currentPerms = formData.permissions || [];
+    const defaultPerms = rolePermissions[newRole] || [];
+    setFormData({
+      ...formData,
+      role: newRole,
+      permissions: currentPerms.length === 0 || (currentPerms.length === defaultPerms.length && currentPerms.every((p, i) => p === defaultPerms[i]))
+        ? defaultPerms
+        : currentPerms
+    });
   };
 
   const handleOpenDelete = (user: AdminUser) => {
@@ -106,6 +175,7 @@ export default function AdminUsersPage() {
       const body: Record<string, unknown> = {
         name: formData.name.trim(),
         role: formData.role,
+        team: formData.team,
       };
       if (editingUser) body.id = editingUser.id;
       if (formData.password) body.password = formData.password;
@@ -127,7 +197,7 @@ export default function AdminUsersPage() {
       }
 
       setIsDialogOpen(false);
-      setFormData({ name: "", password: "", role: "ADMIN" });
+      setFormData({ name: "", password: "", role: "AGENT", team: "KING88" });
       fetchUsers();
     } catch (error) {
       console.error("Failed to save user:", error);
@@ -158,9 +228,32 @@ export default function AdminUsersPage() {
       key: "role",
       label: "Role",
       render: (user: AdminUser) => (
-        <Badge variant={user.role === "SUPER_ADMIN" ? "default" : "secondary"}>
-          {user.role}
-        </Badge>
+        <span style={{
+          padding: "2px 8px",
+          borderRadius: "10px",
+          fontSize: "11px",
+          fontWeight: 600,
+          background: ROLE_COLORS[user.role] + "20",
+          color: ROLE_COLORS[user.role],
+        }}>
+          {ROLE_LABELS[user.role]}
+        </span>
+      ),
+    },
+    {
+      key: "team",
+      label: "Team",
+      render: (user: AdminUser) => (
+        <span style={{
+          padding: "2px 8px",
+          borderRadius: "10px",
+          fontSize: "11px",
+          fontWeight: 700,
+          background: user.team === "KING88" ? "#9333EA" : user.team === "SKY24" ? "#3B82F6" : "#F97316",
+          color: "#fff",
+        }}>
+          {user.team}
+        </span>
       ),
     },
     {
@@ -275,11 +368,24 @@ export default function AdminUsersPage() {
               <label className="text-sm font-medium">Role</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as "ADMIN" | "SUPER_ADMIN" })}
+                onChange={(e) => handleRoleChange(e.target.value as Role)}
                 className="w-full p-2 border rounded-md"
               >
-                <option value="ADMIN">Admin</option>
-                <option value="SUPER_ADMIN">Super Admin</option>
+                {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Team</label>
+              <select
+                value={formData.team}
+                onChange={(e) => setFormData({ ...formData, team: e.target.value as "KING88" | "SKY24" | "B88" })}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="KING88">KING88</option>
+                <option value="SKY24">SKY24</option>
+                <option value="B88">B88</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -303,7 +409,7 @@ export default function AdminUsersPage() {
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-[#868D9E]">Leave all unchecked for full access</p>
+              <p className="text-xs text-[#868D9E]">Role defaults are pre-selected. Uncheck any to customize for this user.</p>
             </div>
           </div>
           <DialogFooter>

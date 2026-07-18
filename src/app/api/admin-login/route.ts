@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
         role: admin.role,
         type: "admin",
         permissions: admin.permissions || [],
+        team: admin.team,
       })
     ).toString("base64");
 
