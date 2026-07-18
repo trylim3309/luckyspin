@@ -454,13 +454,6 @@ export default function NewCustomersPage() {
               </Badge>
             </div>
           )}
-          <Button
-            onClick={handleAddEmpty}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:opacity-90"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add New
-          </Button>
         </div>
       </div>
 
