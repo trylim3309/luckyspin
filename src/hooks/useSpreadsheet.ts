@@ -44,7 +44,7 @@ export function useSpreadsheet<T extends Record<string, any>>(
 
   // Undo/Redo
   const [undoStack, setUndoStack] = useState<UndoStack[]>([]);
-  const [redoStack, setUndoStack] = useState<UndoStack[]>([]);
+  const [redoStack, setRedoStack] = useState<UndoStack[]>([]);
 
   // Navigation
   const moveSelection = useCallback((delta: { dx: number; dy: number }) => {
@@ -54,7 +54,7 @@ export function useSpreadsheet<T extends Record<string, any>>(
     }
 
     const newRow = Math.max(0, Math.min(data.length - 1, selectedCell.rowIndex + delta.dy));
-    const newCol = Math.max(0, Math.min(columns.length - 1, selectedCell.colIndex + delta.col));
+    const newCol = Math.max(0, Math.min(columns.length - 1, selectedCell.colIndex + delta.dx));
 
     setSelectedCell({ rowIndex: newRow, colIndex: newCol });
     setSelection(null);
@@ -185,7 +185,7 @@ export function useSpreadsheet<T extends Record<string, any>>(
         for (let c = 0; c < values[r].length; c++) {
           newRow[colKeys[c]] = values[r][c];
         }
-        await onAdd(newRow);
+        await onAdd(newRow as Partial<T>);
       } else {
         // Update existing row
         for (let c = 0; c < values[r].length; c++) {

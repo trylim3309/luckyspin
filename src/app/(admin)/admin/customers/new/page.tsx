@@ -87,6 +87,7 @@ export default function NewCustomersPage() {
   // Data
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
@@ -516,7 +517,7 @@ export default function NewCustomersPage() {
 
         {/* Team Filter */}
         {!isAgent && (
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
+          <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="All Teams" />
             </SelectTrigger>

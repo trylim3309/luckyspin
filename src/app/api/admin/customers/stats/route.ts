@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
         if (c.createdAt >= monthStart) myStats.month++;
       }
 
-      const teamStats = { [session.team]: 0 };
+      const teamStats: Record<string, number> = { [session.team]: 0 };
       for (const c of teamCustomers) {
         if (teamStats[c.team] !== undefined) teamStats[c.team]++;
       }
