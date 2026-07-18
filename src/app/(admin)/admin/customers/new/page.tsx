@@ -308,7 +308,7 @@ export default function NewCustomersPage() {
       key: "accountId",
       label: "Account ID",
       width: 100,
-      editable: false,
+      editable: true,
     },
     {
       key: "name",
