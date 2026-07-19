@@ -96,6 +96,9 @@ export default function NewCustomersPage() {
   const [search, setSearch] = useState("");
   const [customDateFrom, setCustomDateFrom] = useState<string>("");
   const [customDateTo, setCustomDateTo] = useState<string>("");
+  const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
+  const [resultFilter, setResultFilter] = useState<string>("all");
+  const [telegramFilter, setTelegramFilter] = useState<string>("all");
 
   // Current agent
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; team: Team } | null>(null);
@@ -163,6 +166,8 @@ export default function NewCustomersPage() {
       }
       if (teamFilter !== "all") params.set("team", teamFilter);
       if (search) params.set("search", search);
+      if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
+      if (resultFilter !== "all") params.set("result", resultFilter);
       params.set("limit", "100");
 
       const [custRes, statsRes] = await Promise.all([
@@ -190,7 +195,7 @@ export default function NewCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, teamFilter, search, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, teamFilter, search, callStatusFilter, resultFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -632,6 +637,37 @@ export default function NewCustomersPage() {
             </SelectContent>
           </Select>
         )}
+
+        {/* Call/Chat Filter */}
+        <Select value={callStatusFilter} onValueChange={(v) => setCallStatusFilter(v || "all")}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Call/Chat" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Call/Chat</SelectItem>
+            <SelectItem value="NOT_CONTACTED">Not Contacted</SelectItem>
+            <SelectItem value="CALLED">Called</SelectItem>
+            <SelectItem value="CHATTED">Chatted</SelectItem>
+            <SelectItem value="NO_ANSWER">No Answer</SelectItem>
+            <SelectItem value="NOT_INTERESTED">Not Interested</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Result Filter */}
+        <Select value={resultFilter} onValueChange={(v) => setResultFilter(v || "all")}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Result" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Result</SelectItem>
+            <SelectItem value="NEW">New</SelectItem>
+            <SelectItem value="INTERESTED">Interested</SelectItem>
+            <SelectItem value="FOLLOW_UP">Follow Up</SelectItem>
+            <SelectItem value="SALE">Sale</SelectItem>
+            <SelectItem value="NOT_INTERESTED">Not Interested</SelectItem>
+            <SelectItem value="CLOSED">Closed</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Search */}
         <Input

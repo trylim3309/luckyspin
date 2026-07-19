@@ -80,6 +80,12 @@ export async function GET(req: NextRequest) {
         { accountId: { contains: search, mode: "insensitive" } },
       ];
     }
+    if (searchParams.get("callStatus") && searchParams.get("callStatus") !== "all") {
+      where.callStatus = searchParams.get("callStatus") as any;
+    }
+    if (searchParams.get("result") && searchParams.get("result") !== "all") {
+      where.result = searchParams.get("result") as any;
+    }
 
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
