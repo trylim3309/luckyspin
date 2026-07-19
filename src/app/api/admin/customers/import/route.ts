@@ -53,8 +53,9 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
 
     // Get agent's team for default
+    const agentId = formData.get("agentId") as string || session.id;
     const agent = await prisma.adminUser.findUnique({
-      where: { id: session.id },
+      where: { id: agentId },
       select: { team: true },
     });
 
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
             accountId: accountId || null,
             callStatus: "NOT_CONTACTED",
             result: "NEW",
-            agentId: session.id,
+            agentId: agentId,
             team: agent?.team || "KING88",
           },
         });

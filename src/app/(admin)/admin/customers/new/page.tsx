@@ -99,6 +99,8 @@ export default function NewCustomersPage() {
   const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<string>("all");
   const [telegramFilter, setTelegramFilter] = useState<string>("all");
+  const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Current agent
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; team: Team } | null>(null);
@@ -107,9 +109,14 @@ export default function NewCustomersPage() {
   // Stats
   const [stats, setStats] = useState<{ today: number; week: number; month: number; all: number }>({ today: 0, week: 0, month: 0, all: 0 });
 
+  // Agents list for filter (admins only)
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+
   // Telegram contacts for dropdown
   const [telegramContacts, setTelegramContacts] = useState<TelegramContact[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importAgentId, setImportAgentId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch telegram contacts
@@ -130,13 +137,28 @@ export default function NewCustomersPage() {
         if (data.admin) {
           const agentTeam = (data.admin.team as Team) || "KING88";
           setCurrentAgent({ id: data.admin.id, name: data.admin.name, team: agentTeam });
-          // Agents can only see their own customers
           const agentRole = data.admin.role;
-          setIsAgent(["AGENT", "TEAM_LEADER", "MANAGER"].includes(agentRole));
+          // Agents (AGENT role) can only see their own customers
+          setIsAgent(agentRole === "AGENT");
+          // Admins and Team Leaders can filter by agent
+          setIsAdmin(["ADMIN", "SUPER_ADMIN", "TEAM_LEADER", "MANAGER"].includes(agentRole));
         }
       })
       .catch(console.error);
   }, []);
+
+  // Fetch agents list for filter
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/admin/admin-users", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.users) {
+          setAgents(data.users.map((u: any) => ({ id: u.id, name: u.name })));
+        }
+      })
+      .catch(console.error);
+  }, [isAdmin]);
 
   // Create empty placeholder row
   const createEmptyRow = useCallback((): Customer => ({
@@ -168,6 +190,7 @@ export default function NewCustomersPage() {
       if (search) params.set("search", search);
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
       if (resultFilter !== "all") params.set("result", resultFilter);
+      if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       params.set("limit", "100");
 
       const [custRes, statsRes] = await Promise.all([
@@ -195,7 +218,7 @@ export default function NewCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, agentFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -325,6 +348,9 @@ export default function NewCustomersPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      if (isAdmin && importAgentId) {
+        formData.append("agentId", importAgentId);
+      }
 
       const res = await fetch("/api/admin/customers/import", {
         method: "POST",
@@ -335,6 +361,8 @@ export default function NewCustomersPage() {
       if (res.ok) {
         const data = await res.json();
         alert(`Imported ${data.imported} customers successfully!`);
+        setShowImportModal(false);
+        setImportAgentId("");
         fetchData();
       } else {
         const data = await res.json();
@@ -542,16 +570,67 @@ export default function NewCustomersPage() {
             className="hidden"
           />
           <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            onClick={() => setShowImportModal(true)}
             variant="outline"
             className="border-purple-500 text-purple-600 hover:bg-purple-50"
           >
             <Upload className="w-4 h-4 mr-1" />
-            {isUploading ? "Importing..." : "Import Excel"}
+            Import Excel
           </Button>
         </div>
       </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-bold mb-4">Import Customers</h3>
+            {isAdmin && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Assign to Agent</label>
+                <Select value={importAgentId} onValueChange={(v) => setImportAgentId(v || "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select agent..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Current User ({currentAgent?.name})</SelectItem>
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Select CSV File</label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".csv"
+                className="w-full border rounded-lg p-2"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowImportModal(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  const input = fileInputRef.current;
+                  if (input?.files?.[0]) {
+                    const fileEvent = { target: input } as any;
+                    handleExcelUpload(fileEvent);
+                  } else {
+                    alert("Please select a file");
+                  }
+                }}
+                disabled={isUploading}
+                className="bg-purple-500 hover:bg-purple-600"
+              >
+                {isUploading ? "Importing..." : "Import"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
@@ -637,6 +716,23 @@ export default function NewCustomersPage() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Agent Filter - Admin only */}
+        {isAdmin && (
+          <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Agents" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Agents</SelectItem>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Call/Chat Filter */}
         <Select value={callStatusFilter} onValueChange={(v) => setCallStatusFilter(v || "all")}>
