@@ -173,9 +173,9 @@ export default function NewCustomersPage() {
       let realCustomers = custRes.customers || [];
       setCustomers(realCustomers);
 
-      // Add 100 empty placeholder rows for quick entry
+      // Add 50 empty placeholder rows for quick entry
       const emptyRows: Customer[] = [];
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 50; i++) {
         emptyRows.push(createEmptyRow());
       }
       setCustomers([...realCustomers, ...emptyRows]);
@@ -276,7 +276,7 @@ export default function NewCustomersPage() {
     if (customer.id.startsWith("temp-")) {
       setCustomers((prev) => {
         const filtered = prev.filter((_, i) => i !== rowIndex);
-        // Add a new empty row at the end to maintain 100 empty rows
+        // Add a new empty row at the end to maintain 50 empty rows
         return [...filtered, createEmptyRow()];
       });
       return;
