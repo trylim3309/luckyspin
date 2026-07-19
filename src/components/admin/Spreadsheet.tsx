@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Copy, Clipboard, Undo2, Redo2, Plus } from "lucide-react";
+import { Trash2, Copy, Clipboard, Undo2, Redo2, Plus, Download } from "lucide-react";
 
 type Column<T> = {
   key: string;
@@ -20,6 +20,7 @@ type SpreadsheetProps<T extends { id?: string }> = {
   onAdd: (data: Partial<T>) => Promise<void>;
   onDelete: (rowIndex: number) => Promise<void>;
   onAddEmpty?: () => Promise<void>;
+  onExport?: () => void;
   isLoading?: boolean;
   emptyMessage?: string;
 };
@@ -31,6 +32,7 @@ export function Spreadsheet<T extends { id?: string }>({
   onAdd,
   onDelete,
   onAddEmpty,
+  onExport,
   isLoading,
   emptyMessage = "No data",
 }: SpreadsheetProps<T>) {
@@ -379,6 +381,11 @@ export function Spreadsheet<T extends { id?: string }>({
         <Button variant="outline" size="sm" onClick={() => onAddEmpty?.()} title="Add New Row (Ctrl+Enter)">
           <Plus className="w-4 h-4 mr-1" /> Add Row
         </Button>
+        {onExport && (
+          <Button variant="outline" size="sm" onClick={onExport} title="Export Data">
+            <Download className="w-4 h-4 mr-1" /> Export
+          </Button>
+        )}
         <div className="flex-1" />
         <span className="text-sm text-gray-500">{data.length} row{data.length !== 1 ? "s" : ""}</span>
       </div>

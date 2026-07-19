@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp, Upload, Download } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -545,14 +545,6 @@ export default function NewCustomersPage() {
             <Upload className="w-4 h-4 mr-1" />
             {isUploading ? "Importing..." : "Import Excel"}
           </Button>
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            className="border-green-500 text-green-600 hover:bg-green-50"
-          >
-            <Download className="w-4 h-4 mr-1" />
-            Export CSV
-          </Button>
         </div>
       </div>
 
@@ -665,6 +657,7 @@ export default function NewCustomersPage() {
           onAdd={handleAdd}
           onDelete={handleDelete}
           onAddEmpty={handleAddEmpty}
+          onExport={handleExport}
           isLoading={isLoading}
           emptyMessage="No customers found. Click 'Add Row' to add a new customer!"
         />
