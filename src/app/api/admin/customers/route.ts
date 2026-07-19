@@ -72,7 +72,9 @@ export async function GET(req: NextRequest) {
     if (dateFrom && dateTo) {
       where.createdAt = { gte: dateFrom, lte: dateTo };
     }
-    if (team && team !== "all") where.team = team as "KING88" | "SKY24" | "B88";
+    if (searchParams.get("telegramId") && searchParams.get("telegramId") !== "all") {
+      where.telegramId = searchParams.get("telegramId");
+    }
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },

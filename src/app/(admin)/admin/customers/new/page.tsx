@@ -164,7 +164,7 @@ export default function NewCustomersPage() {
         if (customDateFrom) params.set("dateFrom", customDateFrom);
         if (customDateTo) params.set("dateTo", customDateTo);
       }
-      if (teamFilter !== "all") params.set("team", teamFilter);
+      if (telegramFilter !== "all") params.set("telegramId", telegramFilter);
       if (search) params.set("search", search);
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
       if (resultFilter !== "all") params.set("result", resultFilter);
@@ -195,7 +195,7 @@ export default function NewCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, teamFilter, search, callStatusFilter, resultFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -623,20 +623,20 @@ export default function NewCustomersPage() {
           </div>
         )}
 
-        {/* Team Filter */}
-        {!isAgent && (
-          <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="All Teams" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Teams</SelectItem>
-              <SelectItem value="KING88">KING88</SelectItem>
-              <SelectItem value="SKY24">SKY24</SelectItem>
-              <SelectItem value="B88">B88</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+        {/* Telegram Filter */}
+        <Select value={telegramFilter} onValueChange={(v) => setTelegramFilter(v || "all")}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All Telegram" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Telegram</SelectItem>
+            {telegramContacts.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}{c.username ? ` (@${c.username})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* Call/Chat Filter */}
         <Select value={callStatusFilter} onValueChange={(v) => setCallStatusFilter(v || "all")}>
