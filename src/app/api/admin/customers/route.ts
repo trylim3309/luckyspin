@@ -51,6 +51,11 @@ export async function GET(req: NextRequest) {
     } else if (dateFilter === "thisMonth") {
       dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
       dateTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    } else if (dateFilter === "custom") {
+      const dateFromParam = searchParams.get("dateFrom");
+      const dateToParam = searchParams.get("dateTo");
+      if (dateFromParam) dateFrom = new Date(dateFromParam);
+      if (dateToParam) dateTo = new Date(dateToParam + "T23:59:59");
     }
 
     const where: Prisma.CustomerWhereInput = {};

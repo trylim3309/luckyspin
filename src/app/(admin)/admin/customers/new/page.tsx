@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
 type ResultStatus = "NEW" | "INTERESTED" | "FOLLOW_UP" | "SALE" | "NOT_INTERESTED" | "CLOSED";
 type Team = "KING88" | "SKY24" | "B88";
-type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "all";
+type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "all" | "custom";
 
 interface Customer {
   id: string;
@@ -79,6 +79,7 @@ const DATE_TABS: { key: DateFilter; label: string }[] = [
   { key: "thisWeek", label: "This Week" },
   { key: "thisMonth", label: "This Month" },
   { key: "all", label: "All" },
+  { key: "custom", label: "Custom" },
 ];
 
 export default function NewCustomersPage() {
@@ -93,6 +94,8 @@ export default function NewCustomersPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [customDateFrom, setCustomDateFrom] = useState<string>("");
+  const [customDateTo, setCustomDateTo] = useState<string>("");
 
   // Current agent
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; team: Team } | null>(null);
@@ -154,6 +157,10 @@ export default function NewCustomersPage() {
     try {
       const params = new URLSearchParams();
       params.set("dateFilter", dateFilter);
+      if (dateFilter === "custom") {
+        if (customDateFrom) params.set("dateFrom", customDateFrom);
+        if (customDateTo) params.set("dateTo", customDateTo);
+      }
       if (teamFilter !== "all") params.set("team", teamFilter);
       if (search) params.set("search", search);
       params.set("limit", "100");
@@ -183,7 +190,7 @@ export default function NewCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, teamFilter, search, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, teamFilter, search, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -558,6 +565,25 @@ export default function NewCustomersPage() {
             </button>
           ))}
         </div>
+
+        {/* Custom Date Picker */}
+        {dateFilter === "custom" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={customDateFrom}
+              onChange={(e) => setCustomDateFrom(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+            />
+            <span className="text-gray-500">to</span>
+            <input
+              type="date"
+              value={customDateTo}
+              onChange={(e) => setCustomDateTo(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+            />
+          </div>
+        )}
 
         {/* Team Filter */}
         {!isAgent && (
