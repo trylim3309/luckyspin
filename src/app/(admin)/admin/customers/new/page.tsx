@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp, Upload } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload, Download } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -344,6 +344,39 @@ export default function NewCustomersPage() {
     }
   };
 
+  // Export to CSV
+  const handleExport = () => {
+    const realCustomers = customers.filter(c => !c.id.startsWith("temp-"));
+    if (realCustomers.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
+    const headers = ["Account ID", "Name", "Phone", "Call/Chat", "Result", "Telegram", "Remarks", "Team", "Created"];
+    const rows = realCustomers.map(c => [
+      c.accountId || "",
+      c.name,
+      c.phone || "",
+      c.callStatus,
+      c.result,
+      c.telegramName || c.telegramId || "",
+      c.remarks || "",
+      c.team,
+      c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `customers_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+  };
+
   // Spreadsheet columns
   const columns: Column<Customer>[] = [
     {
@@ -511,6 +544,14 @@ export default function NewCustomersPage() {
           >
             <Upload className="w-4 h-4 mr-1" />
             {isUploading ? "Importing..." : "Import Excel"}
+          </Button>
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-green-500 text-green-600 hover:bg-green-50"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            Export CSV
           </Button>
         </div>
       </div>
