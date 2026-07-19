@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -103,6 +103,8 @@ export default function NewCustomersPage() {
 
   // Telegram contacts for dropdown
   const [telegramContacts, setTelegramContacts] = useState<TelegramContact[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch telegram contacts
   useEffect(() => {
@@ -302,6 +304,39 @@ export default function NewCustomersPage() {
     });
   };
 
+  // Handle Excel file upload
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/customers/import", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Imported ${data.imported} customers successfully!`);
+        fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to import customers");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to import customers");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   // Spreadsheet columns
   const columns: Column<Customer>[] = [
     {
@@ -454,6 +489,22 @@ export default function NewCustomersPage() {
               </Badge>
             </div>
           )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".xlsx,.xls,.csv"
+            onChange={handleExcelUpload}
+            className="hidden"
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            variant="outline"
+            className="border-purple-500 text-purple-600 hover:bg-purple-50"
+          >
+            <Upload className="w-4 h-4 mr-1" />
+            {isUploading ? "Importing..." : "Import Excel"}
+          </Button>
         </div>
       </div>
 
