@@ -425,6 +425,7 @@ export function Spreadsheet<T extends { id?: string }>({
                 <tr
                   key={row.id || rowIndex}
                   className={`
+                    group
                     transition-colors duration-75
                     ${selectedCell?.rowIndex === rowIndex ? "bg-purple-50/70" : "hover:bg-gray-50"}
                   `}

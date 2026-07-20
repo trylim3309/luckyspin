@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp, Upload } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload, Calendar } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -73,7 +73,7 @@ const DATE_TABS: { key: DateFilter; label: string }[] = [
   { key: "thisWeek", label: "This Week" },
   { key: "thisMonth", label: "This Month" },
   { key: "all", label: "All" },
-  { key: "custom", label: "Custom" },
+  { key: "custom", label: "" },
 ];
 
 export default function NewCustomersPage() {
@@ -210,11 +210,10 @@ export default function NewCustomersPage() {
       ]);
 
       let realCustomers = custRes.customers || [];
-      setCustomers(realCustomers);
 
-      // Add 50 empty placeholder rows for quick entry
+      // Add 5 empty placeholder rows for quick entry
       const emptyRows: Customer[] = [];
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 5; i++) {
         emptyRows.push(createEmptyRow());
       }
       setCustomers([...realCustomers, ...emptyRows]);
@@ -235,11 +234,18 @@ export default function NewCustomersPage() {
     fetchData();
   }, [fetchData]);
 
+  // Guard to prevent duplicate saves for same row
+  const savingRef = useRef<Set<number>>(new Set());
+
   // Update customer
   const handleUpdate = async (rowIndex: number, key: string, value: any) => {
     // Always use ref to get latest state - avoids stale closure issues
     const customer = customersRef.current[rowIndex];
     if (!customer) return;
+
+    // Prevent duplicate saves for same row
+    if (savingRef.current.has(rowIndex)) return;
+    savingRef.current.add(rowIndex);
 
     // If it's a temp row (not saved yet), save it first
     if (customer.id.startsWith("temp-")) {
@@ -287,13 +293,13 @@ export default function NewCustomersPage() {
       const customerData = {
         name: nameValue,
         phone: currentCustomer.phone || null,
-        accountId: currentCustomer.accountId || null,
+        accountId: key === "accountId" ? (value ? String(value).toUpperCase() : null) : (currentCustomer.accountId ? currentCustomer.accountId.toUpperCase() : null),
         callStatus: currentCustomer.callStatus,
         result: currentCustomer.result,
         telegramId: currentCustomer.telegramId || null,
         remarks: key === "remarks" ? value : (currentCustomer.remarks || null),
         team: currentCustomer.team,
-        [key]: value,
+        [key]: key === "accountId" ? (value ? String(value).toUpperCase() : null) : value,
       };
 
       try {
@@ -353,9 +359,10 @@ export default function NewCustomersPage() {
         setCustomers((prev) => {
           const newRows = prev.filter((_, i) => i !== rowIndex);
           newRows.splice(rowIndex, 0, result.customer);
-          // Ensure we still have 50 empty rows at the end
-          const emptyCount = prev.filter(c => c.id.startsWith("temp-")).length;
-          for (let i = 0; i < emptyCount; i++) {
+          // Ensure we still have 5 empty rows at the end
+          const tempCount = newRows.filter(c => c.id.startsWith("temp-")).length;
+          const needed = 5 - tempCount;
+          for (let i = 0; i < needed; i++) {
             newRows.push(createEmptyRow());
           }
           return newRows;
@@ -363,6 +370,8 @@ export default function NewCustomersPage() {
       } catch (error) {
         console.error("Network error saving customer:", error);
         setCustomers(customersRef.current);
+      } finally {
+        savingRef.current.delete(rowIndex);
       }
       return;
     }
@@ -376,11 +385,17 @@ export default function NewCustomersPage() {
     });
 
     // Fire API call in background, don't wait
+    const putData: Record<string, any> = { id: customer.id };
+    if (key === "accountId") {
+      putData[key] = value ? String(value).toUpperCase() : value;
+    } else {
+      putData[key] = value;
+    }
     fetch("/api/admin/customers", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ id: customer.id, [key]: value }),
+      body: JSON.stringify(putData),
     }).then(async (res) => {
       if (!res.ok) {
         const err = await res.json();
@@ -434,7 +449,7 @@ export default function NewCustomersPage() {
             today: prev.today + (oldCounts ? -1 : 1),
             week: prev.week + (oldCounts ? -1 : 1),
             month: prev.month + (oldCounts ? -1 : 1),
-            all: prev.all + (oldCounts ? -1 : 1),
+            all: prev.all + (isLastMonth ? (oldCounts ? -1 : 1) : 0),
             todayBreakdown: isToday ? updateBreakdown(prev.todayBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.todayBreakdown,
             weekBreakdown: isThisWeek ? updateBreakdown(prev.weekBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.weekBreakdown,
             monthBreakdown: isThisMonth ? updateBreakdown(prev.monthBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.monthBreakdown,
@@ -457,7 +472,9 @@ export default function NewCustomersPage() {
           }));
         }
       }
-    }).catch(console.error);
+    }).catch(console.error).finally(() => {
+      savingRef.current.delete(rowIndex);
+    });
   };
 
   // Add customer
@@ -615,6 +632,26 @@ export default function NewCustomersPage() {
       label: "Account ID",
       width: 100,
       editable: true,
+      render: (value) => <span className="uppercase">{value || "—"}</span>,
+      renderEdit: (value, onChange, onSave) => (
+        <input
+          type="text"
+          defaultValue={value as string}
+          onBlur={(e) => onChange(e.target.value.toUpperCase())}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onChange((e.target as HTMLInputElement).value.toUpperCase());
+            }
+            if (e.key === "Tab") {
+              e.preventDefault();
+              onChange((e.target as HTMLInputElement).value.toUpperCase());
+            }
+          }}
+          className="w-full bg-white px-2 py-1.5 border-2 border-purple-400 rounded-lg outline-none text-sm shadow-sm uppercase"
+          autoFocus
+        />
+      ),
     },
     {
       key: "name",
@@ -650,13 +687,12 @@ export default function NewCustomersPage() {
         <select
           value={value as string}
           onChange={(e) => { onChange(e.target.value); }}
-          onBlur={onSave}
+          onBlur={() => {}} // Prevent double-save: onChange already saves
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
-          {(Object.keys(CALL_LABELS) as CallStatus[]).map((k) => (
-            <option key={k} value={k}>{CALL_LABELS[k]}</option>
-          ))}
+          <option value="CHATTED">Chatted</option>
+          <option value="CALLED">Called</option>
         </select>
       ),
     },
@@ -682,7 +718,7 @@ export default function NewCustomersPage() {
         <select
           value={value as string}
           onChange={(e) => { onChange(e.target.value); }}
-          onBlur={onSave}
+          onBlur={() => {}} // Prevent double-save: onChange already saves
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
@@ -709,7 +745,7 @@ export default function NewCustomersPage() {
         <select
           value={value || ""}
           onChange={(e) => { onChange(e.target.value || null); }}
-          onBlur={onSave}
+          onBlur={() => {}} // Prevent double-save: onChange already saves
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
@@ -741,7 +777,7 @@ export default function NewCustomersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#233446]">New Customers</h1>
+          <h1 className="text-2xl font-bold text-[#233446]">របាយការណ៍ភ្ញៀវថ្មី</h1>
           <p className="text-[#868D9E] mt-1">Manage your customer leads</p>
         </div>
         <div className="flex items-center gap-3">
@@ -959,13 +995,17 @@ export default function NewCustomersPage() {
             <button
               key={tab.key}
               onClick={() => setDateFilter(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
                 dateFilter === tab.key
                   ? "bg-purple-500 text-white"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {tab.label}
+              {tab.key === "custom" ? (
+                <Calendar className="w-4 h-4" />
+              ) : (
+                tab.label
+              )}
             </button>
           ))}
         </div>
@@ -1053,12 +1093,6 @@ export default function NewCustomersPage() {
           placeholder="Search name, phone..."
           className="w-48"
         />
-
-        <div className="flex-1" />
-
-        <span className="text-sm text-gray-500">
-          {customers.length} customer{customers.length !== 1 ? "s" : ""}
-        </span>
       </div>
 
       {/* Spreadsheet */}
