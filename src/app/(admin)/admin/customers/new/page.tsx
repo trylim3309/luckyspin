@@ -177,7 +177,7 @@ export default function NewCustomersPage() {
     accountId: null,
     name: "",
     phone: null,
-    callStatus: "NOT_CONTACTED",
+    callStatus: "CHATTED",
     result: "NOT_CREATED",
     telegramId: null,
     remarks: null,
@@ -244,7 +244,8 @@ export default function NewCustomersPage() {
     // If it's a temp row (not saved yet), save it first
     if (customer.id.startsWith("temp-")) {
       // For temp rows, if name is empty and we're not setting name, just update local state
-      if (!customer.name && key !== "name") {
+      // BUT allow accountId to be saved even without name
+      if (!customer.name && key !== "name" && key !== "accountId") {
         // Update local state only (don't save to DB yet)
         setCustomers((prev) => {
           const newRows = [...prev];
@@ -255,8 +256,22 @@ export default function NewCustomersPage() {
       }
 
       // If we have name or we're setting name, create in DB
-      const nameValue = customer.name || (key === "name" ? value : null);
-      if (!nameValue) return;
+      // Allow saving if we have at least name OR accountId
+      let nameValue = customer.name || (key === "name" ? value : null);
+      const hasValidData = nameValue || (key === "accountId" && value);
+      if (!hasValidData) {
+        // Update local state only for non-critical fields
+        setCustomers((prev) => {
+          const newRows = [...prev];
+          newRows[rowIndex] = { ...newRows[rowIndex], [key]: value };
+          return newRows;
+        });
+        return;
+      }
+      if (!nameValue) {
+        // Need at least a name to save, but we have accountId so use placeholder
+        nameValue = "Unknown"; // Temporary name
+      }
 
       // Get fresh customer data from current state (includes any locally updated fields)
       const currentCustomer = customersRef.current[rowIndex];
@@ -291,7 +306,7 @@ export default function NewCustomersPage() {
 
         if (!res.ok) {
           const err = await res.json();
-          console.error("Failed to save:", err);
+          console.error("Failed to save:", res.status, err);
           // Revert on failure
           setCustomers(customersRef.current);
           return;
@@ -368,6 +383,8 @@ export default function NewCustomersPage() {
       body: JSON.stringify({ id: customer.id, [key]: value }),
     }).then(async (res) => {
       if (!res.ok) {
+        const err = await res.json();
+        console.error("PUT failed:", err);
         // Revert on failure
         setCustomers((prev) => {
           const newRows = [...prev];
@@ -512,7 +529,7 @@ export default function NewCustomersPage() {
       name: "",
       phone: null,
       team: currentAgent.team,
-      callStatus: "NOT_CONTACTED",
+      callStatus: "CHATTED",
       result: "NOT_CREATED",
     });
   };
@@ -1011,8 +1028,8 @@ export default function NewCustomersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Call/Chat</SelectItem>
-            <SelectItem value="CALLED">Called</SelectItem>
             <SelectItem value="CHATTED">Chatted</SelectItem>
+            <SelectItem value="CALLED">Called</SelectItem>
           </SelectContent>
         </Select>
 
