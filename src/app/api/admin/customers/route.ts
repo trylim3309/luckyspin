@@ -130,11 +130,11 @@ export async function POST(req: NextRequest) {
 
     const customer = await prisma.customer.create({
       data: {
-        accountId: body.accountId || null,
+        accountId: body.accountId !== undefined && body.accountId !== "" ? body.accountId : null,
         name: body.name,
         phone: body.phone || null,
         callStatus: body.callStatus || "NOT_CONTACTED",
-        result: body.result || "NEW",
+        result: body.result || "NOT_CREATED",
         telegramId: body.telegramId || null,
         remarks: body.remarks || null,
         agentId: session.id,
@@ -171,7 +171,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const updateData: Record<string, unknown> = {};
-    const allowed = ["name", "phone", "callStatus", "result", "telegramId", "remarks", "team"];
+    const allowed = ["name", "phone", "accountId", "callStatus", "result", "telegramId", "remarks", "team"];
     for (const field of allowed) {
       if (body[field] !== undefined) {
         updateData[field] = body[field];

@@ -10,7 +10,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
-type ResultStatus = "NEW" | "INTERESTED" | "FOLLOW_UP" | "SALE" | "NOT_INTERESTED" | "CLOSED";
+type ResultStatus = "NOT_CREATED" | "DEPOSIT" | "NOT_DEPOSIT";
 type Team = "KING88" | "SKY24" | "B88";
 type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "all" | "custom";
 
@@ -48,12 +48,9 @@ const CALL_LABELS: Record<CallStatus, string> = {
 };
 
 const RESULT_LABELS: Record<ResultStatus, string> = {
-  NEW: "New",
-  INTERESTED: "Interested",
-  FOLLOW_UP: "Follow Up",
-  SALE: "Sale",
-  NOT_INTERESTED: "Not Interested",
-  CLOSED: "Closed",
+  NOT_CREATED: "មិនទាន់បង្កើតអាខោន",
+  DEPOSIT: "ដាក់លុយលេង",
+  NOT_DEPOSIT: "មិនទាន់ដាក់លុយលេង",
 };
 
 const CALL_COLORS: Record<CallStatus, string> = {
@@ -65,12 +62,9 @@ const CALL_COLORS: Record<CallStatus, string> = {
 };
 
 const RESULT_COLORS: Record<ResultStatus, string> = {
-  NEW: "#6B7280",
-  INTERESTED: "#3B82F6",
-  FOLLOW_UP: "#F59E0B",
-  SALE: "#10B981",
-  NOT_INTERESTED: "#EF4444",
-  CLOSED: "#1E40AF",
+  NOT_CREATED: "#6B7280",
+  DEPOSIT: "#10B981",
+  NOT_DEPOSIT: "#F59E0B",
 };
 
 const DATE_TABS: { key: DateFilter; label: string }[] = [
@@ -87,11 +81,13 @@ export default function NewCustomersPage() {
 
   // Data
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const customersRef = useRef<Customer[]>(customers);
+  useEffect(() => { customersRef.current = customers; }, [customers]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
 
   // Filters
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [customDateFrom, setCustomDateFrom] = useState<string>("");
@@ -106,8 +102,23 @@ export default function NewCustomersPage() {
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; team: Team } | null>(null);
   const [isAgent, setIsAgent] = useState(false);
 
-  // Stats
-  const [stats, setStats] = useState<{ today: number; week: number; month: number; all: number }>({ today: 0, week: 0, month: 0, all: 0 });
+  // Stats with breakdowns for each period
+  const [stats, setStats] = useState<{
+    today: number;
+    week: number;
+    month: number;
+    all: number;
+    todayBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
+    weekBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
+    monthBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
+    allBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
+  }>({
+    today: 0, week: 0, month: 0, all: 0,
+    todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+    weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+    monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+    allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+  });
 
   // Agents list for filter (admins only)
   const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
@@ -167,7 +178,7 @@ export default function NewCustomersPage() {
     name: "",
     phone: null,
     callStatus: "NOT_CONTACTED",
-    result: "NEW",
+    result: "NOT_CREATED",
     telegramId: null,
     remarks: null,
     agentId: currentAgent?.id || "",
@@ -226,43 +237,210 @@ export default function NewCustomersPage() {
 
   // Update customer
   const handleUpdate = async (rowIndex: number, key: string, value: any) => {
-    const customer = customers[rowIndex];
+    // Always use ref to get latest state - avoids stale closure issues
+    const customer = customersRef.current[rowIndex];
     if (!customer) return;
 
     // If it's a temp row (not saved yet), save it first
     if (customer.id.startsWith("temp-")) {
-      // Create the customer in DB first
-      const res = await fetch("/api/admin/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ [key]: value }),
+      // For temp rows, if name is empty and we're not setting name, just update local state
+      if (!customer.name && key !== "name") {
+        // Update local state only (don't save to DB yet)
+        setCustomers((prev) => {
+          const newRows = [...prev];
+          newRows[rowIndex] = { ...newRows[rowIndex], [key]: value };
+          return newRows;
+        });
+        return;
+      }
+
+      // If we have name or we're setting name, create in DB
+      const nameValue = customer.name || (key === "name" ? value : null);
+      if (!nameValue) return;
+
+      // Get fresh customer data from current state (includes any locally updated fields)
+      const currentCustomer = customersRef.current[rowIndex];
+      const tempId = customer.id;
+
+      // Optimistically update UI
+      setCustomers((prev) => {
+        const newRows = [...prev];
+        newRows[rowIndex] = { ...currentCustomer, id: tempId, [key]: value };
+        return newRows;
       });
 
-      if (res.ok || res.status === 201) {
+      const customerData = {
+        name: nameValue,
+        phone: currentCustomer.phone || null,
+        accountId: currentCustomer.accountId || null,
+        callStatus: currentCustomer.callStatus,
+        result: currentCustomer.result,
+        telegramId: currentCustomer.telegramId || null,
+        remarks: key === "remarks" ? value : (currentCustomer.remarks || null),
+        team: currentCustomer.team,
+        [key]: value,
+      };
+
+      try {
+        const res = await fetch("/api/admin/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(customerData),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          console.error("Failed to save:", err);
+          // Revert on failure
+          setCustomers(customersRef.current);
+          return;
+        }
         const result = await res.json();
-        setCustomers((prev) =>
-          prev.map((c, i) => (i === rowIndex ? { ...c, ...result.customer } : c))
-        );
-        setStats((prev) => ({ ...prev, today: prev.today + 1, week: prev.week + 1, month: prev.month + 1, all: prev.all + 1 }));
+
+        // Update stats optimistically
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(now);
+        const day = weekStart.getDay();
+        weekStart.setDate(weekStart.getDate() - day + (day === 0 ? -6 : 1));
+        weekStart.setHours(0, 0, 0, 0);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        const createdAt = new Date(result.customer.createdAt);
+        const isToday = createdAt >= todayStart;
+        const isThisWeek = createdAt >= weekStart;
+        const isThisMonth = createdAt >= monthStart;
+        const isLastMonth = createdAt >= lastMonthStart && createdAt <= lastMonthEnd;
+        const newResult = result.customer.result;
+
+        setStats((prev) => {
+          const incrementBreakdown = (b: { total: number; notCreated: number; notDeposit: number; deposit: number }) => ({
+            total: b.total + 1,
+            notCreated: b.notCreated + (newResult === "NOT_CREATED" ? 1 : 0),
+            notDeposit: b.notDeposit + (newResult === "NOT_DEPOSIT" ? 1 : 0),
+            deposit: b.deposit + (newResult === "DEPOSIT" ? 1 : 0),
+          });
+          return {
+            today: prev.today + (isToday ? 1 : 0),
+            week: prev.week + (isThisWeek ? 1 : 0),
+            month: prev.month + (isThisMonth ? 1 : 0),
+            all: prev.all + (isLastMonth ? 1 : 0),
+            todayBreakdown: isToday ? incrementBreakdown(prev.todayBreakdown) : prev.todayBreakdown,
+            weekBreakdown: isThisWeek ? incrementBreakdown(prev.weekBreakdown) : prev.weekBreakdown,
+            monthBreakdown: isThisMonth ? incrementBreakdown(prev.monthBreakdown) : prev.monthBreakdown,
+            allBreakdown: isLastMonth ? incrementBreakdown(prev.allBreakdown) : prev.allBreakdown,
+          };
+        });
+
+        // Replace temp row with real data
+        setCustomers((prev) => {
+          const newRows = prev.filter((_, i) => i !== rowIndex);
+          newRows.splice(rowIndex, 0, result.customer);
+          // Ensure we still have 50 empty rows at the end
+          const emptyCount = prev.filter(c => c.id.startsWith("temp-")).length;
+          for (let i = 0; i < emptyCount; i++) {
+            newRows.push(createEmptyRow());
+          }
+          return newRows;
+        });
+      } catch (error) {
+        console.error("Network error saving customer:", error);
+        setCustomers(customersRef.current);
       }
       return;
     }
 
-    // Normal update for existing customers
-    const res = await fetch("/api/admin/customers", {
+    // Normal update for existing customers - optimistic update
+    const optimisticCustomer = { ...customer, [key]: value };
+    setCustomers((prev) => {
+      const newRows = [...prev];
+      newRows[rowIndex] = optimisticCustomer;
+      return newRows;
+    });
+
+    // Fire API call in background, don't wait
+    fetch("/api/admin/customers", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ id: customer.id, [key]: value }),
-    });
+    }).then(async (res) => {
+      if (!res.ok) {
+        // Revert on failure
+        setCustomers((prev) => {
+          const newRows = [...prev];
+          newRows[rowIndex] = customer;
+          return newRows;
+        });
+        return;
+      }
 
-    if (res.ok) {
       const data = await res.json();
-      setCustomers((prev) =>
-        prev.map((c, i) => (i === rowIndex ? { ...c, ...data.customer } : c))
-      );
-    }
+      const updated = data.customer;
+
+      // Check if customer falls within each time period
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(now);
+      const day = weekStart.getDay();
+      weekStart.setDate(weekStart.getDate() - day + (day === 0 ? -6 : 1));
+      weekStart.setHours(0, 0, 0, 0);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      const createdAt = new Date(customer.createdAt);
+      const isToday = createdAt >= todayStart;
+      const isThisWeek = createdAt >= weekStart;
+      const isThisMonth = createdAt >= monthStart;
+      const isLastMonth = createdAt >= lastMonthStart && createdAt <= lastMonthEnd;
+
+      // Update stats if result or accountId changed
+      if (key === "result" || key === "accountId") {
+        const oldCounts = !!(customer.accountId && customer.result === "DEPOSIT");
+        const newCounts = !!(updated.accountId && updated.result === "DEPOSIT");
+        const prevResult = customer.result || "NOT_CREATED";
+        const nextResult = updated.result || "NOT_CREATED";
+
+        const updateBreakdown = (b: { total: number; notCreated: number; notDeposit: number; deposit: number }, prevR: string, nextR: string, oldC: boolean, newC: boolean) => {
+          return {
+            total: b.total,
+            notCreated: b.notCreated + (prevR === "NOT_CREATED" ? -1 : 0) + (nextR === "NOT_CREATED" ? 1 : 0),
+            notDeposit: b.notDeposit + (prevR === "NOT_DEPOSIT" ? -1 : 0) + (nextR === "NOT_DEPOSIT" ? 1 : 0),
+            deposit: b.deposit + (oldC ? -1 : 0) + (newC ? 1 : 0),
+          };
+        };
+
+        if (oldCounts !== newCounts) {
+          setStats((prev) => ({
+            today: prev.today + (oldCounts ? -1 : 1),
+            week: prev.week + (oldCounts ? -1 : 1),
+            month: prev.month + (oldCounts ? -1 : 1),
+            all: prev.all + (oldCounts ? -1 : 1),
+            todayBreakdown: isToday ? updateBreakdown(prev.todayBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.todayBreakdown,
+            weekBreakdown: isThisWeek ? updateBreakdown(prev.weekBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.weekBreakdown,
+            monthBreakdown: isThisMonth ? updateBreakdown(prev.monthBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.monthBreakdown,
+            allBreakdown: isLastMonth ? updateBreakdown(prev.allBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.allBreakdown,
+          }));
+        } else if (key === "result" && prevResult !== nextResult) {
+          // Result changed but counts stayed same (e.g., NOT_CREATED -> NOT_DEPOSIT)
+          const updateBreakdownResult = (b: { total: number; notCreated: number; notDeposit: number; deposit: number }, prevR: string, nextR: string) => ({
+            total: b.total,
+            notCreated: b.notCreated + (prevR === "NOT_CREATED" ? -1 : 0) + (nextR === "NOT_CREATED" ? 1 : 0),
+            notDeposit: b.notDeposit + (prevR === "NOT_DEPOSIT" ? -1 : 0) + (nextR === "NOT_DEPOSIT" ? 1 : 0),
+            deposit: b.deposit + (prevR === "DEPOSIT" ? -1 : 0) + (nextR === "DEPOSIT" ? 1 : 0),
+          });
+          setStats((prev) => ({
+            ...prev,
+            todayBreakdown: isToday ? updateBreakdownResult(prev.todayBreakdown, prevResult, nextResult) : prev.todayBreakdown,
+            weekBreakdown: isThisWeek ? updateBreakdownResult(prev.weekBreakdown, prevResult, nextResult) : prev.weekBreakdown,
+            monthBreakdown: isThisMonth ? updateBreakdownResult(prev.monthBreakdown, prevResult, nextResult) : prev.monthBreakdown,
+            allBreakdown: isLastMonth ? updateBreakdownResult(prev.allBreakdown, prevResult, nextResult) : prev.allBreakdown,
+          }));
+        }
+      }
+    }).catch(console.error);
   };
 
   // Add customer
@@ -335,12 +513,12 @@ export default function NewCustomersPage() {
       phone: null,
       team: currentAgent.team,
       callStatus: "NOT_CONTACTED",
-      result: "NEW",
+      result: "NOT_CREATED",
     });
   };
 
   // Handle Excel file upload
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>, importDate?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -350,6 +528,9 @@ export default function NewCustomersPage() {
       formData.append("file", file);
       if (isAdmin && importAgentId) {
         formData.append("agentId", importAgentId);
+      }
+      if (importDate) {
+        formData.append("createdAt", importDate);
       }
 
       const res = await fetch("/api/admin/customers/import", {
@@ -448,12 +629,12 @@ export default function NewCustomersPage() {
           {CALL_LABELS[value as CallStatus]}
         </Badge>
       ),
-      renderEdit: (value, onChange) => (
+      renderEdit: (value, onChange, onSave) => (
         <select
           value={value as string}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => {}}
-          className="w-full bg-white border border-purple-500 rounded px-1 py-0 text-sm"
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={onSave}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
           {(Object.keys(CALL_LABELS) as CallStatus[]).map((k) => (
@@ -465,7 +646,7 @@ export default function NewCustomersPage() {
     {
       key: "result",
       label: "Result",
-      width: 120,
+      width: 100,
       editable: true,
       render: (value) => (
         <Badge
@@ -480,12 +661,12 @@ export default function NewCustomersPage() {
           {RESULT_LABELS[value as ResultStatus]}
         </Badge>
       ),
-      renderEdit: (value, onChange) => (
+      renderEdit: (value, onChange, onSave) => (
         <select
           value={value as string}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => {}}
-          className="w-full bg-white border border-purple-500 rounded px-1 py-0 text-sm"
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={onSave}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
           {(Object.keys(RESULT_LABELS) as ResultStatus[]).map((k) => (
@@ -497,7 +678,7 @@ export default function NewCustomersPage() {
     {
       key: "telegramId",
       label: "Telegram",
-      width: 150,
+      width: 120,
       editable: true,
       render: (value) => {
         const contact = telegramContacts.find(c => c.id === value);
@@ -507,12 +688,12 @@ export default function NewCustomersPage() {
           </span>
         );
       },
-      renderEdit: (value, onChange) => (
+      renderEdit: (value, onChange, onSave) => (
         <select
           value={value || ""}
-          onChange={(e) => onChange(e.target.value || null)}
-          onBlur={() => {}}
-          className="w-full bg-white border border-purple-500 rounded px-1 py-0 text-sm"
+          onChange={(e) => { onChange(e.target.value || null); }}
+          onBlur={onSave}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
           <option value="">-- Select --</option>
@@ -585,6 +766,16 @@ export default function NewCustomersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
             <h3 className="text-lg font-bold mb-4">Import Customers</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Created Date</label>
+              <input
+                type="date"
+                id="importDate"
+                className="w-full border rounded-lg p-2"
+                defaultValue={new Date().toISOString().split("T")[0]}
+              />
+              <p className="text-xs text-gray-500 mt-1">All imported customers will have this created date</p>
+            </div>
             {isAdmin && (
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">Assign to Agent</label>
@@ -615,9 +806,9 @@ export default function NewCustomersPage() {
               <Button
                 onClick={() => {
                   const input = fileInputRef.current;
+                  const dateInput = document.getElementById("importDate") as HTMLInputElement;
                   if (input?.files?.[0]) {
-                    const fileEvent = { target: input } as any;
-                    handleExcelUpload(fileEvent);
+                    handleExcelUpload({ target: input } as any, dateInput?.value);
                   } else {
                     alert("Please select a file");
                   }
@@ -633,34 +824,113 @@ export default function NewCustomersPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Today Card - with breakdown */}
         <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-5 h-5 text-purple-500" />
-            <span className="text-sm text-gray-500">Today</span>
+            <span className="text-sm text-gray-500 font-medium">Today</span>
           </div>
-          <div className="text-2xl font-bold mt-1">{stats.today}</div>
+          <div className="text-3xl font-bold text-purple-600">{stats.today}</div>
+          <div className="mt-2 space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">សរុប</span>
+              <span className="font-medium">{stats.todayBreakdown.total}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
+              <span className="font-medium text-gray-600">{stats.todayBreakdown.notCreated}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
+              <span className="font-medium text-orange-500">{stats.todayBreakdown.notDeposit}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">ដាក់លុយលេង</span>
+              <span className="font-medium text-green-600">{stats.todayBreakdown.deposit}</span>
+            </div>
+          </div>
         </div>
+
+        {/* This Week Card - with breakdown */}
         <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-500" />
-            <span className="text-sm text-gray-500">This Week</span>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-5 h-5 text-blue-500" />
+            <span className="text-sm text-gray-500 font-medium">This Week</span>
           </div>
-          <div className="text-2xl font-bold mt-1">{stats.week}</div>
+          <div className="text-3xl font-bold text-blue-600">{stats.week}</div>
+          <div className="mt-2 space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">សរុប</span>
+              <span className="font-medium">{stats.weekBreakdown.total}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
+              <span className="font-medium text-gray-600">{stats.weekBreakdown.notCreated}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
+              <span className="font-medium text-orange-500">{stats.weekBreakdown.notDeposit}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">ដាក់លុយលេង</span>
+              <span className="font-medium text-green-600">{stats.weekBreakdown.deposit}</span>
+            </div>
+          </div>
         </div>
+
+        {/* This Month Card - with breakdown */}
         <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-gray-500">This Month</span>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-5 h-5 text-green-500" />
+            <span className="text-sm text-gray-500 font-medium">This Month</span>
           </div>
-          <div className="text-2xl font-bold mt-1">{stats.month}</div>
+          <div className="text-3xl font-bold text-green-600">{stats.month}</div>
+          <div className="mt-2 space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">សរុប</span>
+              <span className="font-medium">{stats.monthBreakdown.total}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
+              <span className="font-medium text-gray-600">{stats.monthBreakdown.notCreated}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
+              <span className="font-medium text-orange-500">{stats.monthBreakdown.notDeposit}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">ដាក់លុយលេង</span>
+              <span className="font-medium text-green-600">{stats.monthBreakdown.deposit}</span>
+            </div>
+          </div>
         </div>
+
+        {/* Last Month Card - with breakdown */}
         <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-gray-500" />
-            <span className="text-sm text-gray-500">All Time</span>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-5 h-5 text-gray-500" />
+            <span className="text-sm text-gray-500 font-medium">Last Month</span>
           </div>
-          <div className="text-2xl font-bold mt-1">{stats.all}</div>
+          <div className="text-3xl font-bold text-gray-600">{stats.all}</div>
+          <div className="mt-2 space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">សរុប</span>
+              <span className="font-medium">{stats.allBreakdown.total}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
+              <span className="font-medium text-gray-600">{stats.allBreakdown.notCreated}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
+              <span className="font-medium text-orange-500">{stats.allBreakdown.notDeposit}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">ដាក់លុយលេង</span>
+              <span className="font-medium text-green-600">{stats.allBreakdown.deposit}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -741,27 +1011,21 @@ export default function NewCustomersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Call/Chat</SelectItem>
-            <SelectItem value="NOT_CONTACTED">Not Contacted</SelectItem>
             <SelectItem value="CALLED">Called</SelectItem>
             <SelectItem value="CHATTED">Chatted</SelectItem>
-            <SelectItem value="NO_ANSWER">No Answer</SelectItem>
-            <SelectItem value="NOT_INTERESTED">Not Interested</SelectItem>
           </SelectContent>
         </Select>
 
         {/* Result Filter */}
         <Select value={resultFilter} onValueChange={(v) => setResultFilter(v || "all")}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-52">
             <SelectValue placeholder="Result" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Result</SelectItem>
-            <SelectItem value="NEW">New</SelectItem>
-            <SelectItem value="INTERESTED">Interested</SelectItem>
-            <SelectItem value="FOLLOW_UP">Follow Up</SelectItem>
-            <SelectItem value="SALE">Sale</SelectItem>
-            <SelectItem value="NOT_INTERESTED">Not Interested</SelectItem>
-            <SelectItem value="CLOSED">Closed</SelectItem>
+            <SelectItem value="NOT_CREATED">{RESULT_LABELS.NOT_CREATED}</SelectItem>
+            <SelectItem value="DEPOSIT">{RESULT_LABELS.DEPOSIT}</SelectItem>
+            <SelectItem value="NOT_DEPOSIT">{RESULT_LABELS.NOT_DEPOSIT}</SelectItem>
           </SelectContent>
         </Select>
 

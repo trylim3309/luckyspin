@@ -195,7 +195,7 @@ model Customer {
   name       String
   phone      String?
   callStatus CallStatus   @default(NOT_CONTACTED)
-  result     ResultStatus @default(NEW)
+  result     ResultStatus @default(NOT_CREATED)
   telegramId String?
   remarks    String?
   agentId    String
@@ -205,6 +205,11 @@ model Customer {
   agent      AdminUser    @relation(fields: [agentId], references: [id])
 
   @@unique([accountId])
+  @@index([agentId])
+  @@index([result])
+  @@index([createdAt])
+  @@index([agentId, result])
+  @@index([agentId, createdAt])
 }
 
 model TelegramContact {
@@ -226,12 +231,9 @@ enum CallStatus {
 }
 
 enum ResultStatus {
-  NEW
-  INTERESTED
-  FOLLOW_UP
-  SALE
-  NOT_INTERESTED
-  CLOSED
+  NOT_CREATED
+  DEPOSIT
+  NOT_DEPOSIT
 }
 
 enum PromotionType {

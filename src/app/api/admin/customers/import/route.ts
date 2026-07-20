@@ -59,6 +59,12 @@ export async function POST(req: NextRequest) {
       select: { team: true },
     });
 
+    // Get createdAt date from formData (defaults to now)
+    const createdAtParam = formData.get("createdAt") as string | null;
+    const createdAt = createdAtParam
+      ? new Date(createdAtParam + "T12:00:00.000Z")
+      : new Date();
+
     // Process data rows (skip header)
     for (let i = 1; i < lines.length; i++) {
       try {
@@ -76,9 +82,10 @@ export async function POST(req: NextRequest) {
             phone: phone || null,
             accountId: accountId || null,
             callStatus: "NOT_CONTACTED",
-            result: "NEW",
+            result: "NOT_CREATED",
             agentId: agentId,
             team: agent?.team || "KING88",
+            createdAt: createdAt,
           },
         });
         imported++;
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       imported,
       total: lines.length - 1,
-      errors: errors.slice(0, 10), // Return first 10 errors
+      errors: errors.slice(0, 10),
     });
   } catch (error) {
     console.error("Import error:", error);

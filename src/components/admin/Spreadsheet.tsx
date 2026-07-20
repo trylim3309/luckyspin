@@ -10,7 +10,7 @@ type Column<T> = {
   width?: number;
   editable?: boolean;
   render?: (value: T[keyof T], row: T) => React.ReactNode;
-  renderEdit?: (value: T[keyof T], onChange: (value: unknown) => void) => React.ReactNode;
+  renderEdit?: (value: T[keyof T], onChange: (value: unknown) => void, onSave?: () => void) => React.ReactNode;
 };
 
 type SpreadsheetProps<T extends { id?: string }> = {
@@ -53,6 +53,17 @@ export function Spreadsheet<T extends { id?: string }>({
   const editableCols = useMemo(() => columns.filter(c => c.editable), [columns]);
   const editableColKeys = useMemo(() => editableCols.map(c => c.key), [editableCols]);
 
+  // Start editing a cell
+  const startEdit = useCallback((rowIndex: number, colIndex: number) => {
+    const col = columns[colIndex];
+    if (!col?.editable) return;
+    const row = data[rowIndex];
+    if (!row) return;
+    setSelectedCell({ rowIndex, colIndex });
+    setEditingCell({ rowIndex, colIndex });
+    setEditValue(String(row[col.key as keyof T] ?? ""));
+  }, [columns, data]);
+
   const isCellSelected = (rowIndex: number, colIndex: number) => {
     if (selectedCell?.rowIndex === rowIndex && selectedCell?.colIndex === colIndex) return true;
     if (selection) {
@@ -70,14 +81,15 @@ export function Spreadsheet<T extends { id?: string }>({
 
     // If clicking on a dropdown inside a cell, let it handle normally
     if ((e.target as HTMLElement).tagName === "SELECT") return;
+    if ((e.target as HTMLElement).tagName === "INPUT") return;
 
-    if (e.shiftKey && selectedCell) {
-      setSelection({ start: selectedCell, end: { rowIndex, colIndex } });
+    const col = columns[colIndex];
+    if (col?.editable) {
+      startEdit(rowIndex, colIndex);
     } else {
       setSelectedCell({ rowIndex, colIndex });
+      setEditingCell(null);
       selectionStart.current = { rowIndex, colIndex };
-      setSelection(null);
-      setIsSelecting(true);
     }
   };
 
@@ -390,11 +402,11 @@ export function Spreadsheet<T extends { id?: string }>({
         <span className="text-sm text-gray-500">{data.length} row{data.length !== 1 ? "s" : ""}</span>
       </div>
 
-      <div ref={tableRef} className="border rounded-lg overflow-auto" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-        <table className="w-full border-collapse">
+      <div ref={tableRef} className="border rounded-xl overflow-auto shadow-sm bg-white select-none" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+        <table className="border-collapse min-w-full">
           <thead>
-            <tr className="bg-gray-50">
-              <th className="w-12 px-2 py-2 text-left text-xs font-medium text-gray-500 border-b">#</th>
+            <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+              <th className="w-14 px-3 py-3 text-left text-xs font-semibold text-gray-600 border-b border-gray-200">#</th>
               {columns.map((col, colIndex) => (
                 <th key={col.key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 border-b" style={{ width: col.width }}>
                   {col.label}
@@ -410,29 +422,42 @@ export function Spreadsheet<T extends { id?: string }>({
               </tr>
             ) : (
               data.map((row, rowIndex) => (
-                <tr key={row.id || rowIndex} data-row={rowIndex} className={`group ${isCellSelected(rowIndex, -1) ? "bg-purple-50" : ""} hover:bg-gray-50`}>
-                  <td className="px-2 py-1 text-xs text-gray-400 border-b text-center">{rowIndex + 1}</td>
+                <tr
+                  key={row.id || rowIndex}
+                  className={`
+                    transition-colors duration-75
+                    ${selectedCell?.rowIndex === rowIndex ? "bg-purple-50/70" : "hover:bg-gray-50"}
+                  `}
+                >
+                  <td className="px-3 py-2 text-sm text-gray-400 border-b border-gray-100 text-center">
+                    {rowIndex + 1}
+                  </td>
                   {columns.map((col, colIndex) => {
-                    const isSelected = isCellSelected(rowIndex, colIndex);
+                    const isSelected = selectedCell?.rowIndex === rowIndex && selectedCell?.colIndex === colIndex;
                     const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.colIndex === colIndex;
                     const value = row[col.key as keyof T];
+
                     return (
                       <td
                         key={col.key}
                         data-row={rowIndex}
                         data-col={colIndex}
-                        className={`px-3 py-1 border-b cursor-pointer ${isSelected ? "bg-purple-100 ring-2 ring-purple-400 ring-inset" : ""} ${col.editable ? "cursor-text" : ""}`}
+                        className={`
+                          px-2 py-1.5 border-b border-gray-100 relative
+                          transition-all duration-75
+                          ${isSelected && !isEditing ? "ring-2 ring-purple-400 ring-inset z-10" : ""}
+                          ${col.editable ? "cursor-pointer" : ""}
+                        `}
                         onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
-                        onDoubleClick={() => handleCellDoubleClick(rowIndex, colIndex)}
+                        onDoubleClick={() => startEdit(rowIndex, colIndex)}
                       >
                         {isEditing ? (
                           col.renderEdit ? (
                             <div onClick={(e) => e.stopPropagation()}>
                               {col.renderEdit(value as T[keyof T], (newVal: unknown) => {
-                                // Immediately save dropdown changes
-                                setEditingCell(null);
                                 onUpdate(rowIndex, col.key, newVal);
-                              })}
+                                setEditingCell(null);
+                              }, saveEdit)}
                             </div>
                           ) : (
                             <input
@@ -441,15 +466,25 @@ export function Spreadsheet<T extends { id?: string }>({
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
                               onBlur={saveEdit}
-                              onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }}
-                              className="w-full bg-white px-1 py-0 border border-purple-500 rounded outline-none"
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveEdit(); } if (e.key === "Escape") { e.preventDefault(); cancelEdit(); } if (e.key === "Tab") { e.preventDefault(); saveEdit(); } }}
+                              className="w-full bg-white px-2 py-1 border-2 border-purple-400 rounded-lg outline-none text-sm shadow-sm"
                               autoFocus
                             />
                           )
                         ) : col.render ? (
-                          col.render(value as T[keyof T], row)
+                          <div className="truncate max-w-[200px]" title={String(value ?? "")}>
+                            {col.render(value as T[keyof T], row)}
+                          </div>
                         ) : (
-                          <span className="text-sm">{value != null ? String(value) : ""}</span>
+                          <span
+                            className={`
+                              text-sm truncate block max-w-[200px]
+                              ${value ? "text-gray-800" : "text-gray-400 italic"}
+                            `}
+                            title={String(value ?? "")}
+                          >
+                            {value != null && value !== "" ? String(value) : "—"}
+                          </span>
                         )}
                       </td>
                     );
