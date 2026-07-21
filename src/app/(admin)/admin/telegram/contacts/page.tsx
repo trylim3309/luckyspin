@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Team = "KING88" | "SKY24" | "B88";
@@ -255,15 +255,6 @@ export default function TelegramContactsPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#233446]">Telegram Contacts</h1>
           <p className="text-[#868D9E] mt-1">Manage your Telegram contacts by team</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={handleAddEmpty}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:opacity-90"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add New
-          </Button>
         </div>
       </div>
 
