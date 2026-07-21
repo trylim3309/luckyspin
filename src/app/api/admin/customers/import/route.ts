@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     };
 
     const lines = content.split("\n").filter(line => line.trim());
-    console.log("Import debug - total lines:", lines.length, "content sample:", content.substring(0, 300));
+    console.log("Import debug - total lines:", lines.length, "content sample:", content.substring(0, 500));
 
     if (lines.length < 2) {
       return NextResponse.json({ error: "File is empty or has no data rows" }, { status: 400 });
@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
     // Parse header (first line)
     const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
     console.log("Headers found:", headers);
+    console.log("nameIdx:", nameIdx, "phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx);
 
     // Find column indices
     const nameIdx = headers.findIndex(h => h.includes("name"));
@@ -95,9 +96,9 @@ export async function POST(req: NextRequest) {
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = parseCSVLine(lines[i]);
+        console.log(`Row ${i}: raw="${lines[i]}"`, "parsed=", values);
         const name = values[nameIdx] || "";
-
-        console.log(`Row ${i}: name="${name}", values=`, values);
+        console.log(`Row ${i}: name="${name}"`);
         if (!name) continue;
 
         const phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
