@@ -129,6 +129,7 @@ export default function NewCustomersPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importAgentId, setImportAgentId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch telegram contacts
   useEffect(() => {
@@ -588,7 +589,7 @@ export default function NewCustomersPage() {
       alert("Failed to import customers");
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (importFileInputRef.current) importFileInputRef.current.value = "";
     }
   };
 
@@ -849,7 +850,7 @@ export default function NewCustomersPage() {
               <label className="block text-sm font-medium mb-2">Select CSV File</label>
               <input
                 type="file"
-                ref={fileInputRef}
+                ref={importFileInputRef}
                 accept=".csv"
                 className="w-full border rounded-lg p-2"
               />
@@ -858,7 +859,7 @@ export default function NewCustomersPage() {
               <Button variant="outline" onClick={() => setShowImportModal(false)}>Cancel</Button>
               <Button
                 onClick={() => {
-                  const input = fileInputRef.current;
+                  const input = importFileInputRef.current;
                   const dateInput = document.getElementById("importDate") as HTMLInputElement;
                   if (input?.files?.[0]) {
                     handleExcelUpload({ target: input } as any, dateInput?.value);

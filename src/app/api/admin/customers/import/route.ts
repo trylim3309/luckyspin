@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         if (!name) continue;
 
         const phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
-        const accountId = accountIdIdx !== -1 ? values[accountIdIdx] || null : null;
+        const accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() : null;
 
         await prisma.customer.create({
           data: {
