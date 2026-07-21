@@ -40,16 +40,16 @@ export default function TelegramContactsPage() {
   // Filters
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
 
-  // Create empty placeholder row
+  // Create empty placeholder row - uses current team filter as default
   const createEmptyRow = useCallback((): TelegramContact => ({
     id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: "",
     username: null,
     phone: null,
-    team: "KING88",
+    team: teamFilter === "all" ? "KING88" : teamFilter,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  }), []);
+  }), [teamFilter]);
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -64,9 +64,9 @@ export default function TelegramContactsPage() {
       let realContacts = data.contacts || [];
       setContacts(realContacts);
 
-      // Add 50 empty placeholder rows for quick entry
+      // Add 5 empty placeholder rows for quick entry
       const emptyRows: TelegramContact[] = [];
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 5; i++) {
         emptyRows.push(createEmptyRow());
       }
       setContacts([...realContacts, ...emptyRows]);
@@ -92,7 +92,7 @@ export default function TelegramContactsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ [key]: value, name: contact.name || "Unnamed", team: contact.team }),
+        body: JSON.stringify({ name: contact.name, team: contact.team, [key]: value }),
       });
 
       if (res.ok || res.status === 201) {
@@ -183,7 +183,7 @@ export default function TelegramContactsPage() {
       name: "",
       username: null,
       phone: null,
-      team: "KING88",
+      team: teamFilter === "all" ? "KING88" : teamFilter,
     });
   };
 
