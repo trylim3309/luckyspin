@@ -41,6 +41,7 @@ const ROLE_DEFAULT_PERMISSIONS: Record<Role, string[]> = {
 interface AdminUser {
   id: string;
   name: string;
+  fullName: string | null;
   role: Role;
   permissions: string[];
   team: "KING88" | "SKY24" | "B88";
@@ -71,12 +72,14 @@ export default function AdminUsersPage() {
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>(ROLE_DEFAULT_PERMISSIONS);
   const [formData, setFormData] = useState<{
     name: string;
+    fullName: string;
     password: string;
     role: Role;
     team: "KING88" | "SKY24" | "B88";
     permissions?: string[];
   }>({
     name: "",
+    fullName: "",
     password: "",
     role: "AGENT",
     team: "KING88",
@@ -120,6 +123,7 @@ export default function AdminUsersPage() {
     setEditingUser(null);
     setFormData({
       name: "",
+      fullName: "",
       password: "",
       role: "AGENT",
       team: "KING88",
@@ -132,6 +136,7 @@ export default function AdminUsersPage() {
     setEditingUser(user);
     setFormData({
       name: user.name,
+      fullName: user.fullName || "",
       password: "",
       role: user.role,
       team: user.team,
@@ -174,6 +179,7 @@ export default function AdminUsersPage() {
       const method = editingUser ? "PUT" : "POST";
       const body: Record<string, unknown> = {
         name: formData.name.trim(),
+        fullName: formData.fullName.trim() || null,
         role: formData.role,
         team: formData.team,
       };
@@ -197,7 +203,7 @@ export default function AdminUsersPage() {
       }
 
       setIsDialogOpen(false);
-      setFormData({ name: "", password: "", role: "AGENT", team: "KING88" });
+      setFormData({ name: "", fullName: "", password: "", role: "AGENT", team: "KING88" });
       fetchUsers();
     } catch (error) {
       console.error("Failed to save user:", error);
@@ -207,14 +213,20 @@ export default function AdminUsersPage() {
   const handleDelete = async () => {
     if (!deletingUser) return;
     try {
-      await fetch(`/api/admin/admin-users?id=${deletingUser.id}`, {
+      const res = await fetch(`/api/admin/admin-users?id=${deletingUser.id}`, {
         method: "DELETE",
         credentials: "include",
       });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to delete user");
+        return;
+      }
       setIsDeleteDialogOpen(false);
       fetchUsers();
     } catch (error) {
       console.error("Failed to delete user:", error);
+      alert("Failed to delete user");
     }
   };
 
@@ -223,6 +235,11 @@ export default function AdminUsersPage() {
       key: "name",
       label: "Username",
       render: (user: AdminUser) => <span className="font-medium">{user.name}</span>,
+    },
+    {
+      key: "fullName",
+      label: "Full Name",
+      render: (user: AdminUser) => <span>{user.fullName || "-"}</span>,
     },
     {
       key: "role",
@@ -353,6 +370,14 @@ export default function AdminUsersPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Enter username"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Full Name</label>
+              <Input
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                placeholder="Enter full name"
               />
             </div>
             <div className="space-y-2">

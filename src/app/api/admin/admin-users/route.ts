@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.adminUser.create({
       data: {
         name: body.name,
+        fullName: body.fullName || null,
         username: body.name.toLowerCase().replace(/\s+/g, ""),
         email: body.name.toLowerCase().replace(/\s+/g, "") + "@admin.local",
         passwordHash,
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
       user: {
         id: user.id,
         name: user.name,
+        fullName: user.fullName,
         role: user.role,
         permissions: user.permissions,
         team: user.team,
@@ -121,6 +123,7 @@ export async function PUT(req: NextRequest) {
         updateData.name = body.name;
       }
     }
+    if (body.fullName !== undefined) updateData.fullName = body.fullName || null;
     if (body.role) updateData.role = body.role;
     if (body.permissions) updateData.permissions = body.permissions;
     if (body.team) updateData.team = body.team;
@@ -138,6 +141,7 @@ export async function PUT(req: NextRequest) {
       user: {
         id: user.id,
         name: user.name,
+        fullName: user.fullName,
         role: user.role,
         permissions: user.permissions,
         team: user.team,
@@ -157,6 +161,15 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
+    }
+
+    // Check if user has customers
+    const customerCount = await prisma.customer.count({ where: { agentId: id } });
+    if (customerCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete user with ${customerCount} customers. Reassign them first.` },
+        { status: 400 }
+      );
     }
 
     await prisma.adminUser.delete({
