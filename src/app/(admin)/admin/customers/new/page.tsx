@@ -859,11 +859,11 @@ export default function NewCustomersPage() {
               </div>
             )}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Select CSV File</label>
+              <label className="block text-sm font-medium mb-2">Select File</label>
               <input
                 type="file"
                 ref={importFileInputRef}
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 className="w-full border rounded-lg p-2"
               />
             </div>

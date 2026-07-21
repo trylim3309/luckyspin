@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import * as XLSX from "xlsx";
 
 function getAdminSession(req: NextRequest) {
   const adminSession = req.cookies.get("admin_session");
@@ -27,36 +28,23 @@ export async function POST(req: NextRequest) {
 
     // Read file content
     const bytes = await file.arrayBuffer();
-    const content = new TextDecoder("utf-8").decode(bytes);
+    let content: string;
+    let lines: string[];
 
-    // Parse CSV - handle quoted fields properly
-    const parseCSVLine = (line: string): string[] => {
-      const result: string[] = [];
-      let current = "";
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          if (inQuotes && line[i + 1] === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === "," && !inQuotes) {
-          result.push(current.trim());
-          current = "";
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim());
-      return result;
-    };
-
-    const lines = content.split("\n").filter(line => line.trim());
-    console.log("Import debug - total lines:", lines.length, "content sample:", content.substring(0, 500));
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      // Parse Excel file
+      const workbook = XLSX.read(new Uint8Array(bytes), { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+      lines = jsonData.map((row) => row.join(","));
+    } else {
+      // Parse CSV file
+      content = new TextDecoder("utf-8").decode(bytes);
+      lines = content.split("\n").filter((line) => line.trim());
+    }
+    console.log("Import debug - total lines:", lines.length, "first line:", lines[0]);
 
     if (lines.length < 2) {
       return NextResponse.json({ error: "File is empty or has no data rows" }, { status: 400 });
@@ -64,9 +52,14 @@ export async function POST(req: NextRequest) {
 
     // Parse header (first line)
     const headerLine = lines[0];
-    const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+    const headers = headerLine.split(",").map((h: string) => h.trim().toLowerCase());
     console.log("Raw header line:", headerLine);
     console.log("Headers found:", headers);
+
+    // Simple CSV line parser
+    const parseCSVLine = (line: string): string[] => {
+      return line.split(",").map((v: string) => v.trim());
+    };
 
     // Find column indices
     const nameIdx = headers.findIndex(h => h.includes("name"));
