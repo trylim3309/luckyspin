@@ -553,18 +553,15 @@ export default function NewCustomersPage() {
   };
 
   // Handle Excel file upload
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>, importDate?: string) => {
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>, importDate?: string, sheetName?: string) => {
     const file = e.target.files?.[0];
     if (!file) {
       alert("No file selected");
       return;
     }
 
-    console.log("1. Uploading file:", file.name, "date:", importDate);
-
     setIsUploading(true);
     try {
-      console.log("2. Creating formData");
       const formData = new FormData();
       formData.append("file", file);
       if (isAdmin && importAgentId) {
@@ -573,14 +570,15 @@ export default function NewCustomersPage() {
       if (importDate) {
         formData.append("createdAt", importDate);
       }
+      if (sheetName) {
+        formData.append("sheet", sheetName);
+      }
 
-      console.log("3. Sending fetch request");
       const res = await fetch("/api/admin/customers/import", {
         method: "POST",
         credentials: "include",
         body: formData,
       });
-      console.log("4. Got response:", res.status);
 
       if (res.ok) {
         const data = await res.json();
@@ -867,14 +865,26 @@ export default function NewCustomersPage() {
                 className="w-full border rounded-lg p-2"
               />
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Sheet Name (for Excel)</label>
+              <input
+                type="text"
+                id="importSheet"
+                className="w-full border rounded-lg p-2"
+                placeholder="Leave empty for first sheet"
+                defaultValue=""
+              />
+              <p className="text-xs text-gray-500 mt-1">For Excel files with multiple sheets</p>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowImportModal(false)}>Cancel</Button>
               <Button
                 onClick={() => {
                   const input = importFileInputRef.current;
                   const dateInput = document.getElementById("importDate") as HTMLInputElement;
+                  const sheetInput = document.getElementById("importSheet") as HTMLInputElement;
                   if (input?.files?.[0]) {
-                    handleExcelUpload({ target: input } as any, dateInput?.value);
+                    handleExcelUpload({ target: input } as any, dateInput?.value, sheetInput?.value);
                   } else {
                     alert("Please select a file");
                   }

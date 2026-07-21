@@ -30,13 +30,23 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     let content: string;
     let lines: string[];
-
     const fileName = file.name.toLowerCase();
+
     if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
       // Parse Excel file
       const workbook = XLSX.read(new Uint8Array(bytes), { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
+      const sheetNames = workbook.SheetNames;
+      console.log("Sheet names found:", sheetNames);
+
+      // Get selected sheet from formData, or use first sheet
+      const selectedSheet = formData.get("sheet") as string || sheetNames[0];
+      console.log("Selected sheet:", selectedSheet);
+
+      if (!sheetNames.includes(selectedSheet)) {
+        return NextResponse.json({ error: `Sheet "${selectedSheet}" not found. Available sheets: ${sheetNames.join(", ")}` }, { status: 400 });
+      }
+
+      const worksheet = workbook.Sheets[selectedSheet];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
       lines = jsonData.map((row) => row.join(","));
     } else {
