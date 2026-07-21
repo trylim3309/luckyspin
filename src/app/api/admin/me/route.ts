@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         name: session.name,
         role: session.role,
         permissions: session.permissions || [],
-        team: session.team,
+        teams: session.teams || ["KING88"],
       },
     });
   } catch {

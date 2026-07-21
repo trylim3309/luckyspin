@@ -147,7 +147,8 @@ export default function NewCustomersPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data.admin) {
-          const agentTeam = (data.admin.team as Team) || "KING88";
+          const agentTeams = data.admin.teams || ["KING88"];
+          const agentTeam = agentTeams[0] as Team;
           setCurrentAgent({ id: data.admin.id, name: data.admin.name, team: agentTeam });
           const agentRole = data.admin.role;
           // Agents (AGENT role) can only see their own customers

@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     const agentId = formData.get("agentId") as string || session.id;
     const agent = await prisma.adminUser.findUnique({
       where: { id: agentId },
-      select: { team: true },
+      select: { teams: true },
     });
 
     // Get createdAt date from formData (defaults to now)
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
             callStatus: callStatus as any,
             result: result as any,
             agentId: agentId,
-            team: agent?.team || "KING88",
+            team: agent?.teams?.[0] || "KING88",
             createdAt: createdAt,
             remarks: remarks,
             telegramId: telegramId,

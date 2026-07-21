@@ -127,10 +127,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // Get agent's team for default
+    // Get agent's teams for default
     const agent = await prisma.adminUser.findUnique({
       where: { id: session.id },
-      select: { team: true },
+      select: { teams: true },
     });
 
     const customer = await prisma.customer.create({
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         telegramId: body.telegramId || null,
         remarks: body.remarks || null,
         agentId: session.id,
-        team: body.team || agent?.team || "KING88",
+        team: body.team || agent?.teams?.[0] || "KING88",
       },
       include: { agent: { select: { id: true, name: true } } },
     });

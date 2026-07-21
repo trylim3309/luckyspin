@@ -44,7 +44,7 @@ interface AdminUser {
   fullName: string | null;
   role: Role;
   permissions: string[];
-  team: "KING88" | "SKY24" | "B88";
+  teams: string[];
   createdAt: string;
 }
 
@@ -75,14 +75,14 @@ export default function AdminUsersPage() {
     fullName: string;
     password: string;
     role: Role;
-    team: "KING88" | "SKY24" | "B88";
+    teams: string[];
     permissions?: string[];
   }>({
     name: "",
     fullName: "",
     password: "",
     role: "AGENT",
-    team: "KING88",
+    teams: ["KING88"],
   });
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function AdminUsersPage() {
       fullName: "",
       password: "",
       role: "AGENT",
-      team: "KING88",
+      teams: ["KING88"],
       permissions: rolePermissions["AGENT"] || []
     });
     setIsDialogOpen(true);
@@ -139,7 +139,7 @@ export default function AdminUsersPage() {
       fullName: user.fullName || "",
       password: "",
       role: user.role,
-      team: user.team,
+      teams: user.teams && user.teams.length > 0 ? user.teams : ["KING88"],
       permissions: user.permissions && user.permissions.length > 0 ? user.permissions : (rolePermissions[user.role] || [])
     });
     setIsDialogOpen(true);
@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
         name: formData.name.trim(),
         fullName: formData.fullName.trim() || null,
         role: formData.role,
-        team: formData.team,
+        teams: formData.teams,
       };
       if (editingUser) body.id = editingUser.id;
       if (formData.password) body.password = formData.password;
@@ -203,7 +203,7 @@ export default function AdminUsersPage() {
       }
 
       setIsDialogOpen(false);
-      setFormData({ name: "", fullName: "", password: "", role: "AGENT", team: "KING88" });
+      setFormData({ name: "", fullName: "", password: "", role: "AGENT", teams: ["KING88"] });
       fetchUsers();
     } catch (error) {
       console.error("Failed to save user:", error);
@@ -258,19 +258,34 @@ export default function AdminUsersPage() {
       ),
     },
     {
-      key: "team",
-      label: "Team",
+      key: "teams",
+      label: "Teams",
       render: (user: AdminUser) => (
-        <span style={{
-          padding: "2px 8px",
-          borderRadius: "10px",
-          fontSize: "11px",
-          fontWeight: 700,
-          background: user.team === "KING88" ? "#9333EA" : user.team === "SKY24" ? "#3B82F6" : "#F97316",
-          color: "#fff",
-        }}>
-          {user.team}
-        </span>
+        <div className="flex flex-wrap gap-1">
+          {(!user.teams || user.teams.length === 0) ? (
+            <span style={{
+              padding: "2px 8px",
+              borderRadius: "10px",
+              fontSize: "11px",
+              fontWeight: 700,
+              background: "#9333EA",
+              color: "#fff",
+            }}>KING88</span>
+          ) : (
+            user.teams.map((t) => (
+              <span key={t} style={{
+                padding: "2px 8px",
+                borderRadius: "10px",
+                fontSize: "11px",
+                fontWeight: 700,
+                background: t === "KING88" ? "#9333EA" : t === "SKY24" ? "#3B82F6" : "#F97316",
+                color: "#fff",
+              }}>
+                {t}
+              </span>
+            ))
+          )}
+        </div>
       ),
     },
     {
@@ -402,16 +417,27 @@ export default function AdminUsersPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Team</label>
-              <select
-                value={formData.team}
-                onChange={(e) => setFormData({ ...formData, team: e.target.value as "KING88" | "SKY24" | "B88" })}
-                className="w-full p-2 border rounded-md"
-              >
-                <option value="KING88">KING88</option>
-                <option value="SKY24">SKY24</option>
-                <option value="B88">B88</option>
-              </select>
+              <label className="text-sm font-medium">Teams</label>
+              <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-lg">
+                {["KING88", "SKY24", "B88"].map((t) => (
+                  <label key={t} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.teams?.includes(t) || false}
+                      onChange={(e) => {
+                        const current = formData.teams || [];
+                        const updated = e.target.checked
+                          ? [...current, t]
+                          : current.filter(tm => tm !== t);
+                        setFormData({ ...formData, teams: updated });
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm font-medium">{t}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-[#868D9E]">Select one or more teams</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Permissions</label>

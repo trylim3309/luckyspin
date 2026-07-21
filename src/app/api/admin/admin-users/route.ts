@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         role: body.role || "ADMIN",
         permissions: body.permissions || [],
-        team: body.team || "KING88",
+        teams: body.teams || ["KING88"],
       },
     });
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         fullName: user.fullName,
         role: user.role,
         permissions: user.permissions,
-        team: user.team,
+        teams: user.teams,
         createdAt: user.createdAt,
       },
     });
@@ -127,7 +127,7 @@ export async function PUT(req: NextRequest) {
     if (body.fullName !== undefined) updateData.fullName = body.fullName || null;
     if (body.role) updateData.role = body.role;
     if (body.permissions) updateData.permissions = body.permissions;
-    if (body.team) updateData.team = body.team;
+    if (body.teams) updateData.teams = body.teams;
 
     if (body.password) {
       updateData.passwordHash = await bcrypt.hash(body.password, 12);
@@ -145,7 +145,7 @@ export async function PUT(req: NextRequest) {
         fullName: user.fullName,
         role: user.role,
         permissions: user.permissions,
-        team: user.team,
+        teams: user.teams,
         createdAt: user.createdAt,
       },
     });
