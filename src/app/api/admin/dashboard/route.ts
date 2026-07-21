@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     today.setHours(0, 0, 0, 0);
 
     // Single parallel query structure
-    const [totalUsers, totalSpins, todaySpins, totalWins, recentSpins, prizes] = await Promise.all([
+    const [totalUsers, totalSpins, todaySpins, totalWins, recentSpins, prizes, totalCustomers] = await Promise.all([
       prisma.user.count(),
       prisma.spinResult.count(),
       prisma.spinResult.count({ where: { createdAt: { gte: today } } }),
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
       prisma.prize.findMany({
         select: { name: true, stock: true, totalWinCount: true },
       }),
+      prisma.customer.count(),
     ]);
 
     const totalRemainingStock = prizes.reduce((sum, p) => sum + p.stock, 0);
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
         totalWinners: totalWins,
         totalPrizesClaimed: totalWins,
         totalRemainingStock,
+        totalCustomers,
       },
       recentSpins,
       topPrizes,

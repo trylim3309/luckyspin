@@ -1,7 +1,7 @@
 "use client";
 
 import { StatCard } from "@/components/admin/StatCard";
-import { Users, RefreshCw, Trophy, Gift, Clock, TrendingUp, Eye, Award } from "lucide-react";
+import { Users, RefreshCw, Trophy, Gift, Clock, TrendingUp, Eye, Award, UserCheck } from "lucide-react";
 import { useAdminData } from "@/hooks/useAdminData";
 
 export default function DashboardPage() {
@@ -22,13 +22,15 @@ export default function DashboardPage() {
     );
   }
 
-  const stats = data?.stats || {
-    totalUsers: 0,
-    totalSpins: 0,
-    todaySpins: 0,
-    totalWinners: 0,
-    totalPrizesClaimed: 0,
-    totalRemainingStock: 0,
+  const stats = data?.stats || {};
+  const safeStats = {
+    totalUsers: stats.totalUsers || 0,
+    totalSpins: stats.totalSpins || 0,
+    todaySpins: stats.todaySpins || 0,
+    totalWinners: stats.totalWinners || 0,
+    totalPrizesClaimed: stats.totalPrizesClaimed || 0,
+    totalRemainingStock: stats.totalRemainingStock || 0,
+    totalCustomers: stats.totalCustomers || 0,
   };
 
   return (
@@ -49,39 +51,45 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
         <StatCard
           title="Total Accounts"
-          value={stats.totalUsers.toLocaleString()}
+          value={safeStats.totalUsers.toLocaleString()}
           icon={Users}
           description="All registered accounts"
         />
         <StatCard
           title="Total Spins"
-          value={stats.totalSpins.toLocaleString()}
+          value={safeStats.totalSpins.toLocaleString()}
           icon={RefreshCw}
           description="All time spins"
         />
         <StatCard
           title="Today's Spins"
-          value={stats.todaySpins.toLocaleString()}
+          value={safeStats.todaySpins.toLocaleString()}
           icon={Clock}
           description="Spins in last 24 hours"
         />
         <StatCard
           title="Total Winners"
-          value={stats.totalWinners.toLocaleString()}
+          value={safeStats.totalWinners.toLocaleString()}
           icon={Trophy}
           description="Users who won"
         />
         <StatCard
           title="Prizes Claimed"
-          value={stats.totalPrizesClaimed.toLocaleString()}
+          value={safeStats.totalPrizesClaimed.toLocaleString()}
           icon={Gift}
           description="Total prizes won"
         />
         <StatCard
           title="Remaining Stock"
-          value={stats.totalRemainingStock.toLocaleString()}
+          value={safeStats.totalRemainingStock.toLocaleString()}
           icon={Award}
           description="Available prizes"
+        />
+        <StatCard
+          title="Total Customers"
+          value={safeStats.totalCustomers.toLocaleString()}
+          icon={UserCheck}
+          description="All CRM customers"
         />
       </div>
 
