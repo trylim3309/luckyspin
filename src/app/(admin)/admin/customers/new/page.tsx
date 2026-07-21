@@ -710,6 +710,36 @@ export default function NewCustomersPage() {
       ),
     },
     {
+      key: "telegramId",
+      label: "Telegram",
+      width: 120,
+      editable: true,
+      render: (value) => {
+        const contact = telegramContacts.find(c => c.id === value);
+        return (
+          <span className="text-sm">
+            {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : value || "-"}
+          </span>
+        );
+      },
+      renderEdit: (value, onChange, onSave) => (
+        <select
+          value={value || ""}
+          onChange={(e) => { onChange(e.target.value || null); }}
+          onBlur={() => {}} // Prevent double-save: onChange already saves
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          <option value="">-- Select --</option>
+          {telegramContacts.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}{c.username ? ` (@${c.username})` : ""}{c.phone ? ` - ${c.phone}` : ""}
+            </option>
+          ))}
+        </select>
+      ),
+    },
+    {
       key: "result",
       label: "Result",
       width: 100,
@@ -737,36 +767,6 @@ export default function NewCustomersPage() {
         >
           {(Object.keys(RESULT_LABELS) as ResultStatus[]).map((k) => (
             <option key={k} value={k}>{RESULT_LABELS[k]}</option>
-          ))}
-        </select>
-      ),
-    },
-    {
-      key: "telegramId",
-      label: "Telegram",
-      width: 120,
-      editable: true,
-      render: (value) => {
-        const contact = telegramContacts.find(c => c.id === value);
-        return (
-          <span className="text-sm">
-            {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : value || "-"}
-          </span>
-        );
-      },
-      renderEdit: (value, onChange, onSave) => (
-        <select
-          value={value || ""}
-          onChange={(e) => { onChange(e.target.value || null); }}
-          onBlur={() => {}} // Prevent double-save: onChange already saves
-          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
-          autoFocus
-        >
-          <option value="">-- Select --</option>
-          {telegramContacts.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}{c.username ? ` (@${c.username})` : ""}{c.phone ? ` - ${c.phone}` : ""}
-            </option>
           ))}
         </select>
       ),
