@@ -101,21 +101,23 @@ export async function POST(req: NextRequest) {
     // Fetch telegram contacts for lookup
     const telegramContacts = await prisma.user.findMany({
       where: { telegramChatId: { not: null } },
-      select: { id: true, name: true, telegramUsername: true, phone: true, telegramChatId: true },
+      select: { id: true, firstName: true, telegramUsername: true, phone: true, telegramChatId: true },
     });
+    console.log("Telegram contacts found:", telegramContacts.length, telegramContacts);
 
     const findTelegramId = (telegramValue: string | null): string | null => {
       if (!telegramValue) return null;
       const search = telegramValue.toLowerCase().trim();
       if (!search) return null;
-      // Try to match by name, username, or phone
+      // Try to match by firstName, username, phone, or telegramChatId
       const found = telegramContacts.find(
         (c) =>
-          c.name.toLowerCase() === search ||
+          c.firstName.toLowerCase() === search ||
           c.telegramUsername?.toLowerCase() === search ||
           c.phone === search ||
           c.telegramChatId.toLowerCase() === search
       );
+      console.log(`findTelegramId("${telegramValue}") -> search="${search}", found=`, found);
       return found?.telegramChatId || null;
     };
 
