@@ -70,11 +70,54 @@ export async function POST(req: NextRequest) {
     const nameIdx = headers.findIndex(h => h.includes("name"));
     const phoneIdx = headers.findIndex(h => h.includes("phone") || h.includes("tel"));
     const accountIdIdx = headers.findIndex(h => h.includes("account") || h.includes("id"));
-    console.log("nameIdx:", nameIdx, "phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx);
+    const callStatusIdx = headers.findIndex(h => h.includes("call") || h.includes("chat"));
+    const resultIdx = headers.findIndex(h => h.includes("result"));
+    const telegramIdx = headers.findIndex(h => h.includes("telegram"));
+    const remarksIdx = headers.findIndex(h => h.includes("remark"));
+    console.log("nameIdx:", nameIdx, "phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx, "callStatusIdx:", callStatusIdx, "resultIdx:", resultIdx, "telegramIdx:", telegramIdx, "remarksIdx:", remarksIdx);
 
     if (nameIdx === -1) {
       return NextResponse.json({ error: "CSV must have a 'name' column" }, { status: 400 });
     }
+
+    // Map result values
+    const mapResult = (val: string): string => {
+      if (!val) return "NOT_CREATED";
+      const upper = val.toUpperCase();
+      if (upper.includes("DEPOSIT") || upper.includes("ដាក់លុយ")) return "DEPOSIT";
+      if (upper.includes("NOT_DEPOSIT") || upper.includes("អត់តប") || upper.includes("NOT ដាក់")) return "NOT_DEPOSIT";
+      return "NOT_CREATED";
+    };
+
+    // Map callStatus values
+    const mapCallStatus = (val: string): string => {
+      if (!val) return "CHATTED";
+      const upper = val.toUpperCase();
+      if (upper.includes("CALLED") || upper.includes("CALL")) return "CALLED";
+      if (upper.includes("CHAT") || upper.includes("CHATTED")) return "CHATTED";
+      return "CHATTED";
+    };
+
+    // Fetch telegram contacts for lookup
+    const telegramContacts = await prisma.user.findMany({
+      where: { telegramChatId: { not: null } },
+      select: { id: true, name: true, telegramUsername: true, phone: true, telegramChatId: true },
+    });
+
+    const findTelegramId = (telegramValue: string | null): string | null => {
+      if (!telegramValue) return null;
+      const search = telegramValue.toLowerCase().trim();
+      if (!search) return null;
+      // Try to match by name, username, or phone
+      const found = telegramContacts.find(
+        (c) =>
+          c.name.toLowerCase() === search ||
+          c.telegramUsername?.toLowerCase() === search ||
+          c.phone === search ||
+          c.telegramChatId.toLowerCase() === search
+      );
+      return found?.telegramChatId || null;
+    };
 
     let imported = 0;
     let skipped = 0;
@@ -104,19 +147,26 @@ export async function POST(req: NextRequest) {
 
         const phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
         const accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() : null;
+        const callStatus = callStatusIdx !== -1 ? mapCallStatus(values[callStatusIdx]) : "CHATTED";
+        const result = resultIdx !== -1 ? mapResult(values[resultIdx]) : "NOT_CREATED";
+        const remarks = remarksIdx !== -1 ? values[remarksIdx] || null : null;
+        const telegramValue = telegramIdx !== -1 ? values[telegramIdx] || null : null;
+        const telegramId = findTelegramId(telegramValue);
 
-        console.log(`Creating: name="${name}", phone="${phone}", accountId="${accountId}"`);
+        console.log(`Creating: name="${name}", phone="${phone}", accountId="${accountId}", callStatus="${callStatus}", result="${result}", telegramId="${telegramId}", remarks="${remarks}"`);
 
         await prisma.customer.create({
           data: {
             name,
             phone: phone || null,
             accountId: accountId || null,
-            callStatus: "NOT_CONTACTED",
-            result: "NOT_CREATED",
+            callStatus: callStatus as any,
+            result: result as any,
             agentId: agentId,
             team: agent?.team || "KING88",
             createdAt: createdAt,
+            remarks: remarks,
+            telegramId: telegramId,
           },
         });
         imported++;
