@@ -65,18 +65,19 @@ export async function POST(req: NextRequest) {
     // Parse header (first line)
     const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
     console.log("Headers found:", headers);
-    console.log("nameIdx:", nameIdx, "phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx);
 
     // Find column indices
     const nameIdx = headers.findIndex(h => h.includes("name"));
     const phoneIdx = headers.findIndex(h => h.includes("phone") || h.includes("tel"));
     const accountIdIdx = headers.findIndex(h => h.includes("account") || h.includes("id"));
+    console.log("nameIdx:", nameIdx, "phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx);
 
     if (nameIdx === -1) {
       return NextResponse.json({ error: "CSV must have a 'name' column" }, { status: 400 });
     }
 
     let imported = 0;
+    let skipped = 0;
     const errors: string[] = [];
 
     // Get agent's team for default
@@ -120,12 +121,20 @@ export async function POST(req: NextRequest) {
         });
         imported++;
       } catch (err) {
-        errors.push(`Row ${i}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        console.error(`Row ${i} error:`, err instanceof Error ? err.message : err);
+        // If it's a unique constraint error, skip this row (duplicate accountId)
+        if (err instanceof Error && err.message.includes("Unique constraint")) {
+          skipped++;
+          errors.push(`Row ${i}: Duplicate accountId skipped`);
+        } else {
+          errors.push(`Row ${i}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
       }
     }
 
     return NextResponse.json({
       imported,
+      skipped,
       total: lines.length - 1,
       errors: errors.slice(0, 10),
     });

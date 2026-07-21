@@ -560,10 +560,11 @@ export default function NewCustomersPage() {
       return;
     }
 
-    console.log("Uploading file:", file.name, "size:", file.size, "date:", importDate);
+    console.log("1. Uploading file:", file.name, "date:", importDate);
 
     setIsUploading(true);
     try {
+      console.log("2. Creating formData");
       const formData = new FormData();
       formData.append("file", file);
       if (isAdmin && importAgentId) {
@@ -573,24 +574,30 @@ export default function NewCustomersPage() {
         formData.append("createdAt", importDate);
       }
 
+      console.log("3. Sending fetch request");
       const res = await fetch("/api/admin/customers/import", {
         method: "POST",
         credentials: "include",
         body: formData,
       });
+      console.log("4. Got response:", res.status);
 
       if (res.ok) {
         const data = await res.json();
-        alert(`Imported ${data.imported} customers successfully!`);
+        console.log("5. Import result:", data);
+        let msg = `Imported ${data.imported} customers successfully!`;
+        if (data.skipped > 0) msg += ` (${data.skipped} duplicates skipped)`;
+        alert(msg);
         setShowImportModal(false);
         setImportAgentId("");
         fetchData();
       } else {
         const data = await res.json();
+        console.error("Import error response:", data);
         alert(data.error || "Failed to import customers");
       }
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("6. Catch error:", error);
       alert("Failed to import customers");
     } finally {
       setIsUploading(false);
