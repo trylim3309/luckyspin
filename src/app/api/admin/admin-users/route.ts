@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Admin users POST error:", error);
-    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to create user: " + message }, { status: 500 });
   }
 }
 
