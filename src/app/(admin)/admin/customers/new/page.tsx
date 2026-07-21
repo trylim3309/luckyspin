@@ -555,7 +555,12 @@ export default function NewCustomersPage() {
   // Handle Excel file upload
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>, importDate?: string) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      alert("No file selected");
+      return;
+    }
+
+    console.log("Uploading file:", file.name, "size:", file.size, "date:", importDate);
 
     setIsUploading(true);
     try {

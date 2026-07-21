@@ -29,16 +29,42 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Parse CSV or Excel (simple CSV parsing for now)
-    const content = buffer.toString("utf-8");
+    // Parse CSV - handle quoted fields properly
+    const parseCSVLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === "," && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
     const lines = content.split("\n").filter(line => line.trim());
+    console.log("Import debug - total lines:", lines.length, "content sample:", content.substring(0, 300));
 
     if (lines.length < 2) {
       return NextResponse.json({ error: "File is empty or has no data rows" }, { status: 400 });
     }
 
     // Parse header (first line)
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+    console.log("Headers found:", headers);
 
     // Find column indices
     const nameIdx = headers.findIndex(h => h.includes("name"));
@@ -68,13 +94,16 @@ export async function POST(req: NextRequest) {
     // Process data rows (skip header)
     for (let i = 1; i < lines.length; i++) {
       try {
-        const values = lines[i].split(",").map(v => v.trim());
+        const values = parseCSVLine(lines[i]);
         const name = values[nameIdx] || "";
 
+        console.log(`Row ${i}: name="${name}", values=`, values);
         if (!name) continue;
 
         const phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
         const accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() : null;
+
+        console.log(`Creating: name="${name}", phone="${phone}", accountId="${accountId}"`);
 
         await prisma.customer.create({
           data: {
