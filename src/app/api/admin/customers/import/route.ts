@@ -63,22 +63,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse header (first line)
-    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+    const headerLine = lines[0];
+    const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+    console.log("Raw header line:", headerLine);
     console.log("Headers found:", headers);
 
     // Find column indices
     const nameIdx = headers.findIndex(h => h.includes("name"));
+    console.log("nameIdx:", nameIdx, "(must be >= 0)");
+    if (nameIdx === -1) {
+      console.log("ERROR: No 'name' column found. Headers:", headers);
+      return NextResponse.json({ error: "CSV must have a 'name' column. Found: " + headers.join(", ") }, { status: 400 });
+    }
+
+    // Find other column indices
     const phoneIdx = headers.findIndex(h => h.includes("phone") || h.includes("tel"));
     const accountIdIdx = headers.findIndex(h => h.includes("account") || h.includes("id"));
     const callStatusIdx = headers.findIndex(h => h.includes("call") || h.includes("chat"));
     const resultIdx = headers.findIndex(h => h.includes("result"));
     const telegramIdx = headers.findIndex(h => h.includes("telegram"));
     const remarksIdx = headers.findIndex(h => h.includes("remark"));
-    console.log("nameIdx:", nameIdx, "phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx, "callStatusIdx:", callStatusIdx, "resultIdx:", resultIdx, "telegramIdx:", telegramIdx, "remarksIdx:", remarksIdx);
-
-    if (nameIdx === -1) {
-      return NextResponse.json({ error: "CSV must have a 'name' column" }, { status: 400 });
-    }
+    console.log("phoneIdx:", phoneIdx, "accountIdIdx:", accountIdIdx, "callStatusIdx:", callStatusIdx, "resultIdx:", resultIdx, "telegramIdx:", telegramIdx, "remarksIdx:", remarksIdx);
 
     // Map result values
     const mapResult = (val: string): string => {
