@@ -61,12 +61,17 @@ export async function GET(req: NextRequest) {
     const where: Prisma.CustomerWhereInput = {};
 
     // AGENT and TEAM_LEADER can only see their own customers
-    // ADMIN and SUPER_ADMIN can see all
-    if (session.role === "AGENT" || session.role === "TEAM_LEADER" || session.role === "MANAGER") {
+    // ADMIN, SUPER_ADMIN, and MANAGER can see all
+    if (session.role === "AGENT" || session.role === "TEAM_LEADER") {
       where.agentId = session.id;
     } else {
       // Admin can filter by agent
       if (agentId && agentId !== "all") where.agentId = agentId;
+    }
+
+    // MANAGER, ADMIN, SUPER_ADMIN can filter by any team
+    if (team && team !== "all") {
+      where.team = team as any;
     }
 
     if (dateFrom && dateTo) {

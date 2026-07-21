@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    const isAgent = session.role === "AGENT" || session.role === "TEAM_LEADER" || session.role === "MANAGER";
+    const isAgent = session.role === "AGENT" || session.role === "TEAM_LEADER";
 
     // Filter for DEPOSIT (counted customers - those with accountId and result = DEPOSIT)
     const depositCondition = {

@@ -203,6 +203,7 @@ export default function NewCustomersPage() {
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
       if (resultFilter !== "all") params.set("result", resultFilter);
       if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
+      if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
       params.set("limit", "100");
 
       const [custRes, statsRes] = await Promise.all([
@@ -1080,6 +1081,21 @@ export default function NewCustomersPage() {
                   {a.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Team Filter - Admin only */}
+        {isAdmin && (
+          <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="All Teams" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              <SelectItem value="KING88">KING88</SelectItem>
+              <SelectItem value="SKY24">SKY24</SelectItem>
+              <SelectItem value="B88">B88</SelectItem>
             </SelectContent>
           </Select>
         )}
