@@ -121,7 +121,7 @@ export default function NewCustomersPage() {
   });
 
   // Agents list for filter (admins only)
-  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name: string; fullName?: string | null }[]>([]);
 
   // Telegram contacts for dropdown
   const [telegramContacts, setTelegramContacts] = useState<TelegramContact[]>([]);
@@ -149,7 +149,7 @@ export default function NewCustomersPage() {
         if (data.admin) {
           const agentTeams = data.admin.teams || ["KING88"];
           const agentTeam = agentTeams[0] as Team;
-          setCurrentAgent({ id: data.admin.id, name: data.admin.name, team: agentTeam });
+          setCurrentAgent({ id: data.admin.id, name: data.admin.fullName || data.admin.name, team: agentTeam });
           const agentRole = data.admin.role;
           // Agents (AGENT role) can only see their own customers
           setIsAgent(agentRole === "AGENT");
@@ -778,6 +778,17 @@ export default function NewCustomersPage() {
       editable: true,
     },
     {
+      key: "agentId",
+      label: "Agent",
+      width: 120,
+      editable: false,
+      render: (value, row: any) => {
+        const agent = row?.agent;
+        const displayName = agent?.fullName || agent?.name || "-";
+        return <span className="text-sm">{displayName}</span>;
+      },
+    },
+    {
       key: "createdAt",
       label: "Created",
       width: 100,
@@ -852,7 +863,7 @@ export default function NewCustomersPage() {
                   <SelectContent>
                     <SelectItem value="">Current User ({currentAgent?.name})</SelectItem>
                     {agents.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      <SelectItem key={a.id} value={a.id}>{a.fullName || a.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1079,7 +1090,7 @@ export default function NewCustomersPage() {
               <SelectItem value="all">All Agents</SelectItem>
               {agents.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.name}
+                  {a.fullName || a.name}
                 </SelectItem>
               ))}
             </SelectContent>

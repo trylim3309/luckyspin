@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify({
         id: admin.id,
         name: admin.name,
+        fullName: admin.fullName,
         role: admin.role,
         type: "admin",
         permissions: admin.permissions || [],

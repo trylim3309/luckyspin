@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
       admin: {
         id: session.id,
         name: session.name,
+        fullName: session.fullName,
         role: session.role,
         permissions: session.permissions || [],
         teams: session.teams || ["KING88"],
