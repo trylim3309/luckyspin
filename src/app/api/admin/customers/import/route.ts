@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     // Read file content
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const content = new TextDecoder("utf-8").decode(bytes);
 
     // Parse CSV - handle quoted fields properly
     const parseCSVLine = (line: string): string[] => {
@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Import error:", error);
-    return NextResponse.json({ error: "Failed to import customers" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to import customers: " + message }, { status: 500 });
   }
 }
