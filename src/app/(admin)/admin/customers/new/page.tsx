@@ -232,7 +232,7 @@ export default function NewCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, agentFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
