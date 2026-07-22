@@ -100,7 +100,7 @@ export default function NewCustomersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Current agent
-  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; team: Team } | null>(null);
+  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team } | null>(null);
   const [isAgent, setIsAgent] = useState(false);
 
   // Stats with breakdowns for each period
@@ -150,7 +150,7 @@ export default function NewCustomersPage() {
         if (data.admin) {
           const agentTeams = data.admin.teams || ["KING88"];
           const agentTeam = agentTeams[0] as Team;
-          setCurrentAgent({ id: data.admin.id, name: data.admin.fullName || data.admin.name, team: agentTeam });
+          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam });
           const agentRole = data.admin.role;
           // Agents (AGENT role) can only see their own customers
           setIsAgent(agentRole === "AGENT");
