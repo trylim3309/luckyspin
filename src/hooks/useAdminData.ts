@@ -11,7 +11,7 @@ export function useAdminData<T>(endpoint: string, config?: SWRConfiguration) {
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      dedupingInterval: 5000,
+      dedupingInterval: 0,
       ...config,
     }
   );
