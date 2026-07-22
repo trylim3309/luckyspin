@@ -22,49 +22,74 @@ export async function GET(req: NextRequest) {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Single parallel query structure
-    const [totalUsers, totalSpins, todaySpins, totalWins, recentSpins, prizes, totalCustomers] = await Promise.all([
-      prisma.user.count(),
-      prisma.spinResult.count(),
-      prisma.spinResult.count({ where: { createdAt: { gte: today } } }),
-      prisma.spinResult.count({ where: { isWin: true } }),
-      prisma.spinResult.findMany({
-        take: 10,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          isWin: true,
-          createdAt: true,
-          prize: { select: { name: true } },
-          user: { select: { firstName: true, username: true } },
-        },
-      }),
-      prisma.prize.findMany({
-        select: { name: true, stock: true, totalWinCount: true },
-      }),
-      prisma.customer.count(),
-    ]);
+    // Get customer counts by agent
+    const customerStats = await prisma.customer.groupBy({
+      by: ["agentId"],
+      _count: true,
+    });
 
-    const totalRemainingStock = prizes.reduce((sum, p) => sum + p.stock, 0);
-    const topPrizes = prizes
-      .filter((p) => p.totalWinCount > 0)
-      .sort((a, b) => b.totalWinCount - a.totalWinCount)
-      .slice(0, 5)
-      .map((p) => ({ name: p.name, wins: p.totalWinCount }));
+    // Get agent details
+    const agents = await prisma.adminUser.findMany({
+      select: { id: true, name: true, fullName: true, role: true, teams: true },
+    });
+
+    const agentMap = new Map(agents.map(a => [a.id, a]));
+
+    // Build agent customer list with counts
+    const agentCustomerStats = customerStats.map(stat => {
+      const agent = agentMap.get(stat.agentId);
+      return {
+        id: stat.agentId,
+        name: agent?.fullName || agent?.name || "Unknown",
+        role: agent?.role || "AGENT",
+        teams: agent?.teams || ["KING88"],
+        totalCustomers: stat._count,
+      };
+    });
+
+    // Sort by total customers descending
+    agentCustomerStats.sort((a, b) => b.totalCustomers - a.totalCustomers);
+
+    // Team totals
+    const teamTotals = await prisma.customer.groupBy({
+      by: ["team"],
+      _count: true,
+    });
+
+    const teamStatsMap: Record<string, number> = { KING88: 0, SKY24: 0, B88: 0 };
+    for (const t of teamTotals) {
+      teamStatsMap[t.team] = t._count;
+    }
+
+    // Grand total
+    const totalCustomers = await prisma.customer.count();
+
+    // Today's new customers
+    const todayCustomers = await prisma.customer.count({
+      where: { createdAt: { gte: today } },
+    });
+
+    // This week's new customers
+    const weekCustomers = await prisma.customer.count({
+      where: { createdAt: { gte: weekStart } },
+    });
+
+    // This month's new customers
+    const monthCustomers = await prisma.customer.count({
+      where: { createdAt: { gte: monthStart } },
+    });
 
     return NextResponse.json({
-      stats: {
-        totalUsers,
-        totalSpins,
-        todaySpins,
-        totalWinners: totalWins,
-        totalPrizesClaimed: totalWins,
-        totalRemainingStock,
-        totalCustomers,
-      },
-      recentSpins,
-      topPrizes,
+      totalCustomers,
+      todayCustomers,
+      weekCustomers,
+      monthCustomers,
+      teamStats: teamStatsMap,
+      agentStats: agentCustomerStats,
     });
   } catch (error) {
     console.error("Dashboard error:", error);
