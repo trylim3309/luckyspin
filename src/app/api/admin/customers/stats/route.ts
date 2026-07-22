@@ -91,7 +91,8 @@ export async function GET(req: NextRequest) {
       if (filterIsOld === "true") {
         where.isOld = true;
       } else if (filterIsOld === "false") {
-        where.isOld = false;
+        // Match both false and NULL (new customers that haven't been marked as old)
+        where.isOld = { not: true };
       }
       return where;
     };

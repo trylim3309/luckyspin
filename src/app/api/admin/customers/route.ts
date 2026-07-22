@@ -151,7 +151,8 @@ export async function GET(req: NextRequest) {
     if (isOldParam === "true") {
       where.isOld = true;
     } else if (isOldParam === "false") {
-      where.isOld = false;
+      // Match both false and NULL (new customers that haven't been marked as old)
+      where.isOld = { not: true };
     }
 
     const [customers, total] = await Promise.all([
