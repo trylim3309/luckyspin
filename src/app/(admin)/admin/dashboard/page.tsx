@@ -19,7 +19,7 @@ export default function DashboardPage() {
     monthCustomers: number;
     lastMonthCustomers: number;
     teamStats: Record<string, number>;
-    agentStats: { id: string; name: string; role: string; teams: string[]; totalCustomers: number }[];
+    agentStats: { id: string; name: string; fullName?: string | null; role: string; teams: string[]; totalCustomers: number }[];
     userTeams: string[];
     isRestricted: boolean;
   }>("/api/admin/dashboard");
@@ -159,7 +159,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-semibold text-[#495057]">{agent.name}</p>
+                      <p className="text-[14px] font-semibold text-[#495057]">{agent.fullName || agent.name}</p>
                       <Badge variant="outline" className="text-[10px]">{agent.role}</Badge>
                       <div className="flex gap-1">
                         {agent.teams.map((t) => (
