@@ -229,13 +229,49 @@ export default function NewCustomersPage() {
       }
       setCustomers([...realCustomers, ...emptyRows]);
 
-      // Get stats - use selected agent if filtering, otherwise use current agent
-      const statsAgentId = isAdmin && agentFilter !== "all" ? agentFilter : currentAgent?.id;
-      const myStats = statsRes.agents?.find((a: any) => a.id === statsAgentId);
-      if (myStats) {
-        setStats(myStats.stats);
+      // Get stats - calculate from agents data
+      if (statsRes.agents && statsRes.agents.length > 0) {
+        // Sum all agents' stats
+        const totalStats = statsRes.agents.reduce((acc: any, agent: any) => {
+          return {
+            today: acc.today + (agent.stats?.today || 0),
+            week: acc.week + (agent.stats?.week || 0),
+            month: acc.month + (agent.stats?.month || 0),
+            all: acc.all + (agent.stats?.all || 0),
+            todayBreakdown: {
+              total: acc.todayBreakdown.total + (agent.stats?.todayBreakdown?.total || 0),
+              notCreated: acc.todayBreakdown.notCreated + (agent.stats?.todayBreakdown?.notCreated || 0),
+              notDeposit: acc.todayBreakdown.notDeposit + (agent.stats?.todayBreakdown?.notDeposit || 0),
+              deposit: acc.todayBreakdown.deposit + (agent.stats?.todayBreakdown?.deposit || 0),
+            },
+            weekBreakdown: {
+              total: acc.weekBreakdown.total + (agent.stats?.weekBreakdown?.total || 0),
+              notCreated: acc.weekBreakdown.notCreated + (agent.stats?.weekBreakdown?.notCreated || 0),
+              notDeposit: acc.weekBreakdown.notDeposit + (agent.stats?.weekBreakdown?.notDeposit || 0),
+              deposit: acc.weekBreakdown.deposit + (agent.stats?.weekBreakdown?.deposit || 0),
+            },
+            monthBreakdown: {
+              total: acc.monthBreakdown.total + (agent.stats?.monthBreakdown?.total || 0),
+              notCreated: acc.monthBreakdown.notCreated + (agent.stats?.monthBreakdown?.notCreated || 0),
+              notDeposit: acc.monthBreakdown.notDeposit + (agent.stats?.monthBreakdown?.notDeposit || 0),
+              deposit: acc.monthBreakdown.deposit + (agent.stats?.monthBreakdown?.deposit || 0),
+            },
+            allBreakdown: {
+              total: acc.allBreakdown.total + (agent.stats?.allBreakdown?.total || 0),
+              notCreated: acc.allBreakdown.notCreated + (agent.stats?.allBreakdown?.notCreated || 0),
+              notDeposit: acc.allBreakdown.notDeposit + (agent.stats?.allBreakdown?.notDeposit || 0),
+              deposit: acc.allBreakdown.deposit + (agent.stats?.allBreakdown?.deposit || 0),
+            },
+          };
+        }, {
+          today: 0, week: 0, month: 0, all: 0,
+          todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+          weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+          monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+          allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
+        });
+        setStats(totalStats);
       } else {
-        // If no matching agent, show empty stats
         setStats({ today: 0, week: 0, month: 0, all: 0, todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 } });
       }
     } catch (e) {
