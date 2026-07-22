@@ -14,12 +14,14 @@ const TEAM_COLORS: Record<Team, string> = {
 
 export default function DashboardPage() {
   const { data, isLoading } = useAdminData<{
-    totalCustomers: number;
     todayCustomers: number;
     weekCustomers: number;
     monthCustomers: number;
+    lastMonthCustomers: number;
     teamStats: Record<string, number>;
     agentStats: { id: string; name: string; role: string; teams: string[]; totalCustomers: number }[];
+    userTeams: string[];
+    isRestricted: boolean;
   }>("/api/admin/dashboard");
 
   if (isLoading) {
