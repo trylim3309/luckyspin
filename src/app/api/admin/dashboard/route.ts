@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
 
-    // Role-based filtering: AGENT and TEAM_LEADER only see their team's customers
+    const { searchParams } = req.nextUrl;
+    const team = searchParams.get("team");
     const isRestricted = session.role === "AGENT" || session.role === "TEAM_LEADER";
     const userTeams = session.teams || ["KING88"];
 
@@ -37,17 +38,19 @@ export async function GET(req: NextRequest) {
       result: "DEPOSIT" as const,
     };
 
+    // Filter by team if specified
+    const teamFilter = team && team !== "all" ? [team as string] : null;
+
     // Find all agents who share at least one team with current user
-    const teamAgents = isRestricted
-      ? await prisma.adminUser.findMany({
-          where: {
-            teams: { hasSome: userTeams },
-          },
-          select: { id: true, name: true, fullName: true, role: true, teams: true },
-        })
-      : await prisma.adminUser.findMany({
-          select: { id: true, name: true, fullName: true, role: true, teams: true },
-        });
+    const teamAgentsWhere = isRestricted
+      ? { teams: { hasSome: userTeams } }
+      : teamFilter
+        ? { teams: { hasSome: teamFilter } }
+        : {};
+    const teamAgents = await prisma.adminUser.findMany({
+      where: teamAgentsWhere,
+      select: { id: true, name: true, fullName: true, role: true, teams: true },
+    });
 
     const teamAgentIds = teamAgents.map(a => a.id);
     const agentMap = new Map(teamAgents.map(a => [a.id, a]));

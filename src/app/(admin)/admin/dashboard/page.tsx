@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, TrendingUp, Award } from "lucide-react";
@@ -13,7 +14,8 @@ const TEAM_COLORS: Record<Team, string> = {
 };
 
 export default function DashboardPage() {
-  const { data, isLoading } = useAdminData<{
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const { data, isLoading, mutate } = useAdminData<{
     todayCustomers: number;
     weekCustomers: number;
     monthCustomers: number;
@@ -22,7 +24,15 @@ export default function DashboardPage() {
     agentStats: { id: string; name: string; fullName?: string | null; role: string; teams: string[]; totalCustomers: number }[];
     userTeams: string[];
     isRestricted: boolean;
-  }>("/api/admin/dashboard");
+  }>(`/api/admin/dashboard${selectedTeam ? `?team=${selectedTeam}` : ""}`);
+
+  const handleTeamClick = (team: string) => {
+    if (selectedTeam === team) {
+      setSelectedTeam(null);
+    } else {
+      setSelectedTeam(team);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -108,10 +118,28 @@ export default function DashboardPage() {
       {/* Team Stats - only for Admin/SUPER_ADMIN/MANAGER */}
       {!safeData.isRestricted && (
         <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-sm">
-          <h2 className="text-[16px] font-semibold text-[#495057] mb-4">By Team</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[16px] font-semibold text-[#495057]">By Team</h2>
+            {selectedTeam && (
+              <button
+                onClick={() => setSelectedTeam(null)}
+                className="text-[12px] text-[#6D41D7] hover:text-[#5a35c6] font-medium"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-3 gap-4">
             {(["KING88", "SKY24", "B88"] as Team[]).map((team) => (
-              <div key={team} className="text-center p-4 rounded-xl bg-[#F8F9FA]">
+              <button
+                key={team}
+                onClick={() => handleTeamClick(team)}
+                className={`text-center p-4 rounded-xl transition-all ${
+                  selectedTeam === team
+                    ? "ring-2 ring-[#6D41D7] bg-[#F8F9FA]"
+                    : "bg-[#F8F9FA] hover:bg-[#F0F1F3]"
+                }`}
+              >
                 <Badge
                   className="text-xs font-bold mb-2"
                   style={{ backgroundColor: TEAM_COLORS[team], color: "#fff" }}
@@ -120,7 +148,7 @@ export default function DashboardPage() {
                 </Badge>
                 <p className="text-[28px] font-bold text-[#212529]">{safeData.teamStats[team] || 0}</p>
                 <p className="text-[12px] text-[#6B7280]">customers</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -129,7 +157,14 @@ export default function DashboardPage() {
       {/* Agent Leaderboard */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h2 className="text-[16px] font-semibold text-[#495057]">Sales Agent Leaderboard</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[16px] font-semibold text-[#495057]">Sales Agent Leaderboard</h2>
+            {selectedTeam && (
+              <Badge style={{ backgroundColor: TEAM_COLORS[selectedTeam as Team], color: "#fff" }}>
+                {selectedTeam}
+              </Badge>
+            )}
+          </div>
           <span className="text-[11px] text-[#6B7280] bg-[#F4F5F7] px-2 py-1 rounded-full">
             Ranked by total customers
           </span>
