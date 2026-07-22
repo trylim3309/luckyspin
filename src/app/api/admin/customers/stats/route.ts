@@ -120,14 +120,14 @@ export async function GET(req: NextRequest) {
       const teamStats = { [session.team]: teamLastMonth };
 
       return NextResponse.json({
-        agents: [{ id: session.id, name: session.name, role: session.role, stats: myStats }],
+        agents: [{ id: session.id, name: session.name, fullName: session.fullName, role: session.role, stats: myStats }],
         teams: teamStats,
       });
     }
 
     // Admin sees all stats - use efficient count queries
     const allAgents = await prisma.adminUser.findMany({
-      select: { id: true, name: true, role: true },
+      select: { id: true, name: true, fullName: true, role: true },
       orderBy: { name: "asc" },
     });
 
@@ -301,6 +301,7 @@ export async function GET(req: NextRequest) {
     const agentStats = allAgents.map(a => ({
       id: a.id,
       name: a.name,
+      fullName: a.fullName,
       role: a.role,
       stats: {
         today: todayMap[a.id] || 0,

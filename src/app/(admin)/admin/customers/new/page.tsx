@@ -168,7 +168,7 @@ export default function NewCustomersPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data.users) {
-          setAgents(data.users.map((u: any) => ({ id: u.id, name: u.name })));
+          setAgents(data.users.map((u: any) => ({ id: u.id, name: u.name, fullName: u.fullName })));
         }
       })
       .catch(console.error);
@@ -859,10 +859,15 @@ export default function NewCustomersPage() {
                 <label className="block text-sm font-medium mb-2">Assign to Agent</label>
                 <Select value={importAgentId} onValueChange={(v) => setImportAgentId(v || "")}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select agent..." />
+                    <SelectValue placeholder="Select agent...">
+                      {importAgentId === ""
+                        ? `Current User (${currentAgent?.fullName || currentAgent?.name})`
+                        : agents.find(a => a.id === importAgentId)?.fullName || agents.find(a => a.id === importAgentId)?.name
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Current User ({currentAgent?.name})</SelectItem>
+                    <SelectItem value="">Current User ({currentAgent?.fullName || currentAgent?.name})</SelectItem>
                     {agents.map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.fullName || a.name}</SelectItem>
                     ))}
@@ -1069,7 +1074,12 @@ export default function NewCustomersPage() {
         {/* Telegram Filter */}
         <Select value={telegramFilter} onValueChange={(v) => setTelegramFilter(v || "all")}>
           <SelectTrigger className="w-48">
-            <SelectValue placeholder="All Telegram" />
+            <SelectValue placeholder="All Telegram">
+              {telegramFilter && telegramFilter !== "all"
+                ? telegramContacts.find(c => c.id === telegramFilter)?.name || "Telegram"
+                : "All Telegram"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Telegram</SelectItem>
@@ -1085,7 +1095,12 @@ export default function NewCustomersPage() {
         {isAdmin && (
           <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Agents" />
+              <SelectValue placeholder="All Agents">
+                {agentFilter && agentFilter !== "all"
+                  ? agents.find(a => a.id === agentFilter)?.fullName || agents.find(a => a.id === agentFilter)?.name
+                  : "All Agents"
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Agents</SelectItem>
@@ -1102,7 +1117,9 @@ export default function NewCustomersPage() {
         {isAdmin && (
           <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="All Teams" />
+              <SelectValue placeholder="All Teams">
+                {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Teams</SelectItem>
@@ -1116,7 +1133,9 @@ export default function NewCustomersPage() {
         {/* Call/Chat Filter */}
         <Select value={callStatusFilter} onValueChange={(v) => setCallStatusFilter(v || "all")}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="Call/Chat" />
+            <SelectValue placeholder="Call/Chat">
+              {callStatusFilter && callStatusFilter !== "all" ? CALL_LABELS[callStatusFilter as CallStatus] : "Call/Chat"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Call/Chat</SelectItem>
@@ -1128,7 +1147,9 @@ export default function NewCustomersPage() {
         {/* Result Filter */}
         <Select value={resultFilter} onValueChange={(v) => setResultFilter(v || "all")}>
           <SelectTrigger className="w-52">
-            <SelectValue placeholder="Result" />
+            <SelectValue placeholder="Result">
+              {resultFilter && resultFilter !== "all" ? RESULT_LABELS[resultFilter as ResultStatus] : "Result"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Result</SelectItem>
