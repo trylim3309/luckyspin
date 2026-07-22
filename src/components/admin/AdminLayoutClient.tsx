@@ -9,7 +9,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string; permissions?: string[] } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; fullName?: string; role: string; permissions?: string[]; teams?: string[] } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [adminLogoUrl, setAdminLogoUrl] = useState<string | null>(null);
@@ -54,8 +54,10 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
             setCurrentUser({
               id: data.admin.id,
               name: data.admin.name,
+              fullName: data.admin.fullName,
               role: data.admin.role,
               permissions: data.admin.permissions || [],
+              teams: data.admin.teams || [],
             });
           }
         })

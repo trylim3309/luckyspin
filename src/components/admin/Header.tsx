@@ -7,7 +7,9 @@ import { useLanguage } from "@/components/LanguageProvider";
 interface AdminUser {
   id: string;
   name: string;
+  fullName?: string;
   role: string;
+  teams?: string[];
 }
 
 interface AdminHeaderProps {
@@ -84,8 +86,40 @@ export function AdminHeader({ user, sidebarCollapsed, sidebarHidden, onSidebarTo
         transition: "left 0.3s ease",
       }}
     >
-      {/* Left side - Menu button when sidebar is hidden */}
+      {/* Left side - Menu button when sidebar is hidden + User Badges */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* User Badges */}
+        {(user?.fullName || user?.teams) && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {user?.fullName && (
+              <span style={{
+                padding: "4px 10px",
+                borderRadius: "12px",
+                background: "#EDE9FE",
+                color: "#6D41D7",
+                fontSize: "13px",
+                fontWeight: 500,
+              }}>
+                {user.fullName}
+              </span>
+            )}
+            {user?.teams?.map((team) => {
+              const teamColor = team === "KING88" ? "#9333EA" : team === "SKY24" ? "#3B82F6" : "#F97316";
+              return (
+                <span key={team} style={{
+                  padding: "4px 10px",
+                  borderRadius: "12px",
+                  background: teamColor,
+                  color: "#FFFFFF",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                }}>
+                  {team}
+                </span>
+              );
+            })}
+          </div>
+        )}
         {sidebarHidden && (
           <button
             id="sidebar-toggle-btn"

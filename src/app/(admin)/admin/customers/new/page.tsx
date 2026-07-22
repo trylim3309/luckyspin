@@ -848,7 +848,7 @@ export default function NewCustomersPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-[#233446]">របាយការណ៍ភ្ញៀវថ្មី</h1>
             <p className="text-[#868D9E] mt-1">Manage your customer leads</p>
@@ -891,21 +891,6 @@ export default function NewCustomersPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          {currentAgent && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-sm">{currentAgent.name}</Badge>
-              <Badge
-                variant="outline"
-                className="text-sm font-bold"
-                style={{
-                  backgroundColor: currentAgent.team === "KING88" ? "#9333EA" : currentAgent.team === "SKY24" ? "#3B82F6" : "#F97316",
-                  color: "#fff",
-                }}
-              >
-                {currentAgent.team}
-              </Badge>
-            </div>
-          )}
           <input
             type="file"
             ref={fileInputRef}
