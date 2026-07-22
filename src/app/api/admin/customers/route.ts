@@ -29,32 +29,33 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const offset = (page - 1) * limit;
 
-    // Build date filter
+    // Build date filter (use UTC to match database storage)
     const now = new Date();
     let dateFrom: Date | undefined;
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      dateTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      dateFrom = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0));
+      dateTo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
     } else if (dateFilter === "yesterday") {
       const d = new Date(now);
       d.setDate(d.getDate() - 1);
-      dateFrom = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      dateTo = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+      dateFrom = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0));
+      dateTo = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59));
     } else if (dateFilter === "thisWeek") {
       const d = new Date(now);
       const day = d.getDay();
       const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      dateFrom = new Date(d.getFullYear(), d.getMonth(), diff);
-      dateTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      dateFrom = new Date(Date.UTC(d.getFullYear(), d.getMonth(), diff, 0, 0, 0));
+      dateTo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
     } else if (dateFilter === "thisMonth") {
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-      dateTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      dateFrom = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0));
+      dateTo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
     } else if (dateFilter === "lastMonth") {
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0));
       dateFrom = lastMonth;
-      dateTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      const lastDay = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 0, 23, 59, 59));
+      dateTo = lastDay;
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
