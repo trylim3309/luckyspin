@@ -800,10 +800,48 @@ export default function NewCustomersPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#233446]">របាយការណ៍ភ្ញៀវថ្មី</h1>
-          <p className="text-[#868D9E] mt-1">Manage your customer leads</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-[#233446]">របាយការណ៍ភ្ញៀវថ្មី</h1>
+            <p className="text-[#868D9E] mt-1">Manage your customer leads</p>
+          </div>
+          {/* Agent & Team Filters - Admin only */}
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All Agents">
+                    {agentFilter && agentFilter !== "all"
+                      ? agents.find(a => a.id === agentFilter)?.fullName || agents.find(a => a.id === agentFilter)?.name
+                      : "All Agents"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Agents</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.fullName || a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="All Teams">
+                    {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  <SelectItem value="KING88">KING88</SelectItem>
+                  <SelectItem value="SKY24">SKY24</SelectItem>
+                  <SelectItem value="B88">B88</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {currentAgent && (
@@ -1090,45 +1128,6 @@ export default function NewCustomersPage() {
             ))}
           </SelectContent>
         </Select>
-
-        {/* Agent Filter - Admin only */}
-        {isAdmin && (
-          <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Agents">
-                {agentFilter && agentFilter !== "all"
-                  ? agents.find(a => a.id === agentFilter)?.fullName || agents.find(a => a.id === agentFilter)?.name
-                  : "All Agents"
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Agents</SelectItem>
-              {agents.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.fullName || a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Team Filter - Admin only */}
-        {isAdmin && (
-          <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="All Teams">
-                {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Teams</SelectItem>
-              <SelectItem value="KING88">KING88</SelectItem>
-              <SelectItem value="SKY24">SKY24</SelectItem>
-              <SelectItem value="B88">B88</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
 
         {/* Call/Chat Filter */}
         <Select value={callStatusFilter} onValueChange={(v) => setCallStatusFilter(v || "all")}>
