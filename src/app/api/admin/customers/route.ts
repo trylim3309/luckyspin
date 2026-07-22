@@ -146,6 +146,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Filter by isOld flag (for Old Customers page)
+    const isOldParam = searchParams.get("isOld");
+    if (isOldParam === "true") {
+      where.isOld = true;
+    } else if (isOldParam === "false") {
+      where.isOld = false;
+    }
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,

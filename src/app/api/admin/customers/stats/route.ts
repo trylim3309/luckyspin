@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
     const filterTeam = searchParams.get("team");
     const filterAgentId = searchParams.get("agentId");
+    const filterIsOld = searchParams.get("isOld");
 
     // Build date filters using Cambodia timezone (UTC+7)
     const now = new Date();
@@ -86,6 +87,11 @@ export async function GET(req: NextRequest) {
       }
       if (filterTeam && filterTeam !== "all") {
         where.team = filterTeam;
+      }
+      if (filterIsOld === "true") {
+        where.isOld = true;
+      } else if (filterIsOld === "false") {
+        where.isOld = false;
       }
       return where;
     };

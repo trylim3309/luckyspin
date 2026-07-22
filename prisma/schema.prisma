@@ -201,6 +201,7 @@ model Customer {
   remarks    String?
   agentId    String
   team       Team
+  isOld      Boolean      @default(false)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   agent      AdminUser    @relation(fields: [agentId], references: [id])
@@ -211,6 +212,7 @@ model Customer {
   @@index([createdAt])
   @@index([agentId, result])
   @@index([agentId, createdAt])
+  @@index([isOld])
 }
 
 model TelegramContact {

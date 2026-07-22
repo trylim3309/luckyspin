@@ -210,10 +210,13 @@ export default function OldCustomersPage() {
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
+      // Old customers page filters by isOld=true
+      params.set("isOld", "true");
       params.set("limit", "100");
 
       // Build stats params
       const statsParams = new URLSearchParams();
+      statsParams.set("isOld", "true");
       if (isAdmin && agentFilter !== "all") {
         statsParams.set("agentId", agentFilter);
       } else if (isAgent && currentAgent?.id) {
