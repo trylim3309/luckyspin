@@ -34,12 +34,14 @@ export default function DashboardPage() {
   }
 
   const safeData = {
-    totalCustomers: data?.totalCustomers || 0,
     todayCustomers: data?.todayCustomers || 0,
     weekCustomers: data?.weekCustomers || 0,
     monthCustomers: data?.monthCustomers || 0,
+    lastMonthCustomers: data?.lastMonthCustomers || 0,
     teamStats: data?.teamStats || { KING88: 0, SKY24: 0, B88: 0 },
     agentStats: data?.agentStats || [],
+    userTeams: data?.userTeams || ["KING88"],
+    isRestricted: data?.isRestricted || false,
   };
 
   return (
@@ -94,31 +96,33 @@ export default function DashboardPage() {
               <Trophy className="w-6 h-6 text-orange-600" />
             </div>
             <div>
-              <p className="text-[12px] text-[#6B7280]">All Time</p>
-              <p className="text-[24px] font-bold text-[#212529]">{safeData.totalCustomers}</p>
+              <p className="text-[12px] text-[#6B7280]">Last Month</p>
+              <p className="text-[24px] font-bold text-[#212529]">{safeData.lastMonthCustomers}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Team Stats */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-sm">
-        <h2 className="text-[16px] font-semibold text-[#495057] mb-4">By Team</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {(["KING88", "SKY24", "B88"] as Team[]).map((team) => (
-            <div key={team} className="text-center p-4 rounded-xl bg-[#F8F9FA]">
-              <Badge
-                className="text-xs font-bold mb-2"
-                style={{ backgroundColor: TEAM_COLORS[team], color: "#fff" }}
-              >
-                {team}
-              </Badge>
-              <p className="text-[28px] font-bold text-[#212529]">{safeData.teamStats[team] || 0}</p>
-              <p className="text-[12px] text-[#6B7280]">customers</p>
-            </div>
-          ))}
+      {/* Team Stats - only for Admin/SUPER_ADMIN/MANAGER */}
+      {!safeData.isRestricted && (
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-sm">
+          <h2 className="text-[16px] font-semibold text-[#495057] mb-4">By Team</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {(["KING88", "SKY24", "B88"] as Team[]).map((team) => (
+              <div key={team} className="text-center p-4 rounded-xl bg-[#F8F9FA]">
+                <Badge
+                  className="text-xs font-bold mb-2"
+                  style={{ backgroundColor: TEAM_COLORS[team], color: "#fff" }}
+                >
+                  {team}
+                </Badge>
+                <p className="text-[28px] font-bold text-[#212529]">{safeData.teamStats[team] || 0}</p>
+                <p className="text-[12px] text-[#6B7280]">customers</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Agent Leaderboard */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden shadow-sm">

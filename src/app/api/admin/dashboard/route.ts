@@ -24,26 +24,34 @@ export async function GET(req: NextRequest) {
     const weekStart = new Date(today);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
 
-    // Role-based filtering: AGENT and TEAM_LEADER only see their own customers
+    // Role-based filtering: AGENT and TEAM_LEADER only see their team's customers
     const isRestricted = session.role === "AGENT" || session.role === "TEAM_LEADER";
-    const whereClause = isRestricted ? { agentId: session.id } : {};
+    const userTeams = session.teams || ["KING88"];
 
-    // Get customer counts by agent (filtered by role)
+    // Find all agents who share at least one team with current user
+    const teamAgents = isRestricted
+      ? await prisma.adminUser.findMany({
+          where: {
+            teams: { hasSome: userTeams },
+          },
+          select: { id: true, name: true, fullName: true, role: true, teams: true },
+        })
+      : await prisma.adminUser.findMany({
+          select: { id: true, name: true, fullName: true, role: true, teams: true },
+        });
+
+    const teamAgentIds = teamAgents.map(a => a.id);
+    const agentMap = new Map(teamAgents.map(a => [a.id, a]));
+
+    // Get customer counts by agent (filtered by team)
     const customerStats = await prisma.customer.groupBy({
       by: ["agentId"],
-      where: whereClause,
+      where: { agentId: { in: teamAgentIds } },
       _count: true,
     });
-
-    // Get agent details - restricted roles only see their own
-    const agentFilter = isRestricted ? { where: { id: session.id } } : {};
-    const agents = await prisma.adminUser.findMany({
-      where: agentFilter.where,
-      select: { id: true, name: true, fullName: true, role: true, teams: true },
-    });
-
-    const agentMap = new Map(agents.map(a => [a.id, a]));
 
     // Build agent customer list with counts
     const agentCustomerStats = customerStats.map(stat => {
@@ -60,10 +68,10 @@ export async function GET(req: NextRequest) {
     // Sort by total customers descending
     agentCustomerStats.sort((a, b) => b.totalCustomers - a.totalCustomers);
 
-    // Team totals (filtered by role)
+    // Team totals (based on user's teams)
     const teamTotals = await prisma.customer.groupBy({
       by: ["team"],
-      where: whereClause,
+      where: { agentId: { in: teamAgentIds } },
       _count: true,
     });
 
@@ -72,31 +80,38 @@ export async function GET(req: NextRequest) {
       teamStatsMap[t.team] = t._count;
     }
 
-    // Grand total (filtered by role)
-    const totalCustomers = await prisma.customer.count({ where: whereClause });
+    // Grand total (based on user's teams)
+    const totalCustomers = await prisma.customer.count({ where: { agentId: { in: teamAgentIds } } });
 
-    // Today's new customers (filtered by role)
+    // Today's new customers (based on user's teams)
     const todayCustomers = await prisma.customer.count({
-      where: { ...whereClause, createdAt: { gte: today } },
+      where: { agentId: { in: teamAgentIds }, createdAt: { gte: today } },
     });
 
-    // This week's new customers (filtered by role)
+    // This week's new customers (based on user's teams)
     const weekCustomers = await prisma.customer.count({
-      where: { ...whereClause, createdAt: { gte: weekStart } },
+      where: { agentId: { in: teamAgentIds }, createdAt: { gte: weekStart } },
     });
 
-    // This month's new customers (filtered by role)
+    // This month's new customers (based on user's teams)
     const monthCustomers = await prisma.customer.count({
-      where: { ...whereClause, createdAt: { gte: monthStart } },
+      where: { agentId: { in: teamAgentIds }, createdAt: { gte: monthStart } },
+    });
+
+    // Last month's new customers (based on user's teams)
+    const lastMonthCustomers = await prisma.customer.count({
+      where: { agentId: { in: teamAgentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
     });
 
     return NextResponse.json({
-      totalCustomers,
       todayCustomers,
       weekCustomers,
       monthCustomers,
+      lastMonthCustomers,
       teamStats: teamStatsMap,
       agentStats: agentCustomerStats,
+      userTeams: userTeams,
+      isRestricted: isRestricted,
     });
   } catch (error) {
     console.error("Dashboard error:", error);

@@ -72,7 +72,8 @@ const DATE_TABS: { key: DateFilter; label: string }[] = [
   { key: "yesterday", label: "Yesterday" },
   { key: "thisWeek", label: "This Week" },
   { key: "thisMonth", label: "This Month" },
-  { key: "all", label: "All" },
+  { key: "lastMonth", label: "Last Month" },
+  { key: "all", label: "All Time" },
   { key: "custom", label: "" },
 ];
 
