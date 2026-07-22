@@ -19,13 +19,48 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Build date filters using Cambodia timezone (UTC+7)
+    const now = new Date();
+    const utcDateStr = now.toISOString().slice(0, 10);
+    const [utcYear, utcMonth, utcDay] = utcDateStr.split("-").map(Number);
+
+    let cambodiaYear = utcYear;
+    let cambodiaMonth = utcMonth;
+    let cambodiaDay = utcDay;
+    const utcHour = parseInt(now.toISOString().slice(11, 13), 10);
+    if (utcHour + 7 >= 24) {
+      cambodiaDay++;
+      const daysInMonth = new Date(Date.UTC(cambodiaYear, cambodiaMonth, 0)).getDate();
+      if (cambodiaDay > daysInMonth) {
+        cambodiaDay = 1;
+        cambodiaMonth++;
+        if (cambodiaMonth > 12) {
+          cambodiaMonth = 1;
+          cambodiaYear++;
+        }
+      }
+    }
+
+    const today = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 0, 0, 0));
+
+    // This week = Monday to today
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const weekStart = new Date(today);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
+    weekStart.setDate(weekStart.getDate() - daysToMonday);
+
+    // This month
+    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
+
+    // Last month
+    let lmMonth = cambodiaMonth - 1;
+    let lmYear = cambodiaYear;
+    if (lmMonth < 1) {
+      lmMonth = 12;
+      lmYear--;
+    }
+    const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 0, 0, 0));
+    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
 
     const { searchParams } = req.nextUrl;
     const team = searchParams.get("team");
