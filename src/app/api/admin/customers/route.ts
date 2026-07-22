@@ -29,33 +29,45 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const offset = (page - 1) * limit;
 
-    // Build date filter (use UTC to match database storage)
+    // Build date filter - construct dates using local time parts
     const now = new Date();
+    const localYear = now.getFullYear();
+    const localMonth = now.getMonth(); // 0-indexed
+    const localDay = now.getDate();
+
+    // Get timezone offset (e.g., -420 for UTC+7 means local is ahead of UTC by 7 hours)
+    // This means local midnight = UTC - 7 hours
+    const tzOffsetMs = now.getTimezoneOffset() * 60 * 1000;
+
     let dateFrom: Date | undefined;
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      dateFrom = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0));
-      dateTo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
+      // Today local midnight = UTC time = now - tzOffset
+      const todayLocal = new Date(localYear, localMonth, localDay, 0, 0, 0);
+      dateFrom = new Date(todayLocal.getTime() - tzOffsetMs);
+      dateTo = now;
     } else if (dateFilter === "yesterday") {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 1);
-      dateFrom = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0));
-      dateTo = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59));
+      // Yesterday local midnight
+      const yesterdayLocal = new Date(localYear, localMonth, localDay - 1, 0, 0, 0);
+      const todayLocal = new Date(localYear, localMonth, localDay, 0, 0, 0);
+      dateFrom = new Date(yesterdayLocal.getTime() - tzOffsetMs);
+      dateTo = new Date(todayLocal.getTime() - tzOffsetMs);
     } else if (dateFilter === "thisWeek") {
-      const d = new Date(now);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      dateFrom = new Date(Date.UTC(d.getFullYear(), d.getMonth(), diff, 0, 0, 0));
-      dateTo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
+      const day = now.getDay();
+      const diff = day === 0 ? -6 : 1 - day; // Days to subtract to get Monday
+      const mondayLocal = new Date(localYear, localMonth, localDay + diff, 0, 0, 0);
+      dateFrom = new Date(mondayLocal.getTime() - tzOffsetMs);
+      dateTo = now;
     } else if (dateFilter === "thisMonth") {
-      dateFrom = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0));
-      dateTo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
+      const monthStartLocal = new Date(localYear, localMonth, 1, 0, 0, 0);
+      dateFrom = new Date(monthStartLocal.getTime() - tzOffsetMs);
+      dateTo = now;
     } else if (dateFilter === "lastMonth") {
-      const lastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0));
-      dateFrom = lastMonth;
-      const lastDay = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 0, 23, 59, 59));
-      dateTo = lastDay;
+      const lastMonthLocal = new Date(localYear, localMonth - 1, 1, 0, 0, 0);
+      const thisMonthStartLocal = new Date(localYear, localMonth, 1, 0, 0, 0);
+      dateFrom = new Date(lastMonthLocal.getTime() - tzOffsetMs);
+      dateTo = new Date(thisMonthStartLocal.getTime() - tzOffsetMs);
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
