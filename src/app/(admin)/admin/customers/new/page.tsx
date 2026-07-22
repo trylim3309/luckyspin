@@ -229,10 +229,14 @@ export default function NewCustomersPage() {
       }
       setCustomers([...realCustomers, ...emptyRows]);
 
-      // Get my stats
-      const myStats = statsRes.agents?.find((a: any) => a.id === currentAgent?.id);
+      // Get stats - use selected agent if filtering, otherwise use current agent
+      const statsAgentId = isAdmin && agentFilter !== "all" ? agentFilter : currentAgent?.id;
+      const myStats = statsRes.agents?.find((a: any) => a.id === statsAgentId);
       if (myStats) {
         setStats(myStats.stats);
+      } else {
+        // If no matching agent, show empty stats
+        setStats({ today: 0, week: 0, month: 0, all: 0, todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 } });
       }
     } catch (e) {
       console.error(e);
