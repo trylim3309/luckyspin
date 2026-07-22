@@ -95,6 +95,7 @@ export default function NewCustomersPage() {
   const [customDateTo, setCustomDateTo] = useState<string>("");
   const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<string>("all");
+  const [remarksFilter, setRemarksFilter] = useState<string>("all");
   const [telegramFilter, setTelegramFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -206,6 +207,7 @@ export default function NewCustomersPage() {
       if (search) params.set("search", search);
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
       if (resultFilter !== "all") params.set("result", resultFilter);
+      if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
       params.set("limit", "100");
@@ -279,7 +281,7 @@ export default function NewCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, remarksFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -1187,6 +1189,20 @@ export default function NewCustomersPage() {
             <SelectItem value="NOT_CREATED">{RESULT_LABELS.NOT_CREATED}</SelectItem>
             <SelectItem value="DEPOSIT">{RESULT_LABELS.DEPOSIT}</SelectItem>
             <SelectItem value="NOT_DEPOSIT">{RESULT_LABELS.NOT_DEPOSIT}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Remarks Filter */}
+        <Select value={remarksFilter} onValueChange={(v) => setRemarksFilter(v || "all")}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Remarks">
+              {remarksFilter && remarksFilter !== "all" ? remarksFilter : "Remarks"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Remarks</SelectItem>
+            <SelectItem value="has_remarks">Has Remarks</SelectItem>
+            <SelectItem value="no_remarks">No Remarks</SelectItem>
           </SelectContent>
         </Select>
 

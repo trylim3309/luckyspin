@@ -137,6 +137,14 @@ export async function GET(req: NextRequest) {
     if (searchParams.get("result") && searchParams.get("result") !== "all") {
       where.result = searchParams.get("result") as any;
     }
+    const remarksParam = searchParams.get("remarks");
+    if (remarksParam && remarksParam !== "all") {
+      if (remarksParam === "has_remarks") {
+        where.remarks = { not: null };
+      } else if (remarksParam === "no_remarks") {
+        where.remarks = null;
+      }
+    }
 
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
