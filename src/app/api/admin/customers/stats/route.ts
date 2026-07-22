@@ -25,22 +25,69 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get query params for filtering
+    const { searchParams } = req.nextUrl;
+    const filterTeam = searchParams.get("team");
+    const filterAgentId = searchParams.get("agentId");
+
+    // Build date filters using Cambodia timezone (UTC+7)
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(now);
-    const day = weekStart.getDay();
-    weekStart.setDate(weekStart.getDate() - day + (day === 0 ? -6 : 1));
-    weekStart.setHours(0, 0, 0, 0);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const utcDateStr = now.toISOString().slice(0, 10);
+    const [utcYear, utcMonth, utcDay] = utcDateStr.split("-").map(Number);
+
+    let cambodiaYear = utcYear;
+    let cambodiaMonth = utcMonth;
+    let cambodiaDay = utcDay;
+    const utcHour = parseInt(now.toISOString().slice(11, 13), 10);
+    if (utcHour + 7 >= 24) {
+      cambodiaDay++;
+      const daysInMonth = new Date(Date.UTC(cambodiaYear, cambodiaMonth, 0)).getDate();
+      if (cambodiaDay > daysInMonth) {
+        cambodiaDay = 1;
+        cambodiaMonth++;
+        if (cambodiaMonth > 12) {
+          cambodiaMonth = 1;
+          cambodiaYear++;
+        }
+      }
+    }
+
+    // Today = 17:00 UTC yesterday to 17:00 UTC today
+    const todayStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
+
+    // This week = Monday 17:00 UTC to now
+    const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
+
+    // This month = 1st of month 17:00 UTC to now
+    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+
+    // Last month = 1st of last month 17:00 UTC to 1st of this month 17:00 UTC
+    let lmMonth = cambodiaMonth - 1;
+    let lmYear = cambodiaYear;
+    if (lmMonth < 1) {
+      lmMonth = 12;
+      lmYear--;
+    }
+    const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
+    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
 
     const isAgent = session.role === "AGENT" || session.role === "TEAM_LEADER";
 
-    // Filter for DEPOSIT (counted customers - those with accountId and result = DEPOSIT)
-    const depositCondition = {
-      accountId: { not: null },
-      result: "DEPOSIT" as const,
+    // Deposit condition
+    const depositCondition = { accountId: { not: null }, result: "DEPOSIT" as const };
+
+    // Build base where clause based on filters
+    const buildWhere = (extra: any = {}) => {
+      const where: any = { ...extra };
+      if (filterAgentId && filterAgentId !== "all") {
+        where.agentId = filterAgentId;
+      }
+      if (filterTeam && filterTeam !== "all") {
+        where.team = filterTeam;
+      }
+      return where;
     };
 
     // Helper to build breakdown
@@ -59,52 +106,44 @@ export async function GET(req: NextRequest) {
         myWeek,
         myMonth,
         teamLastMonth,
-        // Today breakdown
         myTodayTotal,
         myTodayNotCreated,
         myTodayNotDeposit,
         myTodayDeposit,
-        // Week breakdown
         myWeekTotal,
         myWeekNotCreated,
         myWeekNotDeposit,
         myWeekDeposit,
-        // Month breakdown
         myMonthTotal,
         myMonthNotCreated,
         myMonthNotDeposit,
         myMonthDeposit,
-        // Last month breakdown
         myLastMonthTotal,
         myLastMonthNotCreated,
         myLastMonthNotDeposit,
         myLastMonthDeposit,
       ] = await Promise.all([
-        prisma.customer.count({ where: { agentId: session.id, ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } } }),
-        prisma.customer.count({ where: { agentId: session.id, ...depositCondition, createdAt: { gte: todayStart } } }),
-        prisma.customer.count({ where: { agentId: session.id, ...depositCondition, createdAt: { gte: weekStart } } }),
-        prisma.customer.count({ where: { agentId: session.id, ...depositCondition, createdAt: { gte: monthStart } } }),
-        prisma.customer.count({ where: { team: session.team, ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } } }),
-        // Today breakdown by result
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: todayStart } } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: todayStart }, result: "NOT_CREATED" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: todayStart }, result: "NOT_DEPOSIT" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: todayStart }, result: "DEPOSIT" } }),
-        // Week breakdown by result
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: weekStart } } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: weekStart }, result: "NOT_CREATED" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: weekStart }, result: "NOT_DEPOSIT" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: weekStart }, result: "DEPOSIT" } }),
-        // Month breakdown by result
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: monthStart } } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: monthStart }, result: "NOT_CREATED" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: monthStart }, result: "NOT_DEPOSIT" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: monthStart }, result: "DEPOSIT" } }),
-        // Last month breakdown by result
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_CREATED" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_DEPOSIT" } }),
-        prisma.customer.count({ where: { agentId: session.id, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "DEPOSIT" } }),
+        prisma.customer.count({ where: buildWhere({ ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }) }),
+        prisma.customer.count({ where: buildWhere({ ...depositCondition, createdAt: { gte: todayStart } }) }),
+        prisma.customer.count({ where: buildWhere({ ...depositCondition, createdAt: { gte: weekStart } }) }),
+        prisma.customer.count({ where: buildWhere({ ...depositCondition, createdAt: { gte: monthStart } }) }),
+        prisma.customer.count({ where: buildWhere({ team: session.team, ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: todayStart } }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: todayStart }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: todayStart }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: todayStart }, result: "DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: weekStart } }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: weekStart }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: weekStart }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: weekStart }, result: "DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: monthStart } }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: monthStart }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: monthStart }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: monthStart }, result: "DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "DEPOSIT" }) }),
       ]);
 
       const myStats = {
@@ -125,145 +164,107 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Admin sees all stats - use efficient count queries
+    // Admin sees all stats
+    // If filtering by team, get only agents in that team
+    const agentWhere: any = {};
+    if (filterTeam && filterTeam !== "all") {
+      agentWhere.teams = { has: filterTeam };
+    }
+
     const allAgents = await prisma.adminUser.findMany({
+      where: agentWhere,
       select: { id: true, name: true, fullName: true, role: true },
       orderBy: { name: "asc" },
     });
 
-    // Get date-filtered counts for DEPOSIT
-    const lastMonthStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
-      _count: true,
-    });
+    const agentIds = allAgents.map(a => a.id);
 
-    const todayStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { ...depositCondition, createdAt: { gte: todayStart } },
-      _count: true,
-    });
+    // If filtering by specific agent, only return that agent's stats
+    if (filterAgentId && filterAgentId !== "all") {
+      const agent = allAgents.find(a => a.id === filterAgentId);
+      if (!agent) {
+        return NextResponse.json({ agents: [], teams: { KING88: 0, SKY24: 0, B88: 0 } });
+      }
 
-    const weekStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { ...depositCondition, createdAt: { gte: weekStart } },
-      _count: true,
-    });
+      const [todayCount, weekCount, monthCount, lastMonthCount,
+        todayTotal, todayNotCreated, todayNotDeposit, todayDeposit,
+        weekTotal, weekNotCreated, weekNotDeposit, weekDeposit,
+        monthTotal, monthNotCreated, monthNotDeposit, monthDeposit,
+        lastMonthTotal, lastMonthNotCreated, lastMonthNotDeposit, lastMonthDeposit] = await Promise.all([
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, ...depositCondition, createdAt: { gte: todayStart } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, ...depositCondition, createdAt: { gte: weekStart } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, ...depositCondition, createdAt: { gte: monthStart } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: todayStart } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: todayStart }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: todayStart }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: todayStart }, result: "DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: weekStart } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: weekStart }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: weekStart }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: weekStart }, result: "DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: monthStart } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: monthStart }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: monthStart }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: monthStart }, result: "DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_CREATED" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_DEPOSIT" }) }),
+        prisma.customer.count({ where: buildWhere({ agentId: filterAgentId, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "DEPOSIT" }) }),
+      ]);
 
-    const monthStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { ...depositCondition, createdAt: { gte: monthStart } },
-      _count: true,
-    });
+      return NextResponse.json({
+        agents: [{
+          id: agent.id,
+          name: agent.name,
+          fullName: agent.fullName,
+          role: agent.role,
+          stats: {
+            today: todayCount,
+            week: weekCount,
+            month: monthCount,
+            all: lastMonthCount,
+            todayBreakdown: buildBreakdown(todayTotal, todayNotCreated, todayNotDeposit, todayDeposit),
+            weekBreakdown: buildBreakdown(weekTotal, weekNotCreated, weekNotDeposit, weekDeposit),
+            monthBreakdown: buildBreakdown(monthTotal, monthNotCreated, monthNotDeposit, monthDeposit),
+            allBreakdown: buildBreakdown(lastMonthTotal, lastMonthNotCreated, lastMonthNotDeposit, lastMonthDeposit),
+          },
+        }],
+        teams: { KING88: 0, SKY24: 0, B88: 0 },
+      });
+    }
 
-    // Today breakdown by result
-    const todayTotalStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: todayStart } },
-      _count: true,
-    });
+    // Get stats for all filtered agents
+    const [todayStats, weekStats, monthStats, lastMonthStats,
+      todayTotalStats, todayNotCreatedStats, todayNotDepositStats, todayDepositStats,
+      weekTotalStats, weekNotCreatedStats, weekNotDepositStats, weekDepositStats,
+      monthTotalStats, monthNotCreatedStats, monthNotDepositStats, monthDepositStats,
+      lastMonthTotalStats, lastMonthNotCreatedStats, lastMonthNotDepositStats, lastMonthDepositStats,
+      teamStats] = await Promise.all([
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ ...depositCondition, agentId: { in: agentIds }, createdAt: { gte: todayStart } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ ...depositCondition, agentId: { in: agentIds }, createdAt: { gte: weekStart } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ ...depositCondition, agentId: { in: agentIds }, createdAt: { gte: monthStart } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ ...depositCondition, agentId: { in: agentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: todayStart } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: todayStart }, result: "NOT_CREATED" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: todayStart }, result: "NOT_DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: todayStart }, result: "DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: weekStart } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: weekStart }, result: "NOT_CREATED" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: weekStart }, result: "NOT_DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: weekStart }, result: "DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: monthStart } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: monthStart }, result: "NOT_CREATED" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: monthStart }, result: "NOT_DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: monthStart }, result: "DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_CREATED" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["agentId"], where: buildWhere({ agentId: { in: agentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "DEPOSIT" }), _count: true }),
+      prisma.customer.groupBy({ by: ["team"], where: buildWhere({ ...depositCondition, agentId: { in: agentIds } }), _count: true }),
+    ]);
 
-    const todayNotCreatedStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: todayStart }, result: "NOT_CREATED" },
-      _count: true,
-    });
-
-    const todayNotDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: todayStart }, result: "NOT_DEPOSIT" },
-      _count: true,
-    });
-
-    const todayDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: todayStart }, result: "DEPOSIT" },
-      _count: true,
-    });
-
-    // Week breakdown by result
-    const weekTotalStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: weekStart } },
-      _count: true,
-    });
-
-    const weekNotCreatedStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: weekStart }, result: "NOT_CREATED" },
-      _count: true,
-    });
-
-    const weekNotDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: weekStart }, result: "NOT_DEPOSIT" },
-      _count: true,
-    });
-
-    const weekDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: weekStart }, result: "DEPOSIT" },
-      _count: true,
-    });
-
-    // Month breakdown by result
-    const monthTotalStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: monthStart } },
-      _count: true,
-    });
-
-    const monthNotCreatedStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: monthStart }, result: "NOT_CREATED" },
-      _count: true,
-    });
-
-    const monthNotDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: monthStart }, result: "NOT_DEPOSIT" },
-      _count: true,
-    });
-
-    const monthDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: monthStart }, result: "DEPOSIT" },
-      _count: true,
-    });
-
-    // Last month breakdown by result
-    const lastMonthTotalStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
-      _count: true,
-    });
-
-    const lastMonthNotCreatedStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_CREATED" },
-      _count: true,
-    });
-
-    const lastMonthNotDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "NOT_DEPOSIT" },
-      _count: true,
-    });
-
-    const lastMonthDepositStats = await prisma.customer.groupBy({
-      by: ["agentId"],
-      where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, result: "DEPOSIT" },
-      _count: true,
-    });
-
-    // Team totals
-    const teamLastMonth = await prisma.customer.groupBy({
-      by: ["team"],
-      where: { ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
-      _count: true,
-    });
-
-    // Build stats map
+    // Build stats maps
     const buildStatsMap = (stats: any[]) => {
       const map: Record<string, number> = {};
       for (const s of stats) {
@@ -272,10 +273,10 @@ export async function GET(req: NextRequest) {
       return map;
     };
 
-    const lastMonthMap = buildStatsMap(lastMonthStats);
     const todayMap = buildStatsMap(todayStats);
     const weekMap = buildStatsMap(weekStats);
     const monthMap = buildStatsMap(monthStats);
+    const lastMonthMap = buildStatsMap(lastMonthStats);
     const todayTotalMap = buildStatsMap(todayTotalStats);
     const todayNotCreatedMap = buildStatsMap(todayNotCreatedStats);
     const todayNotDepositMap = buildStatsMap(todayNotDepositStats);
@@ -294,7 +295,7 @@ export async function GET(req: NextRequest) {
     const lastMonthDepositMap = buildStatsMap(lastMonthDepositStats);
 
     const teamStatsMap: Record<string, number> = { KING88: 0, SKY24: 0, B88: 0 };
-    for (const s of teamLastMonth) {
+    for (const s of teamStats) {
       teamStatsMap[s.team] = s._count;
     }
 
@@ -335,7 +336,6 @@ export async function GET(req: NextRequest) {
       },
     }));
 
-    // Sort by today's count descending
     agentStats.sort((a, b) => b.stats.today - a.stats.today);
 
     return NextResponse.json({ agents: agentStats, teams: teamStatsMap });

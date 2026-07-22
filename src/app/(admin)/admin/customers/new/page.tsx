@@ -210,9 +210,14 @@ export default function NewCustomersPage() {
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
       params.set("limit", "100");
 
+      // Build stats params
+      const statsParams = new URLSearchParams();
+      if (isAdmin && agentFilter !== "all") statsParams.set("agentId", agentFilter);
+      if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
+
       const [custRes, statsRes] = await Promise.all([
         fetch(`/api/admin/customers?${params}`, { credentials: "include" }).then((r) => r.json()),
-        fetch("/api/admin/customers/stats", { credentials: "include" }).then((r) => r.json()),
+        fetch(`/api/admin/customers/stats?${statsParams}`, { credentials: "include" }).then((r) => r.json()),
       ]);
 
       let realCustomers = custRes.customers || [];
