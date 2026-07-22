@@ -214,7 +214,12 @@ export default function NewCustomersPage() {
 
       // Build stats params
       const statsParams = new URLSearchParams();
-      if (isAdmin && agentFilter !== "all") statsParams.set("agentId", agentFilter);
+      if (isAdmin && agentFilter !== "all") {
+        statsParams.set("agentId", agentFilter);
+      } else if (isAgent && currentAgent?.id) {
+        // Agents can only see their own stats
+        statsParams.set("agentId", currentAgent.id);
+      }
       if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
 
       const [custRes, statsRes] = await Promise.all([
