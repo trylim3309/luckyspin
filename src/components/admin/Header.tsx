@@ -86,8 +86,30 @@ export function AdminHeader({ user, sidebarCollapsed, sidebarHidden, onSidebarTo
         transition: "left 0.3s ease",
       }}
     >
-      {/* Left side - Menu button when sidebar is hidden + User Badges */}
+      {/* Left side - Menu button + User Badges */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Sidebar Toggle Button - always visible on small screens */}
+        <button
+          id="sidebar-toggle-btn"
+          onClick={onSidebarToggle}
+          style={{
+            width: "36px",
+            height: "36px",
+            borderRadius: "8px",
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "#F4F5F7"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+        >
+          <List style={{ width: "20px", height: "20px", color: "#6B7280" }} />
+        </button>
+
         {/* User Badges */}
         {(user?.fullName || user?.teams) && (
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -119,28 +141,6 @@ export function AdminHeader({ user, sidebarCollapsed, sidebarHidden, onSidebarTo
               );
             })}
           </div>
-        )}
-        {sidebarHidden && (
-          <button
-            id="sidebar-toggle-btn"
-            onClick={onSidebarToggle}
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#F4F5F7"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-          >
-            <List style={{ width: "20px", height: "20px", color: "#6B7280" }} />
-          </button>
         )}
       </div>
 
