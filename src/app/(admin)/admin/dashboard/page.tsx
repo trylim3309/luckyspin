@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAdminData } from "@/hooks/useAdminData";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, TrendingUp, Award } from "lucide-react";
+import { Trophy, Users, TrendingUp, Award, Medal } from "lucide-react";
 
 type Team = "KING88" | "SKY24" | "B88";
 
@@ -190,7 +190,15 @@ export default function DashboardPage() {
                           : "linear-gradient(135deg, #6D41D7 0%, #9B7CF4 100%)",
                     }}
                   >
-                    {index + 1}
+                    {index === 0 ? (
+                      <Medal className="w-5 h-5" style={{ color: "#B8860B" }} />
+                    ) : index === 1 ? (
+                      <Medal className="w-5 h-5" style={{ color: "#808080" }} />
+                    ) : index === 2 ? (
+                      <Medal className="w-5 h-5" style={{ color: "#8B4513" }} />
+                    ) : (
+                      index + 1
+                    )}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
