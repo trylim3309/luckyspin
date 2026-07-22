@@ -31,6 +31,12 @@ export async function GET(req: NextRequest) {
     const isRestricted = session.role === "AGENT" || session.role === "TEAM_LEADER";
     const userTeams = session.teams || ["KING88"];
 
+    // Deposit condition: accountId exists AND result = DEPOSIT (matching New Customers stats)
+    const depositCondition = {
+      accountId: { not: null },
+      result: "DEPOSIT" as const,
+    };
+
     // Find all agents who share at least one team with current user
     const teamAgents = isRestricted
       ? await prisma.adminUser.findMany({
@@ -46,10 +52,10 @@ export async function GET(req: NextRequest) {
     const teamAgentIds = teamAgents.map(a => a.id);
     const agentMap = new Map(teamAgents.map(a => [a.id, a]));
 
-    // Get customer counts by agent (filtered by team)
+    // Get customer counts by agent (filtered by team and deposit condition)
     const customerStats = await prisma.customer.groupBy({
       by: ["agentId"],
-      where: { agentId: { in: teamAgentIds } },
+      where: { agentId: { in: teamAgentIds }, ...depositCondition },
       _count: true,
     });
 
@@ -68,10 +74,10 @@ export async function GET(req: NextRequest) {
     // Sort by total customers descending
     agentCustomerStats.sort((a, b) => b.totalCustomers - a.totalCustomers);
 
-    // Team totals (based on user's teams)
+    // Team totals (based on user's teams and deposit condition)
     const teamTotals = await prisma.customer.groupBy({
       by: ["team"],
-      where: { agentId: { in: teamAgentIds } },
+      where: { agentId: { in: teamAgentIds }, ...depositCondition },
       _count: true,
     });
 
@@ -80,27 +86,27 @@ export async function GET(req: NextRequest) {
       teamStatsMap[t.team] = t._count;
     }
 
-    // Grand total (based on user's teams)
-    const totalCustomers = await prisma.customer.count({ where: { agentId: { in: teamAgentIds } } });
+    // Grand total (based on user's teams and deposit condition)
+    const totalCustomers = await prisma.customer.count({ where: { agentId: { in: teamAgentIds }, ...depositCondition } });
 
-    // Today's new customers (based on user's teams)
+    // Today's new customers (based on user's teams and deposit condition)
     const todayCustomers = await prisma.customer.count({
-      where: { agentId: { in: teamAgentIds }, createdAt: { gte: today } },
+      where: { agentId: { in: teamAgentIds }, ...depositCondition, createdAt: { gte: today } },
     });
 
-    // This week's new customers (based on user's teams)
+    // This week's new customers (based on user's teams and deposit condition)
     const weekCustomers = await prisma.customer.count({
-      where: { agentId: { in: teamAgentIds }, createdAt: { gte: weekStart } },
+      where: { agentId: { in: teamAgentIds }, ...depositCondition, createdAt: { gte: weekStart } },
     });
 
-    // This month's new customers (based on user's teams)
+    // This month's new customers (based on user's teams and deposit condition)
     const monthCustomers = await prisma.customer.count({
-      where: { agentId: { in: teamAgentIds }, createdAt: { gte: monthStart } },
+      where: { agentId: { in: teamAgentIds }, ...depositCondition, createdAt: { gte: monthStart } },
     });
 
-    // Last month's new customers (based on user's teams)
+    // Last month's new customers (based on user's teams and deposit condition)
     const lastMonthCustomers = await prisma.customer.count({
-      where: { agentId: { in: teamAgentIds }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
+      where: { agentId: { in: teamAgentIds }, ...depositCondition, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
     });
 
     return NextResponse.json({
