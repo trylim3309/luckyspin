@@ -806,9 +806,22 @@ export default function NewCustomersPage() {
             <h1 className="text-2xl font-bold text-[#233446]">របាយការណ៍ភ្ញៀវថ្មី</h1>
             <p className="text-[#868D9E] mt-1">Manage your customer leads</p>
           </div>
-          {/* Agent & Team Filters - Admin only */}
+          {/* Team & Agent Filters - Admin only */}
           {isAdmin && (
             <div className="flex items-center gap-2">
+              <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="All Teams">
+                    {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  <SelectItem value="KING88">KING88</SelectItem>
+                  <SelectItem value="SKY24">SKY24</SelectItem>
+                  <SelectItem value="B88">B88</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All Agents">
@@ -825,19 +838,6 @@ export default function NewCustomersPage() {
                       {a.fullName || a.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-              <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="All Teams">
-                    {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  <SelectItem value="KING88">KING88</SelectItem>
-                  <SelectItem value="SKY24">SKY24</SelectItem>
-                  <SelectItem value="B88">B88</SelectItem>
                 </SelectContent>
               </Select>
             </div>
