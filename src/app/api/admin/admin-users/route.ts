@@ -6,14 +6,19 @@ export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search") || "";
+    const team = searchParams.get("team");
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    const where = search
+    const where: any = search
       ? {
           name: { contains: search },
         }
       : {};
+
+    if (team && team !== "all") {
+      where.teams = { has: team };
+    }
 
     const [users, total] = await Promise.all([
       prisma.adminUser.findMany({

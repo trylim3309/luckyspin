@@ -132,15 +132,16 @@ export default function NewCustomersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch telegram contacts
+  // Fetch telegram contacts (filtered by team if selected)
   useEffect(() => {
-    fetch("/api/admin/telegram/contacts", { credentials: "include" })
+    const url = teamFilter !== "all" ? `/api/admin/telegram/contacts?team=${teamFilter}` : "/api/admin/telegram/contacts";
+    fetch(url, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         setTelegramContacts(data.contacts || []);
       })
       .catch(console.error);
-  }, []);
+  }, [teamFilter]);
 
   // Fetch current agent
   useEffect(() => {
@@ -161,10 +162,11 @@ export default function NewCustomersPage() {
       .catch(console.error);
   }, []);
 
-  // Fetch agents list for filter
+  // Fetch agents list for filter (filtered by team if selected)
   useEffect(() => {
     if (!isAdmin) return;
-    fetch("/api/admin/admin-users", { credentials: "include" })
+    const url = teamFilter !== "all" ? `/api/admin/admin-users?team=${teamFilter}` : "/api/admin/admin-users";
+    fetch(url, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         if (data.users) {
@@ -172,7 +174,7 @@ export default function NewCustomersPage() {
         }
       })
       .catch(console.error);
-  }, [isAdmin]);
+  }, [isAdmin, teamFilter]);
 
   // Create empty placeholder row
   const createEmptyRow = useCallback((): Customer => ({
