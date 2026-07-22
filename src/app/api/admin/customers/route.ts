@@ -59,53 +59,42 @@ export async function GET(req: NextRequest) {
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      // Today in Cambodia = from Cambodia midnight (UTC = today 17:00) to now
-      dateFrom = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 0, 0, 0));
-      dateTo = now;
+      // Today in Cambodia = from 17:00 UTC yesterday to 17:00 UTC today
+      // (Cambodia midnight = UTC 17:00 of previous day)
+      const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
+      const today17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 17, 0, 0));
+      dateFrom = yesterday17;
+      dateTo = today17;
     } else if (dateFilter === "yesterday") {
-      // Yesterday in Cambodia
-      let yDay = cambodiaDay - 1;
-      let yMonth = cambodiaMonth;
-      let yYear = cambodiaYear;
-      if (yDay < 1) {
-        yMonth--;
-        if (yMonth < 1) {
-          yMonth = 12;
-          yYear--;
-        }
-        yDay = new Date(Date.UTC(yYear, yMonth, 0)).getDate();
-      }
-      dateFrom = new Date(Date.UTC(yYear, yMonth - 1, yDay, 0, 0, 0));
-      dateTo = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 0, 0, 0));
+      // Yesterday in Cambodia = from 17:00 UTC two days ago to 17:00 UTC yesterday
+      const twoDaysAgo17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 2, 17, 0, 0));
+      const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
+      dateFrom = twoDaysAgo17;
+      dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
-      // This week = Monday to today in Cambodia
+      // This week = Monday 17:00 UTC to now
       const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      let mondayDay = cambodiaDay - daysToMonday;
-      let mondayMonth = cambodiaMonth;
-      let mondayYear = cambodiaYear;
-      if (mondayDay < 1) {
-        mondayMonth--;
-        if (mondayMonth < 1) {
-          mondayMonth = 12;
-          mondayYear--;
-        }
-        mondayDay = new Date(Date.UTC(mondayYear, mondayMonth, 0)).getDate();
-      }
-      dateFrom = new Date(Date.UTC(mondayYear, mondayMonth - 1, mondayDay, 0, 0, 0));
+      const monday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
+      dateFrom = monday17;
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
-      dateFrom = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
+      // This month = 17:00 UTC on 1st of month to now
+      const monthStart17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+      dateFrom = monthStart17;
       dateTo = now;
     } else if (dateFilter === "lastMonth") {
+      // Last month = 17:00 UTC on 1st of last month to 17:00 UTC on 1st of this month
       let lmMonth = cambodiaMonth - 1;
       let lmYear = cambodiaYear;
       if (lmMonth < 1) {
         lmMonth = 12;
         lmYear--;
       }
-      dateFrom = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 0, 0, 0));
-      dateTo = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
+      const lastMonthStart17 = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
+      const thisMonthStart17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+      dateFrom = lastMonthStart17;
+      dateTo = thisMonthStart17;
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
