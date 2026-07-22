@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    // Allow all authenticated admin roles to access dashboard
     if (!session || !session.id || !session.type) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -26,14 +25,21 @@ export async function GET(req: NextRequest) {
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Get customer counts by agent
+    // Role-based filtering: AGENT and TEAM_LEADER only see their own customers
+    const isRestricted = session.role === "AGENT" || session.role === "TEAM_LEADER";
+    const whereClause = isRestricted ? { agentId: session.id } : {};
+
+    // Get customer counts by agent (filtered by role)
     const customerStats = await prisma.customer.groupBy({
       by: ["agentId"],
+      where: whereClause,
       _count: true,
     });
 
-    // Get agent details
+    // Get agent details - restricted roles only see their own
+    const agentFilter = isRestricted ? { where: { id: session.id } } : {};
     const agents = await prisma.adminUser.findMany({
+      where: agentFilter.where,
       select: { id: true, name: true, fullName: true, role: true, teams: true },
     });
 
@@ -54,9 +60,10 @@ export async function GET(req: NextRequest) {
     // Sort by total customers descending
     agentCustomerStats.sort((a, b) => b.totalCustomers - a.totalCustomers);
 
-    // Team totals
+    // Team totals (filtered by role)
     const teamTotals = await prisma.customer.groupBy({
       by: ["team"],
+      where: whereClause,
       _count: true,
     });
 
@@ -65,22 +72,22 @@ export async function GET(req: NextRequest) {
       teamStatsMap[t.team] = t._count;
     }
 
-    // Grand total
-    const totalCustomers = await prisma.customer.count();
+    // Grand total (filtered by role)
+    const totalCustomers = await prisma.customer.count({ where: whereClause });
 
-    // Today's new customers
+    // Today's new customers (filtered by role)
     const todayCustomers = await prisma.customer.count({
-      where: { createdAt: { gte: today } },
+      where: { ...whereClause, createdAt: { gte: today } },
     });
 
-    // This week's new customers
+    // This week's new customers (filtered by role)
     const weekCustomers = await prisma.customer.count({
-      where: { createdAt: { gte: weekStart } },
+      where: { ...whereClause, createdAt: { gte: weekStart } },
     });
 
-    // This month's new customers
+    // This month's new customers (filtered by role)
     const monthCustomers = await prisma.customer.count({
-      where: { createdAt: { gte: monthStart } },
+      where: { ...whereClause, createdAt: { gte: monthStart } },
     });
 
     return NextResponse.json({
