@@ -29,45 +29,83 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const offset = (page - 1) * limit;
 
-    // Build date filter - construct dates using local time parts
+    // Build date filter - use Cambodia timezone (UTC+7) via ISO string manipulation
     const now = new Date();
-    const localYear = now.getFullYear();
-    const localMonth = now.getMonth(); // 0-indexed
-    const localDay = now.getDate();
+    // Get current UTC date string
+    const utcDateStr = now.toISOString().slice(0, 10); // "2026-07-22" in UTC
+    const [utcYear, utcMonth, utcDay] = utcDateStr.split("-").map(Number);
 
-    // Get timezone offset (e.g., -420 for UTC+7 means local is ahead of UTC by 7 hours)
-    // This means local midnight = UTC - 7 hours
-    const tzOffsetMs = now.getTimezoneOffset() * 60 * 1000;
+    // Calculate Cambodia date (UTC+7 = UTC + 7 hours, so add 7 to hour then handle overflow)
+    let cambodiaYear = utcYear;
+    let cambodiaMonth = utcMonth;
+    let cambodiaDay = utcDay;
+    const utcHour = parseInt(now.toISOString().slice(11, 13), 10);
+    if (utcHour + 7 >= 24) {
+      // Next day in Cambodia
+      cambodiaDay++;
+      // Handle month overflow
+      const daysInMonth = new Date(Date.UTC(cambodiaYear, cambodiaMonth, 0)).getDate();
+      if (cambodiaDay > daysInMonth) {
+        cambodiaDay = 1;
+        cambodiaMonth++;
+        if (cambodiaMonth > 12) {
+          cambodiaMonth = 1;
+          cambodiaYear++;
+        }
+      }
+    }
 
     let dateFrom: Date | undefined;
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      // Today local midnight = UTC time = now - tzOffset
-      const todayLocal = new Date(localYear, localMonth, localDay, 0, 0, 0);
-      dateFrom = new Date(todayLocal.getTime() - tzOffsetMs);
+      // Today in Cambodia = from Cambodia midnight (UTC = today 17:00) to now
+      dateFrom = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 0, 0, 0));
       dateTo = now;
     } else if (dateFilter === "yesterday") {
-      // Yesterday local midnight
-      const yesterdayLocal = new Date(localYear, localMonth, localDay - 1, 0, 0, 0);
-      const todayLocal = new Date(localYear, localMonth, localDay, 0, 0, 0);
-      dateFrom = new Date(yesterdayLocal.getTime() - tzOffsetMs);
-      dateTo = new Date(todayLocal.getTime() - tzOffsetMs);
+      // Yesterday in Cambodia
+      let yDay = cambodiaDay - 1;
+      let yMonth = cambodiaMonth;
+      let yYear = cambodiaYear;
+      if (yDay < 1) {
+        yMonth--;
+        if (yMonth < 1) {
+          yMonth = 12;
+          yYear--;
+        }
+        yDay = new Date(Date.UTC(yYear, yMonth, 0)).getDate();
+      }
+      dateFrom = new Date(Date.UTC(yYear, yMonth - 1, yDay, 0, 0, 0));
+      dateTo = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 0, 0, 0));
     } else if (dateFilter === "thisWeek") {
-      const day = now.getDay();
-      const diff = day === 0 ? -6 : 1 - day; // Days to subtract to get Monday
-      const mondayLocal = new Date(localYear, localMonth, localDay + diff, 0, 0, 0);
-      dateFrom = new Date(mondayLocal.getTime() - tzOffsetMs);
+      // This week = Monday to today in Cambodia
+      const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      let mondayDay = cambodiaDay - daysToMonday;
+      let mondayMonth = cambodiaMonth;
+      let mondayYear = cambodiaYear;
+      if (mondayDay < 1) {
+        mondayMonth--;
+        if (mondayMonth < 1) {
+          mondayMonth = 12;
+          mondayYear--;
+        }
+        mondayDay = new Date(Date.UTC(mondayYear, mondayMonth, 0)).getDate();
+      }
+      dateFrom = new Date(Date.UTC(mondayYear, mondayMonth - 1, mondayDay, 0, 0, 0));
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
-      const monthStartLocal = new Date(localYear, localMonth, 1, 0, 0, 0);
-      dateFrom = new Date(monthStartLocal.getTime() - tzOffsetMs);
+      dateFrom = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
       dateTo = now;
     } else if (dateFilter === "lastMonth") {
-      const lastMonthLocal = new Date(localYear, localMonth - 1, 1, 0, 0, 0);
-      const thisMonthStartLocal = new Date(localYear, localMonth, 1, 0, 0, 0);
-      dateFrom = new Date(lastMonthLocal.getTime() - tzOffsetMs);
-      dateTo = new Date(thisMonthStartLocal.getTime() - tzOffsetMs);
+      let lmMonth = cambodiaMonth - 1;
+      let lmYear = cambodiaYear;
+      if (lmMonth < 1) {
+        lmMonth = 12;
+        lmYear--;
+      }
+      dateFrom = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 0, 0, 0));
+      dateTo = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
