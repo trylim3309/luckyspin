@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
 type ResultStatus = "NOT_CREATED" | "DEPOSIT" | "NOT_DEPOSIT";
 type Team = "KING88" | "SKY24" | "B88";
-type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "all" | "custom";
+type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "lastMonth" | "all" | "custom";
 
 interface Customer {
   id: string;
