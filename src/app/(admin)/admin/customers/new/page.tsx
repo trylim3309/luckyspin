@@ -859,9 +859,9 @@ export default function NewCustomersPage() {
           <h1 className="text-2xl font-bold text-[#233446]">របាយការណ៍ភ្ញៀវថ្មី</h1>
           <p className="text-[#868D9E] mt-1">Manage your customer leads</p>
         </div>
-        {/* Team & Agent Filters & Import - Admin only, right side */}
+        {/* Team & Agent Filters - Admin only */}
         {isAdmin && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="All Teams">
@@ -893,23 +893,26 @@ export default function NewCustomersPage() {
                 ))}
               </SelectContent>
             </Select>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".xlsx,.xls,.csv"
-              onChange={handleExcelUpload}
-              className="hidden"
-            />
-            <Button
-              onClick={() => setShowImportModal(true)}
-              variant="outline"
-              className="border-purple-500 text-purple-600 hover:bg-purple-50"
-            >
-              <Upload className="w-4 h-4 mr-1" />
-              Import New
-            </Button>
           </div>
         )}
+        {/* Import Button - Available to all agents */}
+        <div className="flex items-center gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".xlsx,.xls,.csv"
+            onChange={handleExcelUpload}
+            className="hidden"
+          />
+          <Button
+            onClick={() => setShowImportModal(true)}
+            variant="outline"
+            className="border-purple-500 text-purple-600 hover:bg-purple-50"
+          >
+            <Upload className="w-4 h-4 mr-1" />
+            Import New
+          </Button>
+        </div>
       </div>
 
       {/* Import Modal */}
