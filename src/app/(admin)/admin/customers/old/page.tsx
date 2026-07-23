@@ -32,11 +32,8 @@ interface OldCustomer {
   type: CustomerType;
   priority: Priority;
   remarks: string | null;
-  agentId: string;
-  agentName?: string;
   team: Team;
   createdAt: string;
-  updatedAt: string;
 }
 
 interface TelegramContact {
@@ -147,12 +144,10 @@ export default function OldCustomersPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [remarksFilter, setRemarksFilter] = useState<string>("all");
   const [telegramFilter, setTelegramFilter] = useState<string>("all");
-  const [agentFilter, setAgentFilter] = useState<string>("all");
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Current agent
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team } | null>(null);
-  const [isAgent, setIsAgent] = useState(false);
 
   // Stats
   const [totalCustomers, setTotalCustomers] = useState(0);
@@ -164,7 +159,7 @@ export default function OldCustomersPage() {
   const [telegramContacts, setTelegramContacts] = useState<TelegramContact[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importAgentId, setImportAgentId] = useState<string>("");
+  const [importTeam, setImportTeam] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -179,7 +174,7 @@ export default function OldCustomersPage() {
       .catch(console.error);
   }, [teamFilter]);
 
-  // Fetch current agent
+  // Fetch current user info and set team filter based on role
   useEffect(() => {
     fetch("/api/admin/me", { credentials: "include" })
       .then((r) => r.json())
@@ -189,26 +184,17 @@ export default function OldCustomersPage() {
           const agentTeam = agentTeams[0] as Team;
           setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam });
           const agentRole = data.admin.role;
-          setIsAgent(agentRole === "AGENT");
-          setIsAdmin(["ADMIN", "SUPER_ADMIN", "TEAM_LEADER", "MANAGER"].includes(agentRole));
+          // ADMIN, SUPER_ADMIN, MANAGER, TEAM_LEADER can see all teams
+          const canViewAllTeams = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"].includes(agentRole);
+          setIsAdmin(canViewAllTeams);
+          // Regular agents can only see their team's data
+          if (!canViewAllTeams) {
+            setTeamFilter(agentTeam);
+          }
         }
       })
       .catch(console.error);
   }, []);
-
-  // Fetch agents list for filter (filtered by team if selected)
-  useEffect(() => {
-    if (!isAdmin) return;
-    const url = teamFilter !== "all" ? `/api/admin/admin-users?team=${teamFilter}` : "/api/admin/admin-users";
-    fetch(url, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.users) {
-          setAgents(data.users.map((u: any) => ({ id: u.id, name: u.name, fullName: u.fullName })));
-        }
-      })
-      .catch(console.error);
-  }, [isAdmin, teamFilter]);
 
   // Create empty placeholder row
   const createEmptyRow = useCallback((): OldCustomer => ({
@@ -225,10 +211,8 @@ export default function OldCustomersPage() {
     type: "SMALL",
     priority: "OCCASIONAL",
     remarks: null,
-    agentId: currentAgent?.id || "",
     team: (currentAgent?.team as Team) || "KING88",
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   }), [currentAgent]);
 
   // Fetch data
@@ -249,7 +233,6 @@ export default function OldCustomersPage() {
       if (typeFilter !== "all") params.set("type", typeFilter);
       if (priorityFilter !== "all") params.set("priority", priorityFilter);
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
-      if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
       params.set("limit", "100");
 
@@ -269,7 +252,7 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -481,6 +464,55 @@ export default function OldCustomersPage() {
     });
   };
 
+  // Handle Excel file upload
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>, importDate?: string, sheetName?: string) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      alert("No file selected");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (importTeam) {
+        formData.append("team", importTeam);
+      }
+      if (importDate) {
+        formData.append("createdAt", importDate);
+      }
+      if (sheetName) {
+        formData.append("sheet", sheetName);
+      }
+
+      const res = await fetch("/api/admin/old-customers/import", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        let msg = `Imported ${data.imported} customers successfully!`;
+        if (data.skipped > 0) msg += ` (${data.skipped} duplicates skipped)`;
+        alert(msg);
+        setShowImportModal(false);
+        setImportTeam("");
+        fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to import customers");
+      }
+    } catch (error) {
+      console.error("Import error:", error);
+      alert("Failed to import customers");
+    } finally {
+      setIsUploading(false);
+      if (importFileInputRef.current) importFileInputRef.current.value = "";
+    }
+  };
+
   // Spreadsheet columns
   const columns: Column<OldCustomer>[] = [
     {
@@ -615,27 +647,6 @@ export default function OldCustomersPage() {
       ),
     },
     {
-      key: "lastPlayDate",
-      label: "Last Play",
-      width: 110,
-      editable: true,
-      render: (value) => (
-        <span className="text-sm text-gray-600">
-          {value ? new Date(value).toLocaleDateString() : "-"}
-        </span>
-      ),
-      renderEdit: (value, onChange, onSave) => (
-        <input
-          type="date"
-          defaultValue={value ? (value as string).split("T")[0] : ""}
-          onChange={(e) => { onChange(e.target.value ? new Date(e.target.value).toISOString() : null); }}
-          onBlur={() => {}}
-          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
-          autoFocus
-        />
-      ),
-    },
-    {
       key: "result",
       label: "Result",
       width: 130,
@@ -759,6 +770,27 @@ export default function OldCustomersPage() {
       editable: true,
     },
     {
+      key: "lastPlayDate",
+      label: "Last Play",
+      width: 110,
+      editable: true,
+      render: (value) => (
+        <span className="text-sm text-gray-600">
+          {value ? new Date(value).toLocaleDateString() : "-"}
+        </span>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <input
+          type="date"
+          defaultValue={value ? (value as string).split("T")[0] : ""}
+          onChange={(e) => { onChange(e.target.value ? new Date(e.target.value).toISOString() : null); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        />
+      ),
+    },
+    {
       key: "stoppedDay",
       label: "Stopped Day",
       width: 100,
@@ -780,15 +812,24 @@ export default function OldCustomersPage() {
       },
     },
     {
-      key: "agentId",
-      label: "Agent",
-      width: 120,
-      editable: false,
-      render: (value, row: any) => {
-        const agent = row?.agent;
-        const displayName = agent?.fullName || agent?.name || "-";
-        return <span className="text-sm">{displayName}</span>;
-      },
+      key: "team",
+      label: "Team",
+      width: 100,
+      editable: true,
+      render: (value) => <span className="text-sm font-medium">{value}</span>,
+      renderEdit: (value, onChange, onSave) => (
+        <select
+          value={value as string}
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          <option value="KING88">KING88</option>
+          <option value="SKY24">SKY24</option>
+          <option value="B88">B88</option>
+        </select>
+      ),
     },
     {
       key: "createdAt",
@@ -802,49 +843,116 @@ export default function OldCustomersPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-[#233446]">Old Customers</h1>
-            <p className="text-[#868D9E] mt-1">Total: {totalCustomers} customers</p>
+        <div>
+          <h1 className="text-2xl font-bold text-[#233446]">Old Customers</h1>
+          <p className="text-[#868D9E] mt-1">Total: {totalCustomers} customers</p>
+        </div>
+        {/* Team Filter & Import - Admin only, right side */}
+        {isAdmin && (
+          <div className="flex items-center gap-3">
+            <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="All Teams">
+                  {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                <SelectItem value="KING88">KING88</SelectItem>
+                <SelectItem value="SKY24">SKY24</SelectItem>
+                <SelectItem value="B88">B88</SelectItem>
+              </SelectContent>
+            </Select>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".xlsx,.xls,.csv"
+              onChange={handleExcelUpload}
+              className="hidden"
+            />
+            <Button
+              onClick={() => setShowImportModal(true)}
+              className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import Old
+            </Button>
           </div>
-          {/* Team & Agent Filters - Admin only */}
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v || "all")}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="All Teams">
-                    {teamFilter && teamFilter !== "all" ? teamFilter : "All Teams"}
+        )}
+      </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-bold mb-4">Import Old Customers</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Created Date</label>
+              <input
+                type="date"
+                id="importDate"
+                className="w-full border rounded-lg p-2"
+                defaultValue={new Date().toISOString().split("T")[0]}
+              />
+              <p className="text-xs text-gray-500 mt-1">All imported customers will have this created date</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Team</label>
+              <Select value={importTeam} onValueChange={(v) => setImportTeam(v || "")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select team...">
+                    {importTeam || "Select team..."}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
                   <SelectItem value="KING88">KING88</SelectItem>
                   <SelectItem value="SKY24">SKY24</SelectItem>
                   <SelectItem value="B88">B88</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Agents">
-                    {agentFilter && agentFilter !== "all"
-                      ? agents.find(a => a.id === agentFilter)?.fullName || agents.find(a => a.id === agentFilter)?.name
-                      : "All Agents"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Agents</SelectItem>
-                  {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.fullName || a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-          )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Select File</label>
+              <input
+                type="file"
+                ref={importFileInputRef}
+                accept=".csv,.xlsx,.xls"
+                className="w-full border rounded-lg p-2"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Sheet Name (for Excel)</label>
+              <input
+                type="text"
+                id="importSheet"
+                className="w-full border rounded-lg p-2"
+                placeholder="Leave empty for first sheet"
+                defaultValue=""
+              />
+              <p className="text-xs text-gray-500 mt-1">For Excel files with multiple sheets</p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowImportModal(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  const input = importFileInputRef.current;
+                  const dateInput = document.getElementById("importDate") as HTMLInputElement;
+                  const sheetInput = document.getElementById("importSheet") as HTMLInputElement;
+                  if (input?.files?.[0]) {
+                    handleExcelUpload({ target: input } as any, dateInput?.value, sheetInput?.value);
+                  } else {
+                    alert("Please select a file");
+                  }
+                }}
+                disabled={isUploading}
+                className="bg-purple-500 hover:bg-purple-600"
+              >
+                {isUploading ? "Importing..." : "Import"}
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-4 bg-white rounded-lg p-3 border shadow-sm flex-wrap">

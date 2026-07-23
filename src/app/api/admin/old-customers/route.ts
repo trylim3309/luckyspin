@@ -22,12 +22,17 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl;
     const dateFilter = searchParams.get("dateFilter") || "all";
-    const agentId = searchParams.get("agentId");
     const team = searchParams.get("team");
     const search = searchParams.get("search") || "";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const offset = (page - 1) * limit;
+
+    // Get user's team from session
+    const userTeams = session.teams || ["KING88"];
+    const userTeam = userTeams[0];
+    // Users with admin/manager roles can see all teams, others see only their team's data
+    const canViewAllTeams = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"].includes(session.role);
 
     // Build date filter - use Cambodia timezone (UTC+7)
     const now = new Date();
@@ -94,13 +99,10 @@ export async function GET(req: NextRequest) {
 
     const where: Prisma.OldCustomerWhereInput = {};
 
-    if (session.role === "AGENT" || session.role === "TEAM_LEADER") {
-      where.agentId = session.id;
-    } else {
-      if (agentId && agentId !== "all") where.agentId = agentId;
-    }
-
-    if (team && team !== "all") {
+    // Users with admin/manager roles can see all teams, others see only their team's data
+    if (!canViewAllTeams) {
+      where.team = userTeam as any;
+    } else if (team && team !== "all") {
       where.team = team as any;
     }
 
@@ -144,7 +146,6 @@ export async function GET(req: NextRequest) {
     const [customers, total] = await Promise.all([
       prisma.oldCustomer.findMany({
         where,
-        include: { agent: { select: { id: true, name: true, fullName: true } } },
         orderBy: { createdAt: "desc" },
         take: limit,
         skip: offset,
@@ -172,11 +173,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Account ID is required" }, { status: 400 });
     }
 
-    const agent = await prisma.adminUser.findUnique({
-      where: { id: session.id },
-      select: { teams: true },
-    });
-
     const customer = await prisma.oldCustomer.create({
       data: {
         accountId: body.accountId,
@@ -191,10 +187,8 @@ export async function POST(req: NextRequest) {
         type: body.type || "SMALL",
         priority: body.priority || "OCCASIONAL",
         remarks: body.remarks || null,
-        agentId: session.id,
-        team: body.team || agent?.teams?.[0] || "KING88",
+        team: body.team || "KING88",
       },
-      include: { agent: { select: { id: true, name: true } } },
     });
 
     return NextResponse.json({ customer }, { status: 201 });
@@ -216,13 +210,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Customer ID required" }, { status: 400 });
     }
 
-    if (session.role === "AGENT" || session.role === "TEAM_LEADER" || session.role === "MANAGER") {
-      const customer = await prisma.oldCustomer.findUnique({ where: { id: body.id } });
-      if (!customer || customer.agentId !== session.id) {
-        return NextResponse.json({ error: "Cannot edit another agent's customer" }, { status: 403 });
-      }
-    }
-
     const updateData: Record<string, unknown> = {};
     const allowed = ["accountId", "name", "phone", "callStatus", "telegramId", "action", "lastPlayDate", "result", "followUpDate", "type", "priority", "remarks", "team"];
     for (const field of allowed) {
@@ -242,7 +229,6 @@ export async function PUT(req: NextRequest) {
     const updatedCustomer = await prisma.oldCustomer.update({
       where: { id: body.id },
       data: updateData,
-      include: { agent: { select: { id: true, name: true } } },
     });
 
     return NextResponse.json({ customer: updatedCustomer });
@@ -263,13 +249,6 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "Customer ID required" }, { status: 400 });
-    }
-
-    if (session.role === "AGENT" || session.role === "TEAM_LEADER" || session.role === "MANAGER") {
-      const customer = await prisma.oldCustomer.findUnique({ where: { id } });
-      if (!customer || customer.agentId !== session.id) {
-        return NextResponse.json({ error: "Cannot delete another agent's customer" }, { status: 403 });
-      }
     }
 
     await prisma.oldCustomer.delete({ where: { id } });

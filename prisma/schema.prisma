@@ -20,7 +20,6 @@ model AdminUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   customers    Customer[]
-  oldCustomers OldCustomer[]
 }
 
 model User {
@@ -230,14 +229,12 @@ model OldCustomer {
   type         CustomerType @default(SMALL)
   priority     Priority     @default(OCCASIONAL)
   remarks      String?
-  agentId      String
   team         Team
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
-  agent        AdminUser    @relation(fields: [agentId], references: [id])
 
   @@unique([accountId])
-  @@index([agentId])
+  @@index([team])
   @@index([result])
   @@index([createdAt])
 }
