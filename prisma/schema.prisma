@@ -217,19 +217,24 @@ model Customer {
 }
 
 model OldCustomer {
-  id         String       @id @default(cuid())
-  accountId  String?
-  name       String
-  phone      String?
-  callStatus CallStatus   @default(NOT_CONTACTED)
-  result     ResultStatus @default(NOT_CREATED)
-  telegramId String?
-  remarks    String?
-  agentId    String
-  team       Team
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  agent      AdminUser    @relation(fields: [agentId], references: [id])
+  id           String        @id @default(cuid())
+  accountId    String
+  name         String
+  phone        String?
+  callStatus   CallStatus   @default(NOT_CONTACTED)
+  telegramId   String?
+  action       Action       @default(CHATTED_SUCCESS)
+  lastPlayDate DateTime?
+  result       OldResult    @default(NOT_PLAYED_YET)
+  followUpDate DateTime?
+  type         CustomerType @default(SMALL)
+  priority     Priority     @default(OCCASIONAL)
+  remarks      String?
+  agentId      String
+  team         Team
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  agent        AdminUser    @relation(fields: [agentId], references: [id])
 
   @@unique([accountId])
   @@index([agentId])
@@ -259,6 +264,33 @@ enum ResultStatus {
   NOT_CREATED
   DEPOSIT
   NOT_DEPOSIT
+}
+
+enum Action {
+  CHATTED_SUCCESS  // ឆាតរួច
+  CHATTED_FAILED   // អត់ឆាត
+  SPAM            // ស្ពាម
+  BLOCKED         // ប្លុក
+}
+
+enum OldResult {
+  REGULAR_PLAYER     // លេងធម្មតា
+  FREQUENT_PLAYER    // លេងជាប្រចាំ
+  RETURNED_PLAYER    // លេងវិញ
+  NOT_PLAYED_YET     // អត់ទាន់លេង
+}
+
+enum CustomerType {
+  SMALL           // តូច
+  BIG             // ធំ
+  NEVER_PLAYED    // អត់ធ្លាប់លេង
+  ACCOUNT_OPEN_NO_DEPOSIT // បើកអាខោនអត់ទាន់ដាក់លុយ
+}
+
+enum Priority {
+  FREQUENT         // លេងជាប្រចាំ
+  OCCASIONAL       // យូៗម្តង
+  LAPSED           // ខានលេងយូ
 }
 
 enum PromotionType {

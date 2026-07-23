@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const offset = (page - 1) * limit;
 
-    // Build date filter - use Cambodia timezone (UTC+7) via ISO string manipulation
+    // Build date filter - use Cambodia timezone (UTC+7)
     const now = new Date();
     const utcDateStr = now.toISOString().slice(0, 10);
     const [utcYear, utcMonth, utcDay] = utcDateStr.split("-").map(Number);
@@ -94,7 +94,6 @@ export async function GET(req: NextRequest) {
 
     const where: Prisma.OldCustomerWhereInput = {};
 
-    // AGENT and TEAM_LEADER can only see their own customers
     if (session.role === "AGENT" || session.role === "TEAM_LEADER") {
       where.agentId = session.id;
     } else {
@@ -121,8 +120,17 @@ export async function GET(req: NextRequest) {
     if (searchParams.get("callStatus") && searchParams.get("callStatus") !== "all") {
       where.callStatus = searchParams.get("callStatus") as any;
     }
+    if (searchParams.get("action") && searchParams.get("action") !== "all") {
+      where.action = searchParams.get("action") as any;
+    }
     if (searchParams.get("result") && searchParams.get("result") !== "all") {
       where.result = searchParams.get("result") as any;
+    }
+    if (searchParams.get("type") && searchParams.get("type") !== "all") {
+      where.type = searchParams.get("type") as any;
+    }
+    if (searchParams.get("priority") && searchParams.get("priority") !== "all") {
+      where.priority = searchParams.get("priority") as any;
     }
     const remarksParam = searchParams.get("remarks");
     if (remarksParam && remarksParam !== "all") {
@@ -160,8 +168,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    if (!body.hasOwnProperty("name")) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    if (!body.accountId) {
+      return NextResponse.json({ error: "Account ID is required" }, { status: 400 });
     }
 
     const agent = await prisma.adminUser.findUnique({
@@ -171,12 +179,17 @@ export async function POST(req: NextRequest) {
 
     const customer = await prisma.oldCustomer.create({
       data: {
-        accountId: body.accountId !== undefined && body.accountId !== "" ? body.accountId : null,
-        name: body.name,
+        accountId: body.accountId,
+        name: body.name || "",
         phone: body.phone || null,
         callStatus: body.callStatus || "NOT_CONTACTED",
-        result: body.result || "NOT_CREATED",
         telegramId: body.telegramId || null,
+        action: body.action || "CHATTED_SUCCESS",
+        lastPlayDate: body.lastPlayDate ? new Date(body.lastPlayDate) : null,
+        result: body.result || "NOT_PLAYED_YET",
+        followUpDate: body.followUpDate ? new Date(body.followUpDate) : null,
+        type: body.type || "SMALL",
+        priority: body.priority || "OCCASIONAL",
         remarks: body.remarks || null,
         agentId: session.id,
         team: body.team || agent?.teams?.[0] || "KING88",
@@ -211,10 +224,14 @@ export async function PUT(req: NextRequest) {
     }
 
     const updateData: Record<string, unknown> = {};
-    const allowed = ["name", "phone", "accountId", "callStatus", "result", "telegramId", "remarks", "team"];
+    const allowed = ["accountId", "name", "phone", "callStatus", "telegramId", "action", "lastPlayDate", "result", "followUpDate", "type", "priority", "remarks", "team"];
     for (const field of allowed) {
       if (body[field] !== undefined) {
-        updateData[field] = body[field];
+        if (field === "lastPlayDate" || field === "followUpDate") {
+          updateData[field] = body[field] ? new Date(body[field]) : null;
+        } else {
+          updateData[field] = body[field];
+        }
       }
     }
 

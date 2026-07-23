@@ -10,19 +10,27 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
-type ResultStatus = "NOT_CREATED" | "DEPOSIT" | "NOT_DEPOSIT";
+type Action = "CHATTED_SUCCESS" | "CHATTED_FAILED" | "SPAM" | "BLOCKED";
+type OldResult = "REGULAR_PLAYER" | "FREQUENT_PLAYER" | "RETURNED_PLAYER" | "NOT_PLAYED_YET";
+type CustomerType = "SMALL" | "BIG" | "NEVER_PLAYED" | "ACCOUNT_OPEN_NO_DEPOSIT";
+type Priority = "FREQUENT" | "OCCASIONAL" | "LAPSED";
 type Team = "KING88" | "SKY24" | "B88";
 type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "lastMonth" | "all" | "custom";
 
-interface Customer {
+interface OldCustomer {
   id: string;
-  accountId: string | null;
+  accountId: string;
   name: string;
   phone: string | null;
   callStatus: CallStatus;
-  result: ResultStatus;
   telegramId: string | null;
   telegramName?: string | null;
+  action: Action;
+  lastPlayDate: string | null;
+  result: OldResult;
+  followUpDate: string | null;
+  type: CustomerType;
+  priority: Priority;
   remarks: string | null;
   agentId: string;
   agentName?: string;
@@ -47,12 +55,6 @@ const CALL_LABELS: Record<CallStatus, string> = {
   NOT_INTERESTED: "Not Interested",
 };
 
-const RESULT_LABELS: Record<ResultStatus, string> = {
-  NOT_CREATED: "មិនទាន់បង្កើតអាខោន",
-  DEPOSIT: "ដាក់លុយលេង",
-  NOT_DEPOSIT: "មិនទាន់ដាក់លុយលេង",
-};
-
 const CALL_COLORS: Record<CallStatus, string> = {
   NOT_CONTACTED: "#6B7280",
   CALLED: "#3B82F6",
@@ -61,10 +63,58 @@ const CALL_COLORS: Record<CallStatus, string> = {
   NOT_INTERESTED: "#EF4444",
 };
 
-const RESULT_COLORS: Record<ResultStatus, string> = {
-  NOT_CREATED: "#6B7280",
-  DEPOSIT: "#10B981",
-  NOT_DEPOSIT: "#F59E0B",
+const ACTION_LABELS: Record<Action, string> = {
+  CHATTED_SUCCESS: "ឆាតរួច",
+  CHATTED_FAILED: "អត់ឆាត",
+  SPAM: "ស្ពាម",
+  BLOCKED: "ប្លុក",
+};
+
+const ACTION_COLORS: Record<Action, string> = {
+  CHATTED_SUCCESS: "#10B981",
+  CHATTED_FAILED: "#EF4444",
+  SPAM: "#F59E0B",
+  BLOCKED: "#6B7280",
+};
+
+const RESULT_LABELS: Record<OldResult, string> = {
+  REGULAR_PLAYER: "លេងធម្មតា",
+  FREQUENT_PLAYER: "លេងជាប្រចាំ",
+  RETURNED_PLAYER: "លេងវិញ",
+  NOT_PLAYED_YET: "អត់ទាន់លេង",
+};
+
+const RESULT_COLORS: Record<OldResult, string> = {
+  REGULAR_PLAYER: "#3B82F6",
+  FREQUENT_PLAYER: "#10B981",
+  RETURNED_PLAYER: "#8B5CF6",
+  NOT_PLAYED_YET: "#6B7280",
+};
+
+const TYPE_LABELS: Record<CustomerType, string> = {
+  SMALL: "តូច",
+  BIG: "ធំ",
+  NEVER_PLAYED: "អត់ធ្លាប់លេង",
+  ACCOUNT_OPEN_NO_DEPOSIT: "បើកអាខោនអត់ទាន់ដាក់លុយ",
+};
+
+const TYPE_COLORS: Record<CustomerType, string> = {
+  SMALL: "#6B7280",
+  BIG: "#F59E0B",
+  NEVER_PLAYED: "#EF4444",
+  ACCOUNT_OPEN_NO_DEPOSIT: "#8B5CF6",
+};
+
+const PRIORITY_LABELS: Record<Priority, string> = {
+  FREQUENT: "លេងជាប្រចាំ",
+  OCCASIONAL: "យូៗម្តង",
+  LAPSED: "ខានលេងយូ",
+};
+
+const PRIORITY_COLORS: Record<Priority, string> = {
+  FREQUENT: "#10B981",
+  OCCASIONAL: "#3B82F6",
+  LAPSED: "#EF4444",
 };
 
 const DATE_TABS: { key: DateFilter; label: string }[] = [
@@ -81,8 +131,8 @@ export default function OldCustomersPage() {
   const { t } = useLanguage();
 
   // Data
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const customersRef = useRef<Customer[]>(customers);
+  const [customers, setCustomers] = useState<OldCustomer[]>([]);
+  const customersRef = useRef<OldCustomer[]>(customers);
   useEffect(() => { customersRef.current = customers; }, [customers]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -94,7 +144,10 @@ export default function OldCustomersPage() {
   const [customDateFrom, setCustomDateFrom] = useState<string>("");
   const [customDateTo, setCustomDateTo] = useState<string>("");
   const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
+  const [actionFilter, setActionFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [remarksFilter, setRemarksFilter] = useState<string>("all");
   const [telegramFilter, setTelegramFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
@@ -104,23 +157,8 @@ export default function OldCustomersPage() {
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team } | null>(null);
   const [isAgent, setIsAgent] = useState(false);
 
-  // Stats with breakdowns for each period
-  const [stats, setStats] = useState<{
-    today: number;
-    week: number;
-    month: number;
-    all: number;
-    todayBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
-    weekBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
-    monthBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
-    allBreakdown: { total: number; notCreated: number; notDeposit: number; deposit: number };
-  }>({
-    today: 0, week: 0, month: 0, all: 0,
-    todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-    weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-    monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-    allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-  });
+  // Stats
+  const [totalCustomers, setTotalCustomers] = useState(0);
 
   // Agents list for filter (admins only)
   const [agents, setAgents] = useState<{ id: string; name: string; fullName?: string | null }[]>([]);
@@ -154,9 +192,7 @@ export default function OldCustomersPage() {
           const agentTeam = agentTeams[0] as Team;
           setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam });
           const agentRole = data.admin.role;
-          // Agents (AGENT role) can only see their own customers
           setIsAgent(agentRole === "AGENT");
-          // Admins and Team Leaders can filter by agent
           setIsAdmin(["ADMIN", "SUPER_ADMIN", "TEAM_LEADER", "MANAGER"].includes(agentRole));
         }
       })
@@ -178,14 +214,19 @@ export default function OldCustomersPage() {
   }, [isAdmin, teamFilter]);
 
   // Create empty placeholder row
-  const createEmptyRow = useCallback((): Customer => ({
+  const createEmptyRow = useCallback((): OldCustomer => ({
     id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    accountId: null,
+    accountId: "",
     name: "",
     phone: null,
-    callStatus: "CHATTED",
-    result: "NOT_CREATED",
+    callStatus: "NOT_CONTACTED",
     telegramId: null,
+    action: "CHATTED_SUCCESS",
+    lastPlayDate: null,
+    result: "NOT_PLAYED_YET",
+    followUpDate: null,
+    type: "SMALL",
+    priority: "OCCASIONAL",
     remarks: null,
     agentId: currentAgent?.id || "",
     team: (currentAgent?.team as Team) || "KING88",
@@ -206,87 +247,32 @@ export default function OldCustomersPage() {
       if (telegramFilter !== "all") params.set("telegramId", telegramFilter);
       if (search) params.set("search", search);
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
+      if (actionFilter !== "all") params.set("action", actionFilter);
       if (resultFilter !== "all") params.set("result", resultFilter);
+      if (typeFilter !== "all") params.set("type", typeFilter);
+      if (priorityFilter !== "all") params.set("priority", priorityFilter);
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
       params.set("limit", "100");
 
-      // Build stats params
-      const statsParams = new URLSearchParams();
-      if (isAdmin && agentFilter !== "all") {
-        statsParams.set("agentId", agentFilter);
-      } else if (isAgent && currentAgent?.id) {
-        // Agents can only see their own stats
-        statsParams.set("agentId", currentAgent.id);
-      }
-      if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
-
-      const [custRes, statsRes] = await Promise.all([
-        fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json()),
-        fetch(`/api/admin/old-customers/stats?${statsParams}`, { credentials: "include" }).then((r) => r.json()),
-      ]);
+      const custRes = await fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json());
 
       let realCustomers = custRes.customers || [];
+      setTotalCustomers(custRes.total || 0);
 
       // Add 5 empty placeholder rows for quick entry
-      const emptyRows: Customer[] = [];
+      const emptyRows: OldCustomer[] = [];
       for (let i = 0; i < 5; i++) {
         emptyRows.push(createEmptyRow());
       }
       setCustomers([...realCustomers, ...emptyRows]);
-
-      // Get stats - calculate from agents data
-      if (statsRes.agents && statsRes.agents.length > 0) {
-        // Sum all agents' stats
-        const totalStats = statsRes.agents.reduce((acc: any, agent: any) => {
-          return {
-            today: acc.today + (agent.stats?.today || 0),
-            week: acc.week + (agent.stats?.week || 0),
-            month: acc.month + (agent.stats?.month || 0),
-            all: acc.all + (agent.stats?.all || 0),
-            todayBreakdown: {
-              total: acc.todayBreakdown.total + (agent.stats?.todayBreakdown?.total || 0),
-              notCreated: acc.todayBreakdown.notCreated + (agent.stats?.todayBreakdown?.notCreated || 0),
-              notDeposit: acc.todayBreakdown.notDeposit + (agent.stats?.todayBreakdown?.notDeposit || 0),
-              deposit: acc.todayBreakdown.deposit + (agent.stats?.todayBreakdown?.deposit || 0),
-            },
-            weekBreakdown: {
-              total: acc.weekBreakdown.total + (agent.stats?.weekBreakdown?.total || 0),
-              notCreated: acc.weekBreakdown.notCreated + (agent.stats?.weekBreakdown?.notCreated || 0),
-              notDeposit: acc.weekBreakdown.notDeposit + (agent.stats?.weekBreakdown?.notDeposit || 0),
-              deposit: acc.weekBreakdown.deposit + (agent.stats?.weekBreakdown?.deposit || 0),
-            },
-            monthBreakdown: {
-              total: acc.monthBreakdown.total + (agent.stats?.monthBreakdown?.total || 0),
-              notCreated: acc.monthBreakdown.notCreated + (agent.stats?.monthBreakdown?.notCreated || 0),
-              notDeposit: acc.monthBreakdown.notDeposit + (agent.stats?.monthBreakdown?.notDeposit || 0),
-              deposit: acc.monthBreakdown.deposit + (agent.stats?.monthBreakdown?.deposit || 0),
-            },
-            allBreakdown: {
-              total: acc.allBreakdown.total + (agent.stats?.allBreakdown?.total || 0),
-              notCreated: acc.allBreakdown.notCreated + (agent.stats?.allBreakdown?.notCreated || 0),
-              notDeposit: acc.allBreakdown.notDeposit + (agent.stats?.allBreakdown?.notDeposit || 0),
-              deposit: acc.allBreakdown.deposit + (agent.stats?.allBreakdown?.deposit || 0),
-            },
-          };
-        }, {
-          today: 0, week: 0, month: 0, all: 0,
-          todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-          weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-          monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-          allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
-        });
-        setStats(totalStats);
-      } else {
-        setStats({ today: 0, week: 0, month: 0, all: 0, todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 } });
-      }
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, remarksFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
 
   useEffect(() => {
     fetchData();
@@ -297,20 +283,15 @@ export default function OldCustomersPage() {
 
   // Update customer
   const handleUpdate = async (rowIndex: number, key: string, value: any) => {
-    // Always use ref to get latest state - avoids stale closure issues
     const customer = customersRef.current[rowIndex];
     if (!customer) return;
 
-    // Prevent duplicate saves for same row
     if (savingRef.current.has(rowIndex)) return;
     savingRef.current.add(rowIndex);
 
-    // If it's a temp row (not saved yet), save it first
+    // If it's a temp row (not saved yet)
     if (customer.id.startsWith("temp-")) {
-      // For temp rows, if name is empty and we're not setting name, just update local state
-      // BUT allow accountId to be saved even without name
-      if (!customer.name && key !== "name" && key !== "accountId") {
-        // Update local state only (don't save to DB yet)
+      if (!customer.accountId && key !== "accountId") {
         setCustomers((prev) => {
           const newRows = [...prev];
           newRows[rowIndex] = { ...newRows[rowIndex], [key]: value };
@@ -319,12 +300,8 @@ export default function OldCustomersPage() {
         return;
       }
 
-      // If we have name or we're setting name, create in DB
-      // Allow saving if we have at least name OR accountId
-      let nameValue = customer.name || (key === "name" ? value : null);
-      const hasValidData = nameValue || (key === "accountId" && value);
-      if (!hasValidData) {
-        // Update local state only for non-critical fields
+      if (!customer.accountId && key === "accountId") {
+        // Need accountId to save
         setCustomers((prev) => {
           const newRows = [...prev];
           newRows[rowIndex] = { ...newRows[rowIndex], [key]: value };
@@ -332,32 +309,32 @@ export default function OldCustomersPage() {
         });
         return;
       }
-      if (!nameValue) {
-        // Need at least a name to save, but we have accountId so use placeholder
-        nameValue = "Unknown"; // Temporary name
-      }
 
-      // Get fresh customer data from current state (includes any locally updated fields)
+      // Save temp row
       const currentCustomer = customersRef.current[rowIndex];
       const tempId = customer.id;
 
-      // Optimistically update UI
       setCustomers((prev) => {
         const newRows = [...prev];
-        newRows[rowIndex] = { ...currentCustomer, id: tempId, [key]: value };
+        newRows[rowIndex] = { ...currentCustomer, [key]: value };
         return newRows;
       });
 
-      const customerData = {
-        name: nameValue,
+      const customerData: any = {
+        accountId: currentCustomer.accountId,
+        name: currentCustomer.name || "Unknown",
         phone: currentCustomer.phone || null,
-        accountId: key === "accountId" ? (value ? String(value).toUpperCase() : null) : (currentCustomer.accountId ? currentCustomer.accountId.toUpperCase() : null),
         callStatus: currentCustomer.callStatus,
-        result: currentCustomer.result,
         telegramId: currentCustomer.telegramId || null,
+        action: key === "action" ? value : currentCustomer.action,
+        lastPlayDate: currentCustomer.lastPlayDate,
+        result: key === "result" ? value : currentCustomer.result,
+        followUpDate: key === "action" ? new Date().toISOString() : currentCustomer.followUpDate,
+        type: currentCustomer.type,
+        priority: currentCustomer.priority,
         remarks: key === "remarks" ? value : (currentCustomer.remarks || null),
         team: currentCustomer.team,
-        [key]: key === "accountId" ? (value ? String(value).toUpperCase() : null) : value,
+        [key]: value,
       };
 
       try {
@@ -371,53 +348,14 @@ export default function OldCustomersPage() {
         if (!res.ok) {
           const err = await res.json();
           console.error("Failed to save:", res.status, err);
-          // Revert on failure
           setCustomers(customersRef.current);
           return;
         }
         const result = await res.json();
 
-        // Update stats optimistically
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const weekStart = new Date(now);
-        const day = weekStart.getDay();
-        weekStart.setDate(weekStart.getDate() - day + (day === 0 ? -6 : 1));
-        weekStart.setHours(0, 0, 0, 0);
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        const createdAt = new Date(result.customer.createdAt);
-        const isToday = createdAt >= todayStart;
-        const isThisWeek = createdAt >= weekStart;
-        const isThisMonth = createdAt >= monthStart;
-        const isLastMonth = createdAt >= lastMonthStart && createdAt <= lastMonthEnd;
-        const newResult = result.customer.result;
-
-        setStats((prev) => {
-          const incrementBreakdown = (b: { total: number; notCreated: number; notDeposit: number; deposit: number }) => ({
-            total: b.total + 1,
-            notCreated: b.notCreated + (newResult === "NOT_CREATED" ? 1 : 0),
-            notDeposit: b.notDeposit + (newResult === "NOT_DEPOSIT" ? 1 : 0),
-            deposit: b.deposit + (newResult === "DEPOSIT" ? 1 : 0),
-          });
-          return {
-            today: prev.today + (isToday ? 1 : 0),
-            week: prev.week + (isThisWeek ? 1 : 0),
-            month: prev.month + (isThisMonth ? 1 : 0),
-            all: prev.all + (isLastMonth ? 1 : 0),
-            todayBreakdown: isToday ? incrementBreakdown(prev.todayBreakdown) : prev.todayBreakdown,
-            weekBreakdown: isThisWeek ? incrementBreakdown(prev.weekBreakdown) : prev.weekBreakdown,
-            monthBreakdown: isThisMonth ? incrementBreakdown(prev.monthBreakdown) : prev.monthBreakdown,
-            allBreakdown: isLastMonth ? incrementBreakdown(prev.allBreakdown) : prev.allBreakdown,
-          };
-        });
-
-        // Replace temp row with real data
         setCustomers((prev) => {
           const newRows = prev.filter((_, i) => i !== rowIndex);
           newRows.splice(rowIndex, 0, result.customer);
-          // Ensure we still have 5 empty rows at the end
           const tempCount = newRows.filter(c => c.id.startsWith("temp-")).length;
           const needed = 5 - tempCount;
           for (let i = 0; i < needed; i++) {
@@ -425,6 +363,7 @@ export default function OldCustomersPage() {
           }
           return newRows;
         });
+        setTotalCustomers((prev) => prev + 1);
       } catch (error) {
         console.error("Network error saving customer:", error);
         setCustomers(customersRef.current);
@@ -434,7 +373,7 @@ export default function OldCustomersPage() {
       return;
     }
 
-    // Normal update for existing customers - optimistic update
+    // Normal update for existing customers
     const optimisticCustomer = { ...customer, [key]: value };
     setCustomers((prev) => {
       const newRows = [...prev];
@@ -442,14 +381,15 @@ export default function OldCustomersPage() {
       return newRows;
     });
 
-    // Fire API call in background, don't wait
-    const putData: Record<string, any> = { id: customer.id };
+    const putData: Record<string, any> = { id: customer.id, [key]: value };
     if (key === "accountId") {
       putData[key] = value ? String(value).toUpperCase() : value;
-    } else {
-      putData[key] = value;
     }
-    fetch("/api/admin/customers", {
+    if (key === "action") {
+      putData.followUpDate = new Date().toISOString();
+    }
+
+    fetch("/api/admin/old-customers", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -458,7 +398,6 @@ export default function OldCustomersPage() {
       if (!res.ok) {
         const err = await res.json();
         console.error("PUT failed:", err);
-        // Revert on failure
         setCustomers((prev) => {
           const newRows = [...prev];
           newRows[rowIndex] = customer;
@@ -466,80 +405,16 @@ export default function OldCustomersPage() {
         });
         return;
       }
-
-      const data = await res.json();
-      const updated = data.customer;
-
-      // Check if customer falls within each time period
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekStart = new Date(now);
-      const day = weekStart.getDay();
-      weekStart.setDate(weekStart.getDate() - day + (day === 0 ? -6 : 1));
-      weekStart.setHours(0, 0, 0, 0);
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-      const createdAt = new Date(customer.createdAt);
-      const isToday = createdAt >= todayStart;
-      const isThisWeek = createdAt >= weekStart;
-      const isThisMonth = createdAt >= monthStart;
-      const isLastMonth = createdAt >= lastMonthStart && createdAt <= lastMonthEnd;
-
-      // Update stats if result or accountId changed
-      if (key === "result" || key === "accountId") {
-        const oldCounts = !!(customer.accountId && customer.result === "DEPOSIT");
-        const newCounts = !!(updated.accountId && updated.result === "DEPOSIT");
-        const prevResult = customer.result || "NOT_CREATED";
-        const nextResult = updated.result || "NOT_CREATED";
-
-        const updateBreakdown = (b: { total: number; notCreated: number; notDeposit: number; deposit: number }, prevR: string, nextR: string, oldC: boolean, newC: boolean) => {
-          return {
-            total: b.total,
-            notCreated: b.notCreated + (prevR === "NOT_CREATED" ? -1 : 0) + (nextR === "NOT_CREATED" ? 1 : 0),
-            notDeposit: b.notDeposit + (prevR === "NOT_DEPOSIT" ? -1 : 0) + (nextR === "NOT_DEPOSIT" ? 1 : 0),
-            deposit: b.deposit + (oldC ? -1 : 0) + (newC ? 1 : 0),
-          };
-        };
-
-        if (oldCounts !== newCounts) {
-          setStats((prev) => ({
-            today: prev.today + (oldCounts ? -1 : 1),
-            week: prev.week + (oldCounts ? -1 : 1),
-            month: prev.month + (oldCounts ? -1 : 1),
-            all: prev.all + (isLastMonth ? (oldCounts ? -1 : 1) : 0),
-            todayBreakdown: isToday ? updateBreakdown(prev.todayBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.todayBreakdown,
-            weekBreakdown: isThisWeek ? updateBreakdown(prev.weekBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.weekBreakdown,
-            monthBreakdown: isThisMonth ? updateBreakdown(prev.monthBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.monthBreakdown,
-            allBreakdown: isLastMonth ? updateBreakdown(prev.allBreakdown, prevResult, nextResult, oldCounts, newCounts) : prev.allBreakdown,
-          }));
-        } else if (key === "result" && prevResult !== nextResult) {
-          // Result changed but counts stayed same (e.g., NOT_CREATED -> NOT_DEPOSIT)
-          const updateBreakdownResult = (b: { total: number; notCreated: number; notDeposit: number; deposit: number }, prevR: string, nextR: string) => ({
-            total: b.total,
-            notCreated: b.notCreated + (prevR === "NOT_CREATED" ? -1 : 0) + (nextR === "NOT_CREATED" ? 1 : 0),
-            notDeposit: b.notDeposit + (prevR === "NOT_DEPOSIT" ? -1 : 0) + (nextR === "NOT_DEPOSIT" ? 1 : 0),
-            deposit: b.deposit + (prevR === "DEPOSIT" ? -1 : 0) + (nextR === "DEPOSIT" ? 1 : 0),
-          });
-          setStats((prev) => ({
-            ...prev,
-            todayBreakdown: isToday ? updateBreakdownResult(prev.todayBreakdown, prevResult, nextResult) : prev.todayBreakdown,
-            weekBreakdown: isThisWeek ? updateBreakdownResult(prev.weekBreakdown, prevResult, nextResult) : prev.weekBreakdown,
-            monthBreakdown: isThisMonth ? updateBreakdownResult(prev.monthBreakdown, prevResult, nextResult) : prev.monthBreakdown,
-            allBreakdown: isLastMonth ? updateBreakdownResult(prev.allBreakdown, prevResult, nextResult) : prev.allBreakdown,
-          }));
-        }
-      }
     }).catch(console.error).finally(() => {
       savingRef.current.delete(rowIndex);
     });
   };
 
   // Add customer
-  const handleAdd = async (data: Partial<Customer>) => {
+  const handleAdd = async (data: Partial<OldCustomer>) => {
     setIsAdding(true);
     try {
-      const res = await fetch("/api/admin/customers", {
+      const res = await fetch("/api/admin/old-customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -549,7 +424,6 @@ export default function OldCustomersPage() {
       if (res.ok || res.status === 201) {
         const result = await res.json();
         setCustomers((prev) => {
-          // Find and replace the first temp row, or add at beginning
           const tempIndex = prev.findIndex(c => c.id.startsWith("temp-"));
           if (tempIndex !== -1) {
             const newRows = [...prev];
@@ -558,7 +432,7 @@ export default function OldCustomersPage() {
           }
           return [result.customer, ...prev];
         });
-        setStats((prev) => ({ ...prev, today: prev.today + 1, week: prev.week + 1, month: prev.month + 1, all: prev.all + 1 }));
+        setTotalCustomers((prev) => prev + 1);
       }
     } finally {
       setIsAdding(false);
@@ -570,17 +444,15 @@ export default function OldCustomersPage() {
     const customer = customers[rowIndex];
     if (!customer) return;
 
-    // If it's a temp row, just remove from UI
     if (customer.id.startsWith("temp-")) {
       setCustomers((prev) => {
         const filtered = prev.filter((_, i) => i !== rowIndex);
-        // Add a new empty row at the end to maintain 50 empty rows
         return [...filtered, createEmptyRow()];
       });
       return;
     }
 
-    if (!confirm(`Delete customer "${customer.name}"?`)) return;
+    if (!confirm(`Delete customer "${customer.name || customer.accountId}"?`)) return;
 
     const res = await fetch(`/api/admin/old-customers?id=${customer.id}`, {
       method: "DELETE",
@@ -590,117 +462,36 @@ export default function OldCustomersPage() {
     if (res.ok) {
       setCustomers((prev) => {
         const filtered = prev.filter((_, i) => i !== rowIndex);
-        // Add a new empty row at the end to maintain capacity
         return [...filtered, createEmptyRow()];
       });
-      setStats((prev) => ({ ...prev, today: Math.max(0, prev.today - 1), all: Math.max(0, prev.all - 1) }));
+      setTotalCustomers((prev) => Math.max(0, prev - 1));
     }
   };
 
-  // Add new empty row for direct editing in spreadsheet
+  // Add new empty row
   const handleAddEmpty = async () => {
     if (!currentAgent) return;
     await handleAdd({
+      accountId: "",
       name: "",
       phone: null,
       team: currentAgent.team,
-      callStatus: "CHATTED",
-      result: "NOT_CREATED",
+      callStatus: "NOT_CONTACTED",
+      action: "CHATTED_SUCCESS",
+      result: "NOT_PLAYED_YET",
+      type: "SMALL",
+      priority: "OCCASIONAL",
     });
   };
 
-  // Handle Excel file upload
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>, importDate?: string, sheetName?: string) => {
-    const file = e.target.files?.[0];
-    if (!file) {
-      alert("No file selected");
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (isAdmin && importAgentId) {
-        formData.append("agentId", importAgentId);
-      }
-      if (importDate) {
-        formData.append("createdAt", importDate);
-      }
-      if (sheetName) {
-        formData.append("sheet", sheetName);
-      }
-
-      const res = await fetch("/api/admin/old-customers/import", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log("5. Import result:", data);
-        let msg = `Imported ${data.imported} customers successfully!`;
-        if (data.skipped > 0) msg += ` (${data.skipped} duplicates skipped)`;
-        alert(msg);
-        setShowImportModal(false);
-        setImportAgentId("");
-        fetchData();
-      } else {
-        const data = await res.json();
-        console.error("Import error response:", data);
-        alert(data.error || "Failed to import customers");
-      }
-    } catch (error) {
-      console.error("6. Catch error:", error);
-      alert("Failed to import customers");
-    } finally {
-      setIsUploading(false);
-      if (importFileInputRef.current) importFileInputRef.current.value = "";
-    }
-  };
-
-  // Export to CSV
-  const handleExport = () => {
-    const realCustomers = customers.filter(c => !c.id.startsWith("temp-"));
-    if (realCustomers.length === 0) {
-      alert("No data to export");
-      return;
-    }
-
-    const headers = ["Account ID", "Name", "Phone", "Call/Chat", "Result", "Telegram", "Remarks", "Team", "Created"];
-    const rows = realCustomers.map(c => [
-      c.accountId || "",
-      c.name,
-      c.phone || "",
-      c.callStatus,
-      c.result,
-      c.telegramName || c.telegramId || "",
-      c.remarks || "",
-      c.team,
-      c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "",
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `customers_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-  };
-
   // Spreadsheet columns
-  const columns: Column<Customer>[] = [
+  const columns: Column<OldCustomer>[] = [
     {
       key: "accountId",
       label: "Account ID",
-      width: 100,
+      width: 120,
       editable: true,
-      render: (value) => <span className="uppercase">{value || "—"}</span>,
+      render: (value) => <span className="uppercase font-medium">{value || "—"}</span>,
       renderEdit: (value, onChange, onSave) => (
         <input
           type="text"
@@ -736,12 +527,12 @@ export default function OldCustomersPage() {
     {
       key: "callStatus",
       label: "Call/Chat",
-      width: 120,
+      width: 100,
       editable: true,
       render: (value) => (
         <Badge
           variant="outline"
-          className="text-xs font-normal"
+          className="text-xs"
           style={{
             backgroundColor: CALL_COLORS[value as CallStatus] + "20",
             color: CALL_COLORS[value as CallStatus],
@@ -755,7 +546,7 @@ export default function OldCustomersPage() {
         <select
           value={value as string}
           onChange={(e) => { onChange(e.target.value); }}
-          onBlur={() => {}} // Prevent double-save: onChange already saves
+          onBlur={() => {}}
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
@@ -781,47 +572,185 @@ export default function OldCustomersPage() {
         <select
           value={value || ""}
           onChange={(e) => { onChange(e.target.value || null); }}
-          onBlur={() => {}} // Prevent double-save: onChange already saves
+          onBlur={() => {}}
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
           <option value="">-- Select --</option>
           {telegramContacts.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}{c.username ? ` (@${c.username})` : ""}{c.phone ? ` - ${c.phone}` : ""}
+              {c.name}{c.username ? ` (@${c.username})` : ""}
             </option>
           ))}
         </select>
       ),
     },
     {
-      key: "result",
-      label: "Result",
-      width: 100,
+      key: "action",
+      label: "Action",
+      width: 120,
       editable: true,
       render: (value) => (
         <Badge
           variant="outline"
-          className="text-xs font-normal"
+          className="text-xs"
           style={{
-            backgroundColor: RESULT_COLORS[value as ResultStatus] + "20",
-            color: RESULT_COLORS[value as ResultStatus],
-            borderColor: RESULT_COLORS[value as ResultStatus] + "50",
+            backgroundColor: ACTION_COLORS[value as Action] + "20",
+            color: ACTION_COLORS[value as Action],
+            borderColor: ACTION_COLORS[value as Action] + "50",
           }}
         >
-          {RESULT_LABELS[value as ResultStatus]}
+          {ACTION_LABELS[value as Action]}
         </Badge>
       ),
       renderEdit: (value, onChange, onSave) => (
         <select
           value={value as string}
           onChange={(e) => { onChange(e.target.value); }}
-          onBlur={() => {}} // Prevent double-save: onChange already saves
+          onBlur={() => {}}
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
           autoFocus
         >
-          {(Object.keys(RESULT_LABELS) as ResultStatus[]).map((k) => (
+          {(Object.keys(ACTION_LABELS) as Action[]).map((k) => (
+            <option key={k} value={k}>{ACTION_LABELS[k]}</option>
+          ))}
+        </select>
+      ),
+    },
+    {
+      key: "lastPlayDate",
+      label: "Last Play",
+      width: 110,
+      editable: true,
+      render: (value) => (
+        <span className="text-sm text-gray-600">
+          {value ? new Date(value).toLocaleDateString() : "-"}
+        </span>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <input
+          type="date"
+          defaultValue={value ? (value as string).split("T")[0] : ""}
+          onChange={(e) => { onChange(e.target.value ? new Date(e.target.value).toISOString() : null); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        />
+      ),
+    },
+    {
+      key: "result",
+      label: "Result",
+      width: 130,
+      editable: true,
+      render: (value) => (
+        <Badge
+          variant="outline"
+          className="text-xs"
+          style={{
+            backgroundColor: RESULT_COLORS[value as OldResult] + "20",
+            color: RESULT_COLORS[value as OldResult],
+            borderColor: RESULT_COLORS[value as OldResult] + "50",
+          }}
+        >
+          {RESULT_LABELS[value as OldResult]}
+        </Badge>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <select
+          value={value as string}
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          {(Object.keys(RESULT_LABELS) as OldResult[]).map((k) => (
             <option key={k} value={k}>{RESULT_LABELS[k]}</option>
+          ))}
+        </select>
+      ),
+    },
+    {
+      key: "followUpDate",
+      label: "Follow Up",
+      width: 110,
+      editable: true,
+      render: (value) => (
+        <span className="text-sm text-gray-600">
+          {value ? new Date(value).toLocaleDateString() : "-"}
+        </span>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <input
+          type="date"
+          defaultValue={value ? (value as string).split("T")[0] : ""}
+          onChange={(e) => { onChange(e.target.value ? new Date(e.target.value).toISOString() : null); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        />
+      ),
+    },
+    {
+      key: "type",
+      label: "Type",
+      width: 120,
+      editable: true,
+      render: (value) => (
+        <Badge
+          variant="outline"
+          className="text-xs"
+          style={{
+            backgroundColor: TYPE_COLORS[value as CustomerType] + "20",
+            color: TYPE_COLORS[value as CustomerType],
+            borderColor: TYPE_COLORS[value as CustomerType] + "50",
+          }}
+        >
+          {TYPE_LABELS[value as CustomerType]}
+        </Badge>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <select
+          value={value as string}
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          {(Object.keys(TYPE_LABELS) as CustomerType[]).map((k) => (
+            <option key={k} value={k}>{TYPE_LABELS[k]}</option>
+          ))}
+        </select>
+      ),
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      width: 120,
+      editable: true,
+      render: (value) => (
+        <Badge
+          variant="outline"
+          className="text-xs"
+          style={{
+            backgroundColor: PRIORITY_COLORS[value as Priority] + "20",
+            color: PRIORITY_COLORS[value as Priority],
+            borderColor: PRIORITY_COLORS[value as Priority] + "50",
+          }}
+        >
+          {PRIORITY_LABELS[value as Priority]}
+        </Badge>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <select
+          value={value as string}
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          {(Object.keys(PRIORITY_LABELS) as Priority[]).map((k) => (
+            <option key={k} value={k}>{PRIORITY_LABELS[k]}</option>
           ))}
         </select>
       ),
@@ -858,7 +787,7 @@ export default function OldCustomersPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-[#233446]">Old Customers</h1>
-            <p className="text-[#868D9E] mt-1">View all customer records</p>
+            <p className="text-[#868D9E] mt-1">Total: {totalCustomers} customers</p>
           </div>
           {/* Team & Agent Filters - Admin only */}
           {isAdmin && (
@@ -897,217 +826,10 @@ export default function OldCustomersPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".xlsx,.xls,.csv"
-            onChange={handleExcelUpload}
-            className="hidden"
-          />
-          <Button
-            onClick={() => setShowImportModal(true)}
-            variant="outline"
-            className="border-purple-500 text-purple-600 hover:bg-purple-50"
-          >
-            <Upload className="w-4 h-4 mr-1" />
-            Import Excel
-          </Button>
-        </div>
-      </div>
-
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-            <h3 className="text-lg font-bold mb-4">Import Customers</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Created Date</label>
-              <input
-                type="date"
-                id="importDate"
-                className="w-full border rounded-lg p-2"
-                defaultValue={new Date().toISOString().split("T")[0]}
-              />
-              <p className="text-xs text-gray-500 mt-1">All imported customers will have this created date</p>
-            </div>
-            {isAdmin && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Assign to Agent</label>
-                <Select value={importAgentId} onValueChange={(v) => setImportAgentId(v || "")}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select agent...">
-                      {importAgentId === ""
-                        ? `Current User (${currentAgent?.fullName || currentAgent?.name})`
-                        : agents.find(a => a.id === importAgentId)?.fullName || agents.find(a => a.id === importAgentId)?.name
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Current User ({currentAgent?.fullName || currentAgent?.name})</SelectItem>
-                    {agents.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.fullName || a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Select File</label>
-              <input
-                type="file"
-                ref={importFileInputRef}
-                accept=".csv,.xlsx,.xls"
-                className="w-full border rounded-lg p-2"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Sheet Name (for Excel)</label>
-              <input
-                type="text"
-                id="importSheet"
-                className="w-full border rounded-lg p-2"
-                placeholder="Leave empty for first sheet"
-                defaultValue=""
-              />
-              <p className="text-xs text-gray-500 mt-1">For Excel files with multiple sheets</p>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowImportModal(false)}>Cancel</Button>
-              <Button
-                onClick={() => {
-                  const input = importFileInputRef.current;
-                  const dateInput = document.getElementById("importDate") as HTMLInputElement;
-                  const sheetInput = document.getElementById("importSheet") as HTMLInputElement;
-                  if (input?.files?.[0]) {
-                    handleExcelUpload({ target: input } as any, dateInput?.value, sheetInput?.value);
-                  } else {
-                    alert("Please select a file");
-                  }
-                }}
-                disabled={isUploading}
-                className="bg-purple-500 hover:bg-purple-600"
-              >
-                {isUploading ? "Importing..." : "Import"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Today Card - with breakdown */}
-        <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-purple-500" />
-            <span className="text-sm text-gray-500 font-medium">Today</span>
-          </div>
-          <div className="text-3xl font-bold text-purple-600">{stats.today}</div>
-          <div className="mt-2 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">សរុប</span>
-              <span className="font-medium">{stats.todayBreakdown.total}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
-              <span className="font-medium text-gray-600">{stats.todayBreakdown.notCreated}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
-              <span className="font-medium text-orange-500">{stats.todayBreakdown.notDeposit}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">ដាក់លុយលេង</span>
-              <span className="font-medium text-green-600">{stats.todayBreakdown.deposit}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* This Week Card - with breakdown */}
-        <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-blue-500" />
-            <span className="text-sm text-gray-500 font-medium">This Week</span>
-          </div>
-          <div className="text-3xl font-bold text-blue-600">{stats.week}</div>
-          <div className="mt-2 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">សរុប</span>
-              <span className="font-medium">{stats.weekBreakdown.total}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
-              <span className="font-medium text-gray-600">{stats.weekBreakdown.notCreated}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
-              <span className="font-medium text-orange-500">{stats.weekBreakdown.notDeposit}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">ដាក់លុយលេង</span>
-              <span className="font-medium text-green-600">{stats.weekBreakdown.deposit}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* This Month Card - with breakdown */}
-        <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-green-500" />
-            <span className="text-sm text-gray-500 font-medium">This Month</span>
-          </div>
-          <div className="text-3xl font-bold text-green-600">{stats.month}</div>
-          <div className="mt-2 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">សរុប</span>
-              <span className="font-medium">{stats.monthBreakdown.total}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
-              <span className="font-medium text-gray-600">{stats.monthBreakdown.notCreated}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
-              <span className="font-medium text-orange-500">{stats.monthBreakdown.notDeposit}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">ដាក់លុយលេង</span>
-              <span className="font-medium text-green-600">{stats.monthBreakdown.deposit}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Last Month Card - with breakdown */}
-        <div className="bg-white rounded-lg p-4 border shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-gray-500" />
-            <span className="text-sm text-gray-500 font-medium">Last Month</span>
-          </div>
-          <div className="text-3xl font-bold text-gray-600">{stats.all}</div>
-          <div className="mt-2 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">សរុប</span>
-              <span className="font-medium">{stats.allBreakdown.total}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់បង្កើតអាខោន</span>
-              <span className="font-medium text-gray-600">{stats.allBreakdown.notCreated}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">មិនទាន់ដាក់លុយលេង</span>
-              <span className="font-medium text-orange-500">{stats.allBreakdown.notDeposit}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">ដាក់លុយលេង</span>
-              <span className="font-medium text-green-600">{stats.allBreakdown.deposit}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4 bg-white rounded-lg p-3 border shadow-sm">
+      <div className="flex items-center gap-4 bg-white rounded-lg p-3 border shadow-sm flex-wrap">
         {/* Date Tabs */}
         <div className="flex gap-1">
           {DATE_TABS.map((tab) => (
@@ -1182,18 +904,63 @@ export default function OldCustomersPage() {
           </SelectContent>
         </Select>
 
+        {/* Action Filter */}
+        <Select value={actionFilter} onValueChange={(v) => setActionFilter(v || "all")}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Action">
+              {actionFilter && actionFilter !== "all" ? ACTION_LABELS[actionFilter as Action] : "Action"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Action</SelectItem>
+            {(Object.keys(ACTION_LABELS) as Action[]).map((k) => (
+              <SelectItem key={k} value={k}>{ACTION_LABELS[k]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Result Filter */}
         <Select value={resultFilter} onValueChange={(v) => setResultFilter(v || "all")}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="Result">
-              {resultFilter && resultFilter !== "all" ? RESULT_LABELS[resultFilter as ResultStatus] : "Result"}
+              {resultFilter && resultFilter !== "all" ? RESULT_LABELS[resultFilter as OldResult] : "Result"}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Result</SelectItem>
-            <SelectItem value="NOT_CREATED">{RESULT_LABELS.NOT_CREATED}</SelectItem>
-            <SelectItem value="DEPOSIT">{RESULT_LABELS.DEPOSIT}</SelectItem>
-            <SelectItem value="NOT_DEPOSIT">{RESULT_LABELS.NOT_DEPOSIT}</SelectItem>
+            {(Object.keys(RESULT_LABELS) as OldResult[]).map((k) => (
+              <SelectItem key={k} value={k}>{RESULT_LABELS[k]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Type Filter */}
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || "all")}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Type">
+              {typeFilter && typeFilter !== "all" ? TYPE_LABELS[typeFilter as CustomerType] : "Type"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Type</SelectItem>
+            {(Object.keys(TYPE_LABELS) as CustomerType[]).map((k) => (
+              <SelectItem key={k} value={k}>{TYPE_LABELS[k]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Priority Filter */}
+        <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v || "all")}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Priority">
+              {priorityFilter && priorityFilter !== "all" ? PRIORITY_LABELS[priorityFilter as Priority] : "Priority"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Priority</SelectItem>
+            {(Object.keys(PRIORITY_LABELS) as Priority[]).map((k) => (
+              <SelectItem key={k} value={k}>{PRIORITY_LABELS[k]}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -1215,7 +982,7 @@ export default function OldCustomersPage() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, phone..."
+          placeholder="Search..."
           className="w-48"
         />
       </div>
@@ -1229,9 +996,8 @@ export default function OldCustomersPage() {
           onAdd={handleAdd}
           onDelete={handleDelete}
           onAddEmpty={handleAddEmpty}
-          onExport={handleExport}
           isLoading={isLoading}
-          emptyMessage="No customers found. Click 'Add Row' to add a new customer!"
+          emptyMessage="No customers found!"
         />
       </div>
     </div>
