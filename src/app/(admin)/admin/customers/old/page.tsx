@@ -120,9 +120,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 const DATE_TABS: { key: DateFilter; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
-  { key: "thisWeek", label: "This Week" },
-  { key: "thisMonth", label: "This Month" },
-  { key: "lastMonth", label: "Last Month" },
   { key: "all", label: "All Time" },
   { key: "custom", label: "" },
 ];
