@@ -135,7 +135,7 @@ export default function OldCustomersPage() {
   const [isAdding, setIsAdding] = useState(false);
 
   // Filters
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [customDateFrom, setCustomDateFrom] = useState<string>("");
