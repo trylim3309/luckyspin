@@ -753,6 +753,12 @@ export default function OldCustomersPage() {
       ),
     },
     {
+      key: "remarks",
+      label: "Remarks",
+      width: 200,
+      editable: true,
+    },
+    {
       key: "stoppedDay",
       label: "Stopped Day",
       width: 100,
@@ -772,12 +778,6 @@ export default function OldCustomersPage() {
           </span>
         );
       },
-    },
-    {
-      key: "remarks",
-      label: "Remarks",
-      width: 200,
-      editable: true,
     },
     {
       key: "agentId",
