@@ -756,6 +756,27 @@ export default function OldCustomersPage() {
       ),
     },
     {
+      key: "stoppedDay",
+      label: "Stopped Day",
+      width: 100,
+      editable: false,
+      render: (value, row: any) => {
+        if (row.result !== "NOT_PLAYED_YET" || !row.followUpDate || !row.lastPlayDate) {
+          return <span className="text-sm text-gray-400">-</span>;
+        }
+        const followUp = new Date(row.followUpDate);
+        const lastPlay = new Date(row.lastPlayDate);
+        const diffTime = followUp.getTime() - lastPlay.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const color = diffDays > 30 ? "#EF4444" : diffDays > 7 ? "#F59E0B" : "#10B981";
+        return (
+          <span className="text-sm font-medium" style={{ color }}>
+            {diffDays} day{diffDays !== 1 ? "s" : ""}
+          </span>
+        );
+      },
+    },
+    {
       key: "remarks",
       label: "Remarks",
       width: 200,
