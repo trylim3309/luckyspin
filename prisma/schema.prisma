@@ -20,6 +20,7 @@ model AdminUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   customers    Customer[]
+  oldCustomers OldCustomer[]
 }
 
 model User {
@@ -213,6 +214,27 @@ model Customer {
   @@index([agentId, result])
   @@index([agentId, createdAt])
   @@index([isOld])
+}
+
+model OldCustomer {
+  id         String       @id @default(cuid())
+  accountId  String?
+  name       String
+  phone      String?
+  callStatus CallStatus   @default(NOT_CONTACTED)
+  result     ResultStatus @default(NOT_CREATED)
+  telegramId String?
+  remarks    String?
+  agentId    String
+  team       Team
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  agent      AdminUser    @relation(fields: [agentId], references: [id])
+
+  @@unique([accountId])
+  @@index([agentId])
+  @@index([result])
+  @@index([createdAt])
 }
 
 model TelegramContact {

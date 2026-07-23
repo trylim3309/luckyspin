@@ -210,13 +210,10 @@ export default function OldCustomersPage() {
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
-      // Old customers page filters by isOld=true
-      params.set("isOld", "true");
       params.set("limit", "100");
 
       // Build stats params
       const statsParams = new URLSearchParams();
-      statsParams.set("isOld", "true");
       if (isAdmin && agentFilter !== "all") {
         statsParams.set("agentId", agentFilter);
       } else if (isAgent && currentAgent?.id) {
@@ -226,8 +223,8 @@ export default function OldCustomersPage() {
       if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
 
       const [custRes, statsRes] = await Promise.all([
-        fetch(`/api/admin/customers?${params}`, { credentials: "include" }).then((r) => r.json()),
-        fetch(`/api/admin/customers/stats?${statsParams}`, { credentials: "include" }).then((r) => r.json()),
+        fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json()),
+        fetch(`/api/admin/old-customers/stats?${statsParams}`, { credentials: "include" }).then((r) => r.json()),
       ]);
 
       let realCustomers = custRes.customers || [];
@@ -364,7 +361,7 @@ export default function OldCustomersPage() {
       };
 
       try {
-        const res = await fetch("/api/admin/customers", {
+        const res = await fetch("/api/admin/old-customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -585,7 +582,7 @@ export default function OldCustomersPage() {
 
     if (!confirm(`Delete customer "${customer.name}"?`)) return;
 
-    const res = await fetch(`/api/admin/customers?id=${customer.id}`, {
+    const res = await fetch(`/api/admin/old-customers?id=${customer.id}`, {
       method: "DELETE",
       credentials: "include",
     });
@@ -634,7 +631,7 @@ export default function OldCustomersPage() {
         formData.append("sheet", sheetName);
       }
 
-      const res = await fetch("/api/admin/customers/import", {
+      const res = await fetch("/api/admin/old-customers/import", {
         method: "POST",
         credentials: "include",
         body: formData,
