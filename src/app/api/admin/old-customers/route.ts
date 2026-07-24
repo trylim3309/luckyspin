@@ -60,10 +60,25 @@ export async function GET(req: NextRequest) {
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
-      const today17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 17, 0, 0));
-      dateFrom = yesterday17;
-      dateTo = today17;
+      // Today = show customers that need follow-up today (yesterday's failed contacts)
+      // Follow-up customers where action="CHATTED_FAILED" and result="NOT_PLAYED_YET"
+      // Calculate yesterday in Cambodia timezone
+      let yesterdayCambodia = cambodiaDay - 1;
+      let yesterdayMonth = cambodiaMonth;
+      let yesterdayYear = cambodiaYear;
+      if (yesterdayCambodia < 1) {
+        const daysInPrevMonth = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 0)).getDate();
+        yesterdayCambodia = daysInPrevMonth;
+        yesterdayMonth = cambodiaMonth - 1;
+        if (yesterdayMonth < 1) {
+          yesterdayMonth = 12;
+          yesterdayYear = cambodiaYear - 1;
+        }
+      }
+      const yesterdayStart = new Date(Date.UTC(yesterdayYear, yesterdayMonth - 1, yesterdayCambodia, 0, 0, 0));
+      const yesterdayEnd = new Date(Date.UTC(yesterdayYear, yesterdayMonth - 1, yesterdayCambodia, 23, 59, 59));
+      dateFrom = yesterdayStart;
+      dateTo = yesterdayEnd;
     } else if (dateFilter === "yesterday") {
       const twoDaysAgo17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 2, 17, 0, 0));
       const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
@@ -106,7 +121,14 @@ export async function GET(req: NextRequest) {
       where.team = team as any;
     }
 
-    if (dateFrom && dateTo) {
+    // Today filter: show follow-up needed (yesterday's failed contacts)
+    if (dateFilter === "today") {
+      if (dateFrom && dateTo) {
+        where.followUpDate = { gte: dateFrom, lte: dateTo };
+      }
+      where.action = "CHATTED_FAILED";
+      where.result = "NOT_PLAYED_YET";
+    } else if (dateFrom && dateTo) {
       where.createdAt = { gte: dateFrom, lte: dateTo };
     }
     if (searchParams.get("telegramId") && searchParams.get("telegramId") !== "all") {
