@@ -62,11 +62,6 @@ export async function GET(req: NextRequest) {
     if (dateFilter === "today") {
       // Today = show all customers (no filter)
       // No date filter, just show all
-    } else if (dateFilter === "yesterday") {
-      const twoDaysAgo17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 2, 17, 0, 0));
-      const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
-      dateFrom = twoDaysAgo17;
-      dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
       const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -121,11 +116,35 @@ export async function GET(req: NextRequest) {
     if (searchParams.get("callStatus") && searchParams.get("callStatus") !== "all") {
       where.callStatus = searchParams.get("callStatus") as any;
     }
-    if (searchParams.get("action") && searchParams.get("action") !== "all") {
-      where.action = searchParams.get("action") as any;
-    }
-    if (searchParams.get("result") && searchParams.get("result") !== "all") {
-      where.result = searchParams.get("result") as any;
+
+    // Special handling for "today" filter with empty action/result
+    // In today mode, empty action/result means "needs follow-up today" (followUpDate != today)
+    if (dateFilter === "today") {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const actionParam = searchParams.get("action");
+      const resultParam = searchParams.get("result");
+
+      if (actionParam === "") {
+        // Empty action in today mode = customers where followUpDate is NOT today
+        where.followUpDate = { not: todayStr };
+      } else if (actionParam && actionParam !== "all") {
+        where.action = actionParam as any;
+      }
+
+      if (resultParam === "") {
+        // Empty result in today mode = customers where followUpDate is NOT today
+        where.followUpDate = { not: todayStr };
+      } else if (resultParam && resultParam !== "all") {
+        where.result = resultParam as any;
+      }
+    } else {
+      // Normal filtering for non-today modes
+      if (searchParams.get("action") && searchParams.get("action") !== "all") {
+        where.action = searchParams.get("action") as any;
+      }
+      if (searchParams.get("result") && searchParams.get("result") !== "all") {
+        where.result = searchParams.get("result") as any;
+      }
     }
     if (searchParams.get("type") && searchParams.get("type") !== "all") {
       where.type = searchParams.get("type") as any;
@@ -179,7 +198,7 @@ export async function POST(req: NextRequest) {
         phone: body.phone || null,
         callStatus: body.callStatus || "NOT_CONTACTED",
         telegramId: body.telegramId || null,
-        action: body.action || "CHATTED_SUCCESS",
+        action: body.action || "",
         lastPlayDate: body.lastPlayDate ? new Date(body.lastPlayDate) : null,
         result: body.result || "NOT_PLAYED_YET",
         followUpDate: body.followUpDate ? new Date(body.followUpDate) : null,

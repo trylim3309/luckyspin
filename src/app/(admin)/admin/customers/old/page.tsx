@@ -10,12 +10,12 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
-type Action = "CHATTED_SUCCESS" | "CHATTED_FAILED" | "SPAM" | "BLOCKED";
-type OldResult = "REGULAR_PLAYER" | "FREQUENT_PLAYER" | "RETURNED_PLAYER" | "NOT_PLAYED_YET";
+type Action = "" | "CHATTED_SUCCESS" | "CHATTED_FAILED" | "SPAM" | "BLOCKED";
+type OldResult = "REGULAR_PLAYER" | "RETURNED_PLAYER" | "NOT_PLAYED_YET";
 type CustomerType = "SMALL" | "BIG" | "NEVER_PLAYED" | "ACCOUNT_OPEN_NO_DEPOSIT";
 type Priority = "FREQUENT" | "OCCASIONAL" | "LAPSED";
 type Team = "KING88" | "SKY24" | "B88";
-type DateFilter = "today" | "yesterday" | "thisWeek" | "thisMonth" | "lastMonth" | "all" | "custom";
+type DateFilter = "today" | "thisWeek" | "thisMonth" | "lastMonth" | "all" | "custom";
 
 interface OldCustomer {
   id: string;
@@ -61,6 +61,7 @@ const CALL_COLORS: Record<CallStatus, string> = {
 };
 
 const ACTION_LABELS: Record<Action, string> = {
+  "": "—",
   CHATTED_SUCCESS: "ឆាតរួច",
   CHATTED_FAILED: "អត់ឆាត",
   SPAM: "ស្ពាម",
@@ -68,6 +69,7 @@ const ACTION_LABELS: Record<Action, string> = {
 };
 
 const ACTION_COLORS: Record<Action, string> = {
+  "": "#6B7280",
   CHATTED_SUCCESS: "#10B981",
   CHATTED_FAILED: "#EF4444",
   SPAM: "#F59E0B",
@@ -76,14 +78,12 @@ const ACTION_COLORS: Record<Action, string> = {
 
 const RESULT_LABELS: Record<OldResult, string> = {
   REGULAR_PLAYER: "លេងធម្មតា",
-  FREQUENT_PLAYER: "លេងជាប្រចាំ",
   RETURNED_PLAYER: "លេងវិញ",
   NOT_PLAYED_YET: "អត់ទាន់លេង",
 };
 
 const RESULT_COLORS: Record<OldResult, string> = {
   REGULAR_PLAYER: "#3B82F6",
-  FREQUENT_PLAYER: "#10B981",
   RETURNED_PLAYER: "#8B5CF6",
   NOT_PLAYED_YET: "#6B7280",
 };
@@ -116,7 +116,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 
 const DATE_TABS: { key: DateFilter; label: string }[] = [
   { key: "today", label: "Today" },
-  { key: "yesterday", label: "Yesterday" },
   { key: "all", label: "All Time" },
   { key: "custom", label: "" },
 ];
@@ -151,6 +150,8 @@ export default function OldCustomersPage() {
 
   // Stats
   const [totalCustomers, setTotalCustomers] = useState(0);
+  const [actionCounts, setActionCounts] = useState<Record<Action, number>>({} as Record<Action, number>);
+  const [resultCounts, setResultCounts] = useState<Record<OldResult, number>>({} as Record<OldResult, number>);
 
   // Agents list for filter (admins only)
   const [agents, setAgents] = useState<{ id: string; name: string; fullName?: string | null }[]>([]);
@@ -204,7 +205,7 @@ export default function OldCustomersPage() {
     phone: null,
     callStatus: "NOT_CONTACTED",
     telegramId: null,
-    action: "CHATTED_SUCCESS",
+    action: "",
     lastPlayDate: null,
     result: "NOT_PLAYED_YET",
     followUpDate: null,
@@ -234,11 +235,41 @@ export default function OldCustomersPage() {
       if (priorityFilter !== "all") params.set("priority", priorityFilter);
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
-      params.set("limit", "100");
+      params.set("limit", "1000"); // Higher limit for accurate stats
 
       const custRes = await fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json());
 
       let realCustomers = custRes.customers || [];
+
+      // For "today" filter: reset action and result to defaults for follow-up
+      // But only if followUpDate is NOT today (customers not yet updated today)
+      if (dateFilter === "today") {
+        const today = new Date().toISOString().split("T")[0];
+        realCustomers = realCustomers.map((c: OldCustomer) => {
+          const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
+          // If followUpDate is today, keep existing action and result
+          if (followUp === today) {
+            return c;
+          }
+          // Otherwise reset to defaults for follow-up
+          return {
+            ...c,
+            action: "" as Action,
+            result: "NOT_PLAYED_YET" as OldResult,
+          };
+        });
+      }
+
+      // Calculate action and result counts from the displayed data (after reset)
+      const actionStats: Record<string, number> = {};
+      const resultStats: Record<string, number> = {};
+      realCustomers.forEach((c: OldCustomer) => {
+        actionStats[c.action] = (actionStats[c.action] || 0) + 1;
+        resultStats[c.result] = (resultStats[c.result] || 0) + 1;
+      });
+      setActionCounts(actionStats as Record<Action, number>);
+      setResultCounts(resultStats as Record<OldResult, number>);
+
       setTotalCustomers(custRes.total || 0);
 
       // Add 5 empty placeholder rows for quick entry
@@ -252,7 +283,7 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin]);
 
   useEffect(() => {
     fetchData();
@@ -368,6 +399,10 @@ export default function OldCustomersPage() {
     if (key === "action") {
       putData.followUpDate = new Date().toISOString();
     }
+    // When result changes to REGULAR_PLAYER or RETURNED_PLAYER, update lastPlayDate to today
+    if (key === "result" && (value === "REGULAR_PLAYER" || value === "RETURNED_PLAYER")) {
+      putData.lastPlayDate = new Date().toISOString();
+    }
 
     fetch("/api/admin/old-customers", {
       method: "PUT",
@@ -384,6 +419,26 @@ export default function OldCustomersPage() {
           return newRows;
         });
         return;
+      }
+      const result = await res.json();
+      // Update with server response for real-time display
+      if (result.customer) {
+        setCustomers((prev) => {
+          const newRows = [...prev];
+          newRows[rowIndex] = result.customer;
+
+          // Recalculate stats from updated data
+          const actionStats: Record<string, number> = {};
+          const resultStats: Record<string, number> = {};
+          newRows.forEach((c: OldCustomer) => {
+            actionStats[c.action] = (actionStats[c.action] || 0) + 1;
+            resultStats[c.result] = (resultStats[c.result] || 0) + 1;
+          });
+          setActionCounts(actionStats as Record<Action, number>);
+          setResultCounts(resultStats as Record<OldResult, number>);
+
+          return newRows;
+        });
       }
     }).catch(console.error).finally(() => {
       savingRef.current.delete(rowIndex);
@@ -457,7 +512,7 @@ export default function OldCustomersPage() {
       phone: null,
       team: currentAgent.team,
       callStatus: "NOT_CONTACTED",
-      action: "CHATTED_SUCCESS",
+      action: "",
       result: "NOT_PLAYED_YET",
       type: "SMALL",
       priority: "OCCASIONAL",
@@ -796,19 +851,20 @@ export default function OldCustomersPage() {
       width: 100,
       editable: false,
       render: (value, row: any) => {
-        if (row.result !== "NOT_PLAYED_YET" || !row.followUpDate || !row.lastPlayDate) {
-          return <span className="text-sm text-gray-400">-</span>;
+        // Show stopped day only when result is NOT_PLAYED_YET and we have both dates
+        if (row.result === "NOT_PLAYED_YET" && row.followUpDate && row.lastPlayDate) {
+          const followUp = new Date(row.followUpDate);
+          const lastPlay = new Date(row.lastPlayDate);
+          const diffTime = followUp.getTime() - lastPlay.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const color = diffDays > 30 ? "#EF4444" : diffDays > 7 ? "#F59E0B" : "#10B981";
+          return (
+            <span className="text-sm font-medium" style={{ color }}>
+              {diffDays} day{diffDays !== 1 ? "s" : ""}
+            </span>
+          );
         }
-        const followUp = new Date(row.followUpDate);
-        const lastPlay = new Date(row.lastPlayDate);
-        const diffTime = followUp.getTime() - lastPlay.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const color = diffDays > 30 ? "#EF4444" : diffDays > 7 ? "#F59E0B" : "#10B981";
-        return (
-          <span className="text-sm font-medium" style={{ color }}>
-            {diffDays} day{diffDays !== 1 ? "s" : ""}
-          </span>
-        );
+        return <span className="text-sm text-gray-400">-</span>;
       },
     },
     {
@@ -953,6 +1009,57 @@ export default function OldCustomersPage() {
           </div>
         </div>
       )}
+
+      {/* Action & Result Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Action Stats */}
+        <div className="bg-white rounded-lg border shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-600 mb-3">Action Summary</h3>
+          <div className="space-y-2">
+            {(Object.keys(ACTION_LABELS) as Action[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => setActionFilter(key === actionFilter ? "all" : key)}
+                className={`w-full flex items-center justify-between px-2 py-1 rounded transition-colors ${
+                  actionFilter === key ? "bg-purple-50" : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ACTION_COLORS[key] }} />
+                  <span className="text-sm text-gray-700">{ACTION_LABELS[key]}</span>
+                </div>
+                <span className="text-sm font-semibold" style={{ color: ACTION_COLORS[key] }}>
+                  {actionCounts[key] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Result Stats */}
+        <div className="bg-white rounded-lg border shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-600 mb-3">Result Summary</h3>
+          <div className="space-y-2">
+            {(Object.keys(RESULT_LABELS) as OldResult[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => setResultFilter(key === resultFilter ? "all" : key)}
+                className={`w-full flex items-center justify-between px-2 py-1 rounded transition-colors ${
+                  resultFilter === key ? "bg-purple-50" : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: RESULT_COLORS[key] }} />
+                  <span className="text-sm text-gray-700">{RESULT_LABELS[key]}</span>
+                </div>
+                <span className="text-sm font-semibold" style={{ color: RESULT_COLORS[key] }}>
+                  {resultCounts[key] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex items-center gap-4 bg-white rounded-lg p-3 border shadow-sm flex-wrap">
