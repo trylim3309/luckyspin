@@ -60,12 +60,8 @@ export async function GET(req: NextRequest) {
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      // Today = show all customers that need follow-up this month (failed contacts)
-      // Follow-up customers where action="CHATTED_FAILED" and result="NOT_PLAYED_YET"
-      // Filter by this month's followUpDate
-      const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
-      dateFrom = monthStart;
-      dateTo = now;
+      // Today = show all customers (no filter)
+      // No date filter, just show all
     } else if (dateFilter === "yesterday") {
       const twoDaysAgo17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 2, 17, 0, 0));
       const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
@@ -108,14 +104,8 @@ export async function GET(req: NextRequest) {
       where.team = team as any;
     }
 
-    // Today filter: show follow-up needed this month (failed contacts)
-    if (dateFilter === "today") {
-      if (dateFrom && dateTo) {
-        where.followUpDate = { gte: dateFrom, lte: dateTo };
-      }
-      where.action = "CHATTED_FAILED";
-      where.result = "NOT_PLAYED_YET";
-    } else if (dateFrom && dateTo) {
+    // Today filter: no filter, show all
+    if (dateFilter !== "today" && dateFrom && dateTo) {
       where.createdAt = { gte: dateFrom, lte: dateTo };
     }
     if (searchParams.get("telegramId") && searchParams.get("telegramId") !== "all") {
