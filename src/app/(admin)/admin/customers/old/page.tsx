@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
 type Action = "" | "CHATTED_SUCCESS" | "CHATTED_FAILED" | "SPAM" | "BLOCKED";
 type OldResult = "REGULAR_PLAYER" | "RETURNED_PLAYER" | "NOT_PLAYED_YET";
-type CustomerType = "SMALL" | "BIG" | "NEVER_PLAYED" | "ACCOUNT_OPEN_NO_DEPOSIT";
+type CustomerType = "SMALL" | "BIG" | "NEVER_PLAYED";
 type Priority = "FREQUENT" | "OCCASIONAL" | "LAPSED";
 type Team = "KING88" | "SKY24" | "B88";
 type DateFilter = "today" | "thisWeek" | "thisMonth" | "lastMonth" | "all" | "custom";
@@ -92,14 +92,12 @@ const TYPE_LABELS: Record<CustomerType, string> = {
   SMALL: "តូច",
   BIG: "ធំ",
   NEVER_PLAYED: "អត់ធ្លាប់លេង",
-  ACCOUNT_OPEN_NO_DEPOSIT: "បើកអាខោនអត់ទាន់ដាក់លុយ",
 };
 
 const TYPE_COLORS: Record<CustomerType, string> = {
   SMALL: "#6B7280",
   BIG: "#F59E0B",
   NEVER_PLAYED: "#EF4444",
-  ACCOUNT_OPEN_NO_DEPOSIT: "#8B5CF6",
 };
 
 const PRIORITY_LABELS: Record<Priority, string> = {
@@ -152,6 +150,7 @@ export default function OldCustomersPage() {
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [actionCounts, setActionCounts] = useState<Record<Action, number>>({} as Record<Action, number>);
   const [resultCounts, setResultCounts] = useState<Record<OldResult, number>>({} as Record<OldResult, number>);
+  const [typeCounts, setTypeCounts] = useState<Record<CustomerType, number>>({} as Record<CustomerType, number>);
 
   // Agents list for filter (admins only)
   const [agents, setAgents] = useState<{ id: string; name: string; fullName?: string | null }[]>([]);
@@ -260,15 +259,18 @@ export default function OldCustomersPage() {
         });
       }
 
-      // Calculate action and result counts from the displayed data (after reset)
+      // Calculate action, result and type counts from the displayed data (after reset)
       const actionStats: Record<string, number> = {};
       const resultStats: Record<string, number> = {};
+      const typeStats: Record<string, number> = {};
       realCustomers.forEach((c: OldCustomer) => {
         actionStats[c.action] = (actionStats[c.action] || 0) + 1;
         resultStats[c.result] = (resultStats[c.result] || 0) + 1;
+        typeStats[c.type] = (typeStats[c.type] || 0) + 1;
       });
       setActionCounts(actionStats as Record<Action, number>);
       setResultCounts(resultStats as Record<OldResult, number>);
+      setTypeCounts(typeStats as Record<CustomerType, number>);
 
       setTotalCustomers(custRes.total || 0);
 
@@ -430,12 +432,15 @@ export default function OldCustomersPage() {
           // Recalculate stats from updated data
           const actionStats: Record<string, number> = {};
           const resultStats: Record<string, number> = {};
+          const typeStats: Record<string, number> = {};
           newRows.forEach((c: OldCustomer) => {
             actionStats[c.action] = (actionStats[c.action] || 0) + 1;
             resultStats[c.result] = (resultStats[c.result] || 0) + 1;
+            typeStats[c.type] = (typeStats[c.type] || 0) + 1;
           });
           setActionCounts(actionStats as Record<Action, number>);
           setResultCounts(resultStats as Record<OldResult, number>);
+          setTypeCounts(typeStats as Record<CustomerType, number>);
 
           return newRows;
         });
@@ -1010,8 +1015,8 @@ export default function OldCustomersPage() {
         </div>
       )}
 
-      {/* Action & Result Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Action, Result & Type Stats Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Action Stats */}
         <div className="bg-white rounded-lg border shadow-sm p-4">
           <h3 className="text-sm font-semibold text-gray-600 mb-3">Action Summary</h3>
@@ -1054,6 +1059,30 @@ export default function OldCustomersPage() {
                 </div>
                 <span className="text-sm font-semibold" style={{ color: RESULT_COLORS[key] }}>
                   {resultCounts[key] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Type Stats */}
+        <div className="bg-white rounded-lg border shadow-sm p-4">
+          <h3 className="text-sm font-semibold text-gray-600 mb-3">Type Summary</h3>
+          <div className="space-y-2">
+            {(Object.keys(TYPE_LABELS) as CustomerType[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => setTypeFilter(key === typeFilter ? "all" : key)}
+                className={`w-full flex items-center justify-between px-2 py-1 rounded transition-colors ${
+                  typeFilter === key ? "bg-purple-50" : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TYPE_COLORS[key] }} />
+                  <span className="text-sm text-gray-700">{TYPE_LABELS[key]}</span>
+                </div>
+                <span className="text-sm font-semibold" style={{ color: TYPE_COLORS[key] }}>
+                  {typeCounts[key] || 0}
                 </span>
               </button>
             ))}
