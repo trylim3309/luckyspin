@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
     const team = searchParams.get("team");
     const isRestricted = session.role === "AGENT" || session.role === "TEAM_LEADER";
+    const canViewAllTeams = ["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.role);
     const userTeams = session.teams || ["KING88"];
 
     // Deposit condition: accountId exists AND result = DEPOSIT (matching New Customers stats)
@@ -76,12 +77,14 @@ export async function GET(req: NextRequest) {
     // Filter by team if specified
     const teamFilter = team && team !== "all" ? [team as string] : null;
 
-    // Find all agents who share at least one team with current user
-    const teamAgentsWhere = isRestricted
-      ? { teams: { hasSome: userTeams } }
-      : teamFilter
-        ? { teams: { hasSome: teamFilter } }
-        : {};
+    // Find all agents who share at least one team with current user (for restricted users)
+    // Admins/managers can see all teams and agents
+    let teamAgentsWhere: any = {};
+    if (isRestricted) {
+      teamAgentsWhere = { teams: { hasSome: userTeams } };
+    } else if (teamFilter) {
+      teamAgentsWhere = { teams: { hasSome: teamFilter } };
+    }
     const teamAgents = await prisma.adminUser.findMany({
       where: teamAgentsWhere,
       select: { id: true, name: true, fullName: true, role: true, teams: true },
@@ -156,6 +159,7 @@ export async function GET(req: NextRequest) {
       agentStats: agentCustomerStats,
       userTeams: userTeams,
       isRestricted: isRestricted,
+      canViewAllTeams: canViewAllTeams,
     });
   } catch (error) {
     console.error("Dashboard error:", error);

@@ -24,6 +24,7 @@ export default function DashboardPage() {
     agentStats: { id: string; name: string; fullName?: string | null; role: string; teams: string[]; totalCustomers: number }[];
     userTeams: string[];
     isRestricted: boolean;
+    canViewAllTeams: boolean;
   }>(`/api/admin/dashboard${selectedTeam ? `?team=${selectedTeam}` : ""}`);
 
   const handleTeamClick = (team: string) => {
@@ -54,6 +55,7 @@ export default function DashboardPage() {
     agentStats: data?.agentStats || [],
     userTeams: data?.userTeams || ["KING88"],
     isRestricted: data?.isRestricted || false,
+    canViewAllTeams: data?.canViewAllTeams || false,
   };
 
   return (
@@ -115,8 +117,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Team Stats - only for Admin/SUPER_ADMIN/MANAGER */}
-      {!safeData.isRestricted && (
+      {/* Team Stats - only for Admin/SUPER_ADMIN/MANAGER/TEAM_LEADER who can view all teams */}
+      {safeData.canViewAllTeams && (
         <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[16px] font-semibold text-[#495057]">By Team</h2>
