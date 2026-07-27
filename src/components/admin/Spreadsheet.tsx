@@ -19,7 +19,7 @@ type SpreadsheetProps<T extends { id?: string }> = {
   onUpdate: (rowIndex: number, key: string, value: unknown) => Promise<void>;
   onAdd: (data: Partial<T>) => Promise<void>;
   onDelete: (rowIndex: number) => Promise<void>;
-  onAddEmpty?: () => Promise<void>;
+  onAddEmpty?: () => void;
   onExport?: () => void;
   isLoading?: boolean;
   emptyMessage?: string;

@@ -2,35 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 
-export async function POST(req: NextRequest) {
-  console.log("Import started, file:", req);
+function getAdminSession(req: NextRequest) {
+  const adminSession = req.cookies.get("admin_session");
+  if (!adminSession) return null;
   try {
-    const adminSession = req.cookies.get("admin_session");
-    console.log("Session:", adminSession?.value ? "present" : "missing");
-    if (!adminSession) {
+    return JSON.parse(Buffer.from(adminSession.value, "base64").toString());
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = getAdminSession(req);
+    if (!session || session.type !== "admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let session;
-    try {
-      session = JSON.parse(Buffer.from(adminSession.value, "base64").toString());
-    } catch {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
-
-    if (session.type !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const team = (formData.get("team") as string) || session.teams?.[0] || "KING88";
-    const createdAt = formData.get("createdAt") as string;
+    const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
+    // Read file content
     const bytes = await file.arrayBuffer();
     let content: string;
     let lines: string[];
@@ -62,15 +58,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse header row
-    const firstLine = lines[0].replace(/^﻿/, "").trim();
-    const headers = firstLine.split(",").map(h => h.trim().replace(/"/g, "").toLowerCase());
+    const headerLine = lines[0];
+    const headers = headerLine.split(",").map((h: string) => h.trim().toLowerCase());
+
+    // Simple CSV line parser
+    const parseCSVLine = (line: string): string[] => {
+      return line.split(",").map((v: string) => v.trim());
+    };
 
     // Find column indices
-    const accountIdIdx = headers.findIndex(h =>
-      h.includes("account") || h.includes("accountid") || h === "id" || h === "acc"
-    );
+    const accountIdIdx = headers.findIndex(h => h.includes("account") || h.includes("id") || h === "acc");
+    if (accountIdIdx === -1) {
+      return NextResponse.json({ error: "Account ID column not found. Found: " + headers.join(", ") }, { status: 400 });
+    }
+
     const nameIdx = headers.findIndex(h => h.includes("name"));
-    const phoneIdx = headers.findIndex(h => h.includes("phone"));
+    const phoneIdx = headers.findIndex(h => h.includes("phone") || h.includes("tel"));
     const callStatusIdx = headers.findIndex(h => h.includes("call") || h.includes("chat"));
     const telegramIdx = headers.findIndex(h => h.includes("telegram") || h.includes("tg"));
     const actionIdx = headers.findIndex(h => h.includes("action"));
@@ -80,122 +83,153 @@ export async function POST(req: NextRequest) {
     const remarksIdx = headers.findIndex(h => h.includes("remark") || h.includes("note"));
     const teamIdx = headers.findIndex(h => h.includes("team"));
 
-    if (accountIdIdx === -1) {
-      return NextResponse.json({
-        error: "Account ID column not found",
-        details: { parsedHeaders: headers, fileName: file.name }
-      }, { status: 400 });
-    }
-
-    console.log("Headers parsed:", headers);
-    console.log("Account ID index:", accountIdIdx);
+    // Get default team from formData
+    const team = (formData.get("team") as string) || session.teams?.[0] || "KING88";
+    const createdAtParam = formData.get("createdAt") as string | null;
+    const createdAt = createdAtParam ? new Date(createdAtParam + "T12:00:00.000Z") : new Date();
 
     let imported = 0;
     let skipped = 0;
+    const errors: string[] = [];
 
+    // Fetch all existing accountIds in one query for fast duplicate checking
+    const existingCustomers = await prisma.oldCustomer.findMany({
+      select: { accountId: true },
+    });
+    const existingAccountIds = new Set(existingCustomers.map(c => c.accountId));
+
+    const customersToCreate: any[] = [];
+    let processedRows = 0;
+
+    // Process data rows (skip header)
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
-
-      const accountId = values[accountIdIdx];
-      if (!accountId) continue;
-
-      // Check if already exists
-      const existing = await prisma.oldCustomer.findUnique({
-        where: { accountId },
-      });
-
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      const name = nameIdx !== -1 ? values[nameIdx] || "Unknown" : "Unknown";
-      const phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
-
-      let callStatus = "NOT_CONTACTED";
-      if (callStatusIdx !== -1) {
-        const val = values[callStatusIdx].toLowerCase();
-        if (val.includes("chat")) callStatus = "CHATTED";
-        else if (val.includes("call")) callStatus = "CALLED";
-      }
-
-      const telegramId = telegramIdx !== -1 ? values[telegramIdx] || null : null;
-
-      let action = "CHATTED_SUCCESS";
-      if (actionIdx !== -1) {
-        const val = values[actionIdx].toLowerCase();
-        if (val.includes("ឆាតរួច")) action = "CHATTED_SUCCESS";
-        else if (val.includes("អត់ឆាត")) action = "CHATTED_FAILED";
-        else if (val.includes("ស្ពាម")) action = "SPAM";
-        else if (val.includes("ប្លុក")) action = "BLOCKED";
-      }
-
-      let result = "NOT_PLAYED_YET";
-      if (resultIdx !== -1) {
-        const val = values[resultIdx].toLowerCase();
-        if (val.includes("ធម្មតា")) result = "REGULAR_PLAYER";
-        else if (val.includes("ប្រចាំ")) result = "FREQUENT_PLAYER";
-        else if (val.includes("វិញ")) result = "RETURNED_PLAYER";
-        else if (val.includes("អត់ទាន់")) result = "NOT_PLAYED_YET";
-      }
-
-      let type = "SMALL";
-      if (typeIdx !== -1) {
-        const val = values[typeIdx].toLowerCase();
-        if (val.includes("ធំ")) type = "BIG";
-        else if (val.includes("អត់ធ្លាប់")) type = "NEVER_PLAYED";
-        else if (val.includes("បើក")) type = "ACCOUNT_OPEN_NO_DEPOSIT";
-        else if (val.includes("តូច")) type = "SMALL";
-      }
-
-      let priority = "OCCASIONAL";
-      if (priorityIdx !== -1) {
-        const val = values[priorityIdx].toLowerCase();
-        if (val.includes("លេងជាប្រចាំ")) priority = "FREQUENT";
-        else if (val.includes("យូៗ")) priority = "OCCASIONAL";
-        else if (val.includes("ខាន")) priority = "LAPSED";
-      }
-
-      const remarks = remarksIdx !== -1 ? values[remarksIdx] || null : null;
-
-      let customerTeam = team;
-      if (teamIdx !== -1) {
-        const val = values[teamIdx].toUpperCase();
-        if (val.includes("KING88")) customerTeam = "KING88";
-        else if (val.includes("SKY24")) customerTeam = "SKY24";
-        else if (val.includes("B88")) customerTeam = "B88";
-      }
-
       try {
-        await prisma.oldCustomer.create({
-          data: {
-            accountId,
-            name,
-            phone,
-            callStatus: callStatus as any,
-            telegramId,
-            action: action as any,
-            result: result as any,
-            type: type as any,
-            priority: priority as any,
-            remarks,
-            team: customerTeam as any,
-            createdAt: createdAt ? new Date(createdAt) : new Date(),
-          },
-        });
-        imported++;
-      } catch (e) {
-        console.error(`Failed to import row ${i}:`, e);
-        skipped++;
+        const values = parseCSVLine(lines[i]);
+        const accountId = values[accountIdIdx] || "";
+
+        if (!accountId) {
+          skipped++;
+          continue;
+        }
+
+        // Fast duplicate check using Set
+        if (existingAccountIds.has(accountId)) {
+          skipped++;
+          continue;
+        }
+        processedRows++;
+
+        const name = nameIdx !== -1 && values[nameIdx] ? values[nameIdx] : "Unknown";
+        const phone = phoneIdx !== -1 && values[phoneIdx] ? values[phoneIdx] : null;
+
+        // Map callStatus
+        let callStatus = "NOT_CONTACTED";
+        if (callStatusIdx !== -1 && values[callStatusIdx]) {
+          const val = values[callStatusIdx].toLowerCase();
+          if (val.includes("chat")) callStatus = "CHATTED";
+          else if (val.includes("call")) callStatus = "CALLED";
+          else if (val.includes("no answer")) callStatus = "NO_ANSWER";
+          else if (val.includes("not interested")) callStatus = "NOT_INTERESTED";
+        }
+
+        const telegramId = telegramIdx !== -1 && values[telegramIdx] ? values[telegramIdx] : null;
+
+        // Map action - use null so DB default is used
+        let action: string | undefined = undefined;
+        if (actionIdx !== -1 && values[actionIdx]) {
+          const val = values[actionIdx].toLowerCase();
+          if (val.includes("ឆាតរួច")) action = "CHATTED_SUCCESS";
+          else if (val.includes("អត់ឆាត")) action = "CHATTED_FAILED";
+          else if (val.includes("ស្ពាម")) action = "SPAM";
+          else if (val.includes("ប្លុក")) action = "BLOCKED";
+        }
+
+        // Map result
+        let result = "NOT_PLAYED_YET";
+        if (resultIdx !== -1 && values[resultIdx]) {
+          const val = values[resultIdx].toLowerCase();
+          if (val.includes("ធម្មតា")) result = "REGULAR_PLAYER";
+          else if (val.includes("វិញ")) result = "RETURNED_PLAYER";
+          else if (val.includes("អត់ទាន់")) result = "NOT_PLAYED_YET";
+        }
+
+        // Map type
+        let type = "SMALL";
+        if (typeIdx !== -1 && values[typeIdx]) {
+          const val = values[typeIdx].toLowerCase();
+          if (val.includes("ធំ")) type = "BIG";
+          else if (val.includes("អត់ធ្លាប់")) type = "NEVER_PLAYED";
+          else if (val.includes("តូច")) type = "SMALL";
+        }
+
+        // Map priority
+        let priority = "OCCASIONAL";
+        if (priorityIdx !== -1 && values[priorityIdx]) {
+          const val = values[priorityIdx].toLowerCase();
+          if (val.includes("លេងជាប្រចាំ")) priority = "FREQUENT";
+          else if (val.includes("ខាន")) priority = "LAPSED";
+          else if (val.includes("យូៗ")) priority = "OCCASIONAL";
+        }
+
+        const remarks = remarksIdx !== -1 && values[remarksIdx] ? values[remarksIdx] : null;
+
+        // Map team
+        let customerTeam = team;
+        if (teamIdx !== -1 && values[teamIdx]) {
+          const val = values[teamIdx].toUpperCase();
+          if (val.includes("KING88")) customerTeam = "KING88";
+          else if (val.includes("SKY24")) customerTeam = "SKY24";
+          else if (val.includes("B88")) customerTeam = "B88";
+        }
+
+        // Build data object - only include action if defined (DB will use default)
+        const data: any = {
+          accountId,
+          name,
+          phone,
+          callStatus: callStatus as any,
+          telegramId,
+          result: result as any,
+          type: type as any,
+          priority: priority as any,
+          remarks,
+          team: customerTeam as any,
+          createdAt,
+        };
+        if (action) data.action = action;
+
+        // Add to batch and mark as seen
+        customersToCreate.push(data);
+        existingAccountIds.add(accountId); // Prevent duplicates within same import
+      } catch (err) {
+        console.error(`Row ${i} error:`, err instanceof Error ? err.message : err);
+        errors.push(`Row ${i}: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
     }
 
-    return NextResponse.json({ imported, skipped, total: lines.length - 1 });
+    // Batch insert all customers at once
+    if (customersToCreate.length > 0) {
+      try {
+        await prisma.oldCustomer.createMany({
+          data: customersToCreate,
+          skipDuplicates: true,
+        });
+        imported = customersToCreate.length;
+      } catch (err) {
+        console.error("Batch insert error:", err instanceof Error ? err.message : err);
+        throw err;
+      }
+    }
+
+    return NextResponse.json({
+      imported: customersToCreate.length,
+      skipped,
+      total: lines.length - 1,
+      errors: errors.slice(0, 10),
+    });
   } catch (error) {
     console.error("Import error:", error);
-    return NextResponse.json({
-      error: "Import failed",
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to import: " + message }, { status: 500 });
   }
 }

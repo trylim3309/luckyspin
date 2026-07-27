@@ -152,6 +152,10 @@ export default function OldCustomersPage() {
   const [resultCounts, setResultCounts] = useState<Record<OldResult, number>>({} as Record<OldResult, number>);
   const [typeCounts, setTypeCounts] = useState<Record<CustomerType, number>>({} as Record<CustomerType, number>);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100;
+
   // Agents list for filter (admins only)
   const [agents, setAgents] = useState<{ id: string; name: string; fullName?: string | null }[]>([]);
 
@@ -234,7 +238,7 @@ export default function OldCustomersPage() {
       if (priorityFilter !== "all") params.set("priority", priorityFilter);
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
-      params.set("limit", "1000"); // Higher limit for accurate stats
+      params.set("limit", "1000"); // High limit for accurate stats
 
       const custRes = await fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json());
 
@@ -259,7 +263,7 @@ export default function OldCustomersPage() {
         });
       }
 
-      // Calculate action, result and type counts from the displayed data (after reset)
+      // Calculate action, result and type counts from ALL fetched data
       const actionStats: Record<string, number> = {};
       const resultStats: Record<string, number> = {};
       const typeStats: Record<string, number> = {};
@@ -274,25 +278,39 @@ export default function OldCustomersPage() {
 
       setTotalCustomers(custRes.total || 0);
 
-      // Add 5 empty placeholder rows for quick entry
-      const emptyRows: OldCustomer[] = [];
-      for (let i = 0; i < 5; i++) {
-        emptyRows.push(createEmptyRow());
-      }
-      setCustomers([...realCustomers, ...emptyRows]);
+      // Paginate the real customers for display (client-side pagination)
+      const startIdx = (currentPage - 1) * pageSize;
+      const endIdx = startIdx + pageSize;
+      let paginatedCustomers = realCustomers.slice(startIdx, endIdx);
+
+      // Re-add any pending temp rows to the displayed data
+      paginatedCustomers = [...tempRowsRef.current, ...paginatedCustomers];
+
+      setCustomers(paginatedCustomers);
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, teamFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, telegramFilter]);
+
   // Guard to prevent duplicate saves for same row
   const savingRef = useRef<Set<number>>(new Set());
+
+  // Track temp rows that need to be created on server first
+  const pendingCreates = useRef<Set<string>>(new Set());
+
+  // Track temp rows that should survive across fetchData calls
+  const tempRowsRef = useRef<OldCustomer[]>([]);
 
   // Update customer
   const handleUpdate = async (rowIndex: number, key: string, value: any) => {
@@ -302,91 +320,9 @@ export default function OldCustomersPage() {
     if (savingRef.current.has(rowIndex)) return;
     savingRef.current.add(rowIndex);
 
-    // If it's a temp row (not saved yet)
-    if (customer.id.startsWith("temp-")) {
-      if (!customer.accountId && key !== "accountId") {
-        setCustomers((prev) => {
-          const newRows = [...prev];
-          newRows[rowIndex] = { ...newRows[rowIndex], [key]: value };
-          return newRows;
-        });
-        return;
-      }
+    const isTempRow = customer.id.startsWith("temp-");
 
-      if (!customer.accountId && key === "accountId") {
-        // Need accountId to save
-        setCustomers((prev) => {
-          const newRows = [...prev];
-          newRows[rowIndex] = { ...newRows[rowIndex], [key]: value };
-          return newRows;
-        });
-        return;
-      }
-
-      // Save temp row
-      const currentCustomer = customersRef.current[rowIndex];
-      const tempId = customer.id;
-
-      setCustomers((prev) => {
-        const newRows = [...prev];
-        newRows[rowIndex] = { ...currentCustomer, [key]: value };
-        return newRows;
-      });
-
-      const customerData: any = {
-        accountId: currentCustomer.accountId,
-        name: currentCustomer.name || "Unknown",
-        phone: currentCustomer.phone || null,
-        callStatus: currentCustomer.callStatus,
-        telegramId: currentCustomer.telegramId || null,
-        action: key === "action" ? value : currentCustomer.action,
-        lastPlayDate: currentCustomer.lastPlayDate,
-        result: key === "result" ? value : currentCustomer.result,
-        followUpDate: key === "action" ? new Date().toISOString() : currentCustomer.followUpDate,
-        type: currentCustomer.type,
-        priority: currentCustomer.priority,
-        remarks: key === "remarks" ? value : (currentCustomer.remarks || null),
-        team: currentCustomer.team,
-        [key]: value,
-      };
-
-      try {
-        const res = await fetch("/api/admin/old-customers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(customerData),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          console.error("Failed to save:", res.status, err);
-          setCustomers(customersRef.current);
-          return;
-        }
-        const result = await res.json();
-
-        setCustomers((prev) => {
-          const newRows = prev.filter((_, i) => i !== rowIndex);
-          newRows.splice(rowIndex, 0, result.customer);
-          const tempCount = newRows.filter(c => c.id.startsWith("temp-")).length;
-          const needed = 5 - tempCount;
-          for (let i = 0; i < needed; i++) {
-            newRows.push(createEmptyRow());
-          }
-          return newRows;
-        });
-        setTotalCustomers((prev) => prev + 1);
-      } catch (error) {
-        console.error("Network error saving customer:", error);
-        setCustomers(customersRef.current);
-      } finally {
-        savingRef.current.delete(rowIndex);
-      }
-      return;
-    }
-
-    // Normal update for existing customers
+    // Optimistic update
     const optimisticCustomer = { ...customer, [key]: value };
     setCustomers((prev) => {
       const newRows = [...prev];
@@ -394,37 +330,71 @@ export default function OldCustomersPage() {
       return newRows;
     });
 
-    const putData: Record<string, any> = { id: customer.id, [key]: value };
-    if (key === "accountId") {
-      putData[key] = value ? String(value).toUpperCase() : value;
-    }
-    if (key === "action") {
-      putData.followUpDate = new Date().toISOString();
-    }
-    // When result changes to REGULAR_PLAYER or RETURNED_PLAYER, update lastPlayDate to today
-    if (key === "result" && (value === "REGULAR_PLAYER" || value === "RETURNED_PLAYER")) {
-      putData.lastPlayDate = new Date().toISOString();
+    // For temp rows, first edit triggers a POST to create the row on server
+    const method = isTempRow && !pendingCreates.current.has(customer.id) ? "POST" : "PUT";
+
+    if (isTempRow && !pendingCreates.current.has(customer.id)) {
+      pendingCreates.current.add(customer.id);
     }
 
-    fetch("/api/admin/old-customers", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(putData),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const err = await res.json();
-        console.error("PUT failed:", err);
+    // Build data for POST/PUT
+    let postData: Record<string, any>;
+    if (method === "POST") {
+      // For POST, send full row data (excluding invalid empty strings for enums)
+      const rowData: Record<string, any> = { ...customer };
+      // Remove empty/invalid fields that will cause enum errors
+      if (!rowData.action) delete rowData.action;
+      // Update with the new value
+      postData = { ...rowData, [key]: value };
+    } else {
+      postData = { id: customer.id, [key]: value };
+    }
+
+    // Handle accountId uppercasing
+    if (postData.accountId) {
+      postData.accountId = String(postData.accountId).toUpperCase();
+    }
+    if (key === "accountId" && value) {
+      postData.accountId = String(value).toUpperCase();
+    }
+    if (key === "action") {
+      postData.followUpDate = new Date().toISOString();
+    }
+    if (key === "result" && (value === "REGULAR_PLAYER" || value === "RETURNED_PLAYER")) {
+      postData.lastPlayDate = new Date().toISOString();
+    }
+
+    try {
+      const response = await fetch("/api/admin/old-customers", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(postData),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error(`${method} failed (${response.status}):`, text);
+        // Revert optimistic update
         setCustomers((prev) => {
           const newRows = [...prev];
           newRows[rowIndex] = customer;
           return newRows;
         });
+        if (isTempRow) {
+          pendingCreates.current.delete(customer.id);
+        }
         return;
       }
-      const result = await res.json();
-      // Update with server response for real-time display
+
+      const result = await response.json();
       if (result.customer) {
+        // For temp rows, update customersRef so subsequent edits use the real id
+        if (isTempRow) {
+          customersRef.current[rowIndex] = result.customer;
+          pendingCreates.current.delete(customer.id);
+          tempRowsRef.current = tempRowsRef.current.filter(r => r.id !== customer.id);
+        }
         setCustomers((prev) => {
           const newRows = [...prev];
           newRows[rowIndex] = result.customer;
@@ -445,9 +415,20 @@ export default function OldCustomersPage() {
           return newRows;
         });
       }
-    }).catch(console.error).finally(() => {
+    } catch (err) {
+      console.error(`${method} exception:`, err);
+      // Revert optimistic update
+      setCustomers((prev) => {
+        const newRows = [...prev];
+        newRows[rowIndex] = customer;
+        return newRows;
+      });
+      if (isTempRow) {
+        pendingCreates.current.delete(customer.id);
+      }
+    } finally {
       savingRef.current.delete(rowIndex);
-    });
+    }
   };
 
   // Add customer
@@ -462,21 +443,38 @@ export default function OldCustomersPage() {
       });
 
       if (res.ok || res.status === 201) {
-        const result = await res.json();
-        setCustomers((prev) => {
-          const tempIndex = prev.findIndex(c => c.id.startsWith("temp-"));
-          if (tempIndex !== -1) {
-            const newRows = [...prev];
-            newRows[tempIndex] = result.customer;
-            return newRows;
-          }
-          return [result.customer, ...prev];
-        });
-        setTotalCustomers((prev) => prev + 1);
+        fetchData();
       }
     } finally {
       setIsAdding(false);
     }
+  };
+
+  // Add empty row for quick entry (creates temp row that user can fill and save)
+  const handleAddEmpty = () => {
+    // Generate a placeholder accountId - user should edit this
+    const tempAccountId = "AA01";
+    const tempRow: OldCustomer = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      accountId: tempAccountId,
+      name: "",
+      phone: null,
+      callStatus: "NOT_CONTACTED",
+      telegramId: null,
+      action: "",
+      lastPlayDate: null,
+      result: "NOT_PLAYED_YET",
+      followUpDate: null,
+      type: "SMALL",
+      priority: "OCCASIONAL",
+      remarks: null,
+      team: (currentAgent?.team || "KING88") as Team,
+      createdAt: new Date().toISOString(),
+    };
+    tempRowsRef.current = [...tempRowsRef.current, tempRow];
+    // Immediately update customersRef so edits work right away
+    customersRef.current = [tempRow, ...customersRef.current];
+    setCustomers((prev) => [tempRow, ...prev]);
   };
 
   // Delete customer
@@ -484,15 +482,14 @@ export default function OldCustomersPage() {
     const customer = customers[rowIndex];
     if (!customer) return;
 
+    if (!confirm(`Delete customer "${customer.name || customer.accountId}"?`)) return;
+
+    // For temp rows, just remove locally without API call
     if (customer.id.startsWith("temp-")) {
-      setCustomers((prev) => {
-        const filtered = prev.filter((_, i) => i !== rowIndex);
-        return [...filtered, createEmptyRow()];
-      });
+      tempRowsRef.current = tempRowsRef.current.filter(r => r.id !== customer.id);
+      setCustomers((prev) => prev.filter((_, i) => i !== rowIndex));
       return;
     }
-
-    if (!confirm(`Delete customer "${customer.name || customer.accountId}"?`)) return;
 
     const res = await fetch(`/api/admin/old-customers?id=${customer.id}`, {
       method: "DELETE",
@@ -500,28 +497,8 @@ export default function OldCustomersPage() {
     });
 
     if (res.ok) {
-      setCustomers((prev) => {
-        const filtered = prev.filter((_, i) => i !== rowIndex);
-        return [...filtered, createEmptyRow()];
-      });
-      setTotalCustomers((prev) => Math.max(0, prev - 1));
+      fetchData();
     }
-  };
-
-  // Add new empty row
-  const handleAddEmpty = async () => {
-    if (!currentAgent) return;
-    await handleAdd({
-      accountId: "",
-      name: "",
-      phone: null,
-      team: currentAgent.team,
-      callStatus: "NOT_CONTACTED",
-      action: "",
-      result: "NOT_PLAYED_YET",
-      type: "SMALL",
-      priority: "OCCASIONAL",
-    });
   };
 
   // Handle Excel file upload
@@ -647,14 +624,25 @@ export default function OldCustomersPage() {
     {
       key: "telegramId",
       label: "Telegram",
-      width: 120,
+      width: 130,
       editable: true,
       render: (value) => {
         const contact = telegramContacts.find(c => c.id === value);
+        if (!contact) return <span className="text-gray-400">-</span>;
+
+        const displayText = contact.username ? `@${contact.username}` : contact.name;
+        const linkHref = contact.username ? `https://t.me/${contact.username}` : `https://t.me/${contact.name}`;
+
         return (
-          <span className="text-sm">
-            {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : value || "-"}
-          </span>
+          <a
+            href={linkHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {displayText}
+          </a>
         );
       },
       renderEdit: (value, onChange, onSave) => (
@@ -940,6 +928,36 @@ export default function OldCustomersPage() {
             </Button>
           </div>
         )}
+        {/* Delete All Button */}
+        <button
+          onClick={() => {
+            if (!confirm(`Delete ALL ${totalCustomers} old customers? This cannot be undone!`)) return;
+            if (!confirm("Are you REALLY sure? All data will be permanently deleted!")) return;
+            fetch("/api/admin/old-customers?deleteAll=true", {
+              method: "DELETE",
+              credentials: "include",
+            }).then((res) => {
+              if (res.ok) {
+                fetchData();
+                alert("All old customers deleted");
+              } else {
+                alert("Failed to delete");
+              }
+            });
+          }}
+          style={{
+            backgroundColor: "#EF4444",
+            color: "white",
+            padding: "8px 16px",
+            borderRadius: "8px",
+            border: "none",
+            fontSize: "14px",
+            fontWeight: 500,
+            cursor: "pointer",
+          }}
+        >
+          Delete All
+        </button>
       </div>
 
       {/* Import Modal */}
@@ -993,7 +1011,6 @@ export default function OldCustomersPage() {
               <p className="text-xs text-gray-500 mt-1">For Excel files with multiple sheets</p>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowImportModal(false)}>Cancel</Button>
               <Button
                 onClick={() => {
                   const input = importFileInputRef.current;
@@ -1009,6 +1026,18 @@ export default function OldCustomersPage() {
                 className="bg-purple-500 hover:bg-purple-600"
               >
                 {isUploading ? "Importing..." : "Import"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowImportModal(false);
+                  if (isUploading) {
+                    // Force reset UI state - server may still process but we don't wait
+                    setIsUploading(false);
+                  }
+                }}
+              >
+                {isUploading ? "Close" : "Cancel"}
               </Button>
             </div>
           </div>
@@ -1256,12 +1285,54 @@ export default function OldCustomersPage() {
           columns={columns}
           onUpdate={handleUpdate}
           onAdd={handleAdd}
-          onDelete={handleDelete}
           onAddEmpty={handleAddEmpty}
+          onDelete={handleDelete}
           isLoading={isLoading}
           emptyMessage="No customers found!"
         />
       </div>
+
+      {/* Pagination */}
+      {totalCustomers > pageSize && (
+        <div className="flex items-center justify-between bg-white rounded-lg border shadow-sm p-3">
+          <div className="text-sm text-gray-600">
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCustomers)} of {totalCustomers} customers
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-sm"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-sm"
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 text-sm">
+              Page {currentPage} of {Math.ceil(totalCustomers / pageSize)}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={currentPage >= Math.ceil(totalCustomers / pageSize)}
+              className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-sm"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setCurrentPage(Math.ceil(totalCustomers / pageSize))}
+              disabled={currentPage >= Math.ceil(totalCustomers / pageSize)}
+              className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-sm"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

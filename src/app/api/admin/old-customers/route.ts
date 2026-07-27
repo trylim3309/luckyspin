@@ -187,18 +187,16 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    if (!body.accountId) {
-      return NextResponse.json({ error: "Account ID is required" }, { status: 400 });
-    }
+    // Auto-generate accountId if not provided (for quick-add temp rows)
+    const accountId = body.accountId || `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
     const customer = await prisma.oldCustomer.create({
       data: {
-        accountId: body.accountId,
+        accountId,
         name: body.name || "",
         phone: body.phone || null,
         callStatus: body.callStatus || "NOT_CONTACTED",
         telegramId: body.telegramId || null,
-        action: body.action || "",
         lastPlayDate: body.lastPlayDate ? new Date(body.lastPlayDate) : null,
         result: body.result || "NOT_PLAYED_YET",
         followUpDate: body.followUpDate ? new Date(body.followUpDate) : null,
@@ -206,13 +204,15 @@ export async function POST(req: NextRequest) {
         priority: body.priority || "OCCASIONAL",
         remarks: body.remarks || null,
         team: body.team || "KING88",
+        // action is omitted so DB default is used
       },
     });
 
     return NextResponse.json({ customer }, { status: 201 });
   } catch (error) {
     console.error("Old Customers POST error:", error);
-    return NextResponse.json({ error: "Failed to create customer" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to create customer", details: message }, { status: 500 });
   }
 }
 
@@ -265,6 +265,14 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const deleteAll = searchParams.get("deleteAll") === "true";
+
+    if (deleteAll) {
+      // Delete all old customers
+      const result = await prisma.oldCustomer.deleteMany({});
+      return NextResponse.json({ success: true, deleted: result.count });
+    }
+
     if (!id) {
       return NextResponse.json({ error: "Customer ID required" }, { status: 400 });
     }
