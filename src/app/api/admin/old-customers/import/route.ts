@@ -98,6 +98,22 @@ export async function POST(req: NextRequest) {
     });
     const existingAccountIds = new Set(existingCustomers.map(c => c.accountId));
 
+    // Fetch telegram contacts for lookup
+    const telegramContacts = await prisma.telegramContact.findMany();
+
+    const findTelegramId = (telegramValue: string | null): string | null => {
+      if (!telegramValue) return null;
+      const search = telegramValue.toLowerCase().trim();
+      if (!search) return null;
+      const found = telegramContacts.find(
+        (c) =>
+          c.name.toLowerCase() === search ||
+          c.username?.toLowerCase() === search ||
+          c.phone === search
+      );
+      return found?.id || null;
+    };
+
     const customersToCreate: any[] = [];
     let processedRows = 0;
 
@@ -132,7 +148,8 @@ export async function POST(req: NextRequest) {
           else if (val.includes("not interested")) callStatus = "NOT_INTERESTED";
         }
 
-        const telegramId = telegramIdx !== -1 && values[telegramIdx] ? values[telegramIdx] : null;
+        const telegramValue = telegramIdx !== -1 && values[telegramIdx] ? values[telegramIdx] : null;
+        const telegramId = findTelegramId(telegramValue);
 
         // Map action - use null so DB default is used
         let action: string | undefined = undefined;

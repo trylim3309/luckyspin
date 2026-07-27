@@ -627,23 +627,14 @@ export default function OldCustomersPage() {
       width: 130,
       editable: true,
       render: (value) => {
+        if (!value) return <span className="text-gray-400">-</span>;
+
         const contact = telegramContacts.find(c => c.id === value);
-        if (!contact) return <span className="text-gray-400">-</span>;
+        const displayText = contact
+          ? (contact.username ? `@${contact.username}` : contact.name)
+          : value;
 
-        const displayText = contact.username ? `@${contact.username}` : contact.name;
-        const linkHref = contact.username ? `https://t.me/${contact.username}` : `https://t.me/${contact.name}`;
-
-        return (
-          <a
-            href={linkHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline text-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {displayText}
-          </a>
-        );
+        return <span className="text-sm">{displayText}</span>;
       },
       renderEdit: (value, onChange, onSave) => (
         <select
@@ -814,8 +805,27 @@ export default function OldCustomersPage() {
     {
       key: "remarks",
       label: "Remarks",
-      width: 200,
+      width: 160,
       editable: true,
+      render: (value) => (
+        <span className="text-sm text-gray-700">
+          {value || "-"}
+        </span>
+      ),
+      renderEdit: (value, onChange, onSave) => (
+        <select
+          value={value || ""}
+          onChange={(e) => { onChange(e.target.value || null); }}
+          onBlur={() => {}}
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          <option value="">-- None --</option>
+          <option value="Block">Block</option>
+          <option value="ខូច">ខូច</option>
+          <option value="អាខោនដ៏ដែល">អាខោនដ៏ដែល</option>
+        </select>
+      ),
     },
     {
       key: "lastPlayDate",
@@ -928,36 +938,6 @@ export default function OldCustomersPage() {
             </Button>
           </div>
         )}
-        {/* Delete All Button */}
-        <button
-          onClick={() => {
-            if (!confirm(`Delete ALL ${totalCustomers} old customers? This cannot be undone!`)) return;
-            if (!confirm("Are you REALLY sure? All data will be permanently deleted!")) return;
-            fetch("/api/admin/old-customers?deleteAll=true", {
-              method: "DELETE",
-              credentials: "include",
-            }).then((res) => {
-              if (res.ok) {
-                fetchData();
-                alert("All old customers deleted");
-              } else {
-                alert("Failed to delete");
-              }
-            });
-          }}
-          style={{
-            backgroundColor: "#EF4444",
-            color: "white",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: 500,
-            cursor: "pointer",
-          }}
-        >
-          Delete All
-        </button>
       </div>
 
       {/* Import Modal */}
@@ -1264,8 +1244,10 @@ export default function OldCustomersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Remarks</SelectItem>
-            <SelectItem value="has_remarks">Has Remarks</SelectItem>
-            <SelectItem value="no_remarks">No Remarks</SelectItem>
+            <SelectItem value="__blank__">Blank</SelectItem>
+            <SelectItem value="Block">Block</SelectItem>
+            <SelectItem value="ខូច">ខូច</SelectItem>
+            <SelectItem value="អាខោនដ៏ដែល">អាខោនដ៏ដែល</SelectItem>
           </SelectContent>
         </Select>
 

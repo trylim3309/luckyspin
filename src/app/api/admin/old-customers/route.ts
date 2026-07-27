@@ -154,10 +154,10 @@ export async function GET(req: NextRequest) {
     }
     const remarksParam = searchParams.get("remarks");
     if (remarksParam && remarksParam !== "all") {
-      if (remarksParam === "has_remarks") {
-        where.remarks = { not: null };
-      } else if (remarksParam === "no_remarks") {
+      if (remarksParam === "__blank__" || remarksParam === "no_remarks") {
         where.remarks = null;
+      } else {
+        where.remarks = remarksParam;
       }
     }
 
