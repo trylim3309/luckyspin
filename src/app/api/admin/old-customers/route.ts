@@ -135,8 +135,8 @@ export async function GET(req: NextRequest) {
         { followUpDate: { not: { gte: todayStart, lte: todayEnd } } },
       ];
     } else if (actionParam === "") {
-      // Filter for empty action
-      where.action = "";
+      // Filter for empty action (cast to any to bypass type check since DB may have empty strings)
+      (where as any).action = "";
     }
 
     // Apply result filter for all date modes (including "today")
