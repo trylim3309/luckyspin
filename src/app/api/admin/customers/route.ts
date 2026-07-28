@@ -61,21 +61,23 @@ export async function GET(req: NextRequest) {
     if (dateFilter === "today") {
       // Today in Cambodia = from 17:00 UTC yesterday to 17:00 UTC today
       // (Cambodia midnight = UTC 17:00 of previous day)
-      const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
+      const yesterday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay, 17, 0, 0));
       const today17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 17, 0, 0));
       dateFrom = yesterday17;
       dateTo = today17;
     } else if (dateFilter === "yesterday") {
       // Yesterday in Cambodia = from 17:00 UTC two days ago to 17:00 UTC yesterday
-      const twoDaysAgo17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 2, 17, 0, 0));
-      const yesterday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
+      const twoDaysAgo17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - 1, 17, 0, 0));
+      const yesterday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay, 17, 0, 0));
       dateFrom = twoDaysAgo17;
       dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
       // This week = Monday 17:00 UTC to now
-      const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
+      // Use UTC date for day of week calculation (stable, not affected by UTC+7 adjustment)
+      const dayOfWeek = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay)).getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const monday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
+      // Monday 17:00 UTC using UTC values
+      const monday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday, 17, 0, 0));
       dateFrom = monday17;
       dateTo = now;
     } else if (dateFilter === "thisMonth") {

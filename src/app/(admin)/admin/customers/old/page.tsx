@@ -856,7 +856,7 @@ export default function OldCustomersPage() {
           <option value="">-- None --</option>
           <option value="Block">Block</option>
           <option value="ខូច">ខូច</option>
-          <option value="អាខោនដ៏ដែល">អាខោនដ៏ដែល</option>
+          <option value=" អាខោនដដែល"> អាខោនដដែល</option>
         </select>
       ),
     },
@@ -1280,7 +1280,7 @@ export default function OldCustomersPage() {
             <SelectItem value="__blank__">Blank</SelectItem>
             <SelectItem value="Block">Block</SelectItem>
             <SelectItem value="ខូច">ខូច</SelectItem>
-            <SelectItem value="អាខោនដ៏ដែល">អាខោនដ៏ដែល</SelectItem>
+            <SelectItem value=" អាខោនដដែល"> អាខោនដដែល</SelectItem>
           </SelectContent>
         </Select>
 
