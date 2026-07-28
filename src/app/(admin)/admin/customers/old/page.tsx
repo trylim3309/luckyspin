@@ -102,7 +102,6 @@ const TYPE_COLORS: Record<CustomerType, string> = {
 
 const PRIORITY_LABELS: Record<Priority, string> = {
   FREQUENT: "លេងជាប្រចាំ",
-  OCCASIONAL: "យូៗម្តង",
   LAPSED: "ខានលេងយូ",
 };
 
