@@ -66,20 +66,27 @@ export async function GET(req: NextRequest) {
       dateFrom = yesterday17;
       dateTo = today17;
     } else if (dateFilter === "yesterday") {
-      // Yesterday in Cambodia = from 17:00 UTC two days ago to 17:00 UTC yesterday
-      const twoDaysAgo17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - 1, 17, 0, 0));
-      const yesterday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay, 17, 0, 0));
-      dateFrom = twoDaysAgo17;
-      dateTo = yesterday17;
+      // Yesterday in Cambodia = from 17:00 UTC previous day to 17:00 UTC yesterday
+      const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const cambodiaYesterday = new Date(cambodiaNow);
+      cambodiaYesterday.setDate(cambodiaYesterday.getDate() - 1);
+      cambodiaYesterday.setHours(17, 0, 0, 0);
+      const yesterdayStart = new Date(cambodiaYesterday.getTime() - 7 * 60 * 60 * 1000);
+      const today17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 17, 0, 0));
+      dateFrom = yesterdayStart;
+      dateTo = today17;
     } else if (dateFilter === "thisWeek") {
       // This week = Monday 17:00 UTC to now
-      // Use UTC date for day of week (not adjusted cambodiaDay)
-      // When UTC hour >= 17, cambodiaDay is tomorrow, so use dayOffset
-      const dayOfWeek = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay)).getDay();
+      // Use JavaScript Date with Cambodia offset to get correct day of week
+      const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const dayOfWeek = cambodiaNow.getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const dayOffset = utcHour + 7 >= 24 ? 1 : 0;
-      const monday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday - dayOffset, 17, 0, 0));
-      dateFrom = monday17;
+      // Find Monday in Cambodia time
+      const mondayInCambodia = new Date(cambodiaNow);
+      mondayInCambodia.setDate(mondayInCambodia.getDate() - daysToMonday);
+      mondayInCambodia.setHours(17, 0, 0, 0);
+      // Convert to UTC (subtract 7 hours)
+      dateFrom = new Date(mondayInCambodia.getTime() - 7 * 60 * 60 * 1000);
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
       // This month = 17:00 UTC on 1st of month to now

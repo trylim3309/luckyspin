@@ -55,14 +55,25 @@ export async function GET(req: NextRequest) {
     // Today = 17:00 UTC yesterday to 17:00 UTC today
     const todayStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
 
+    // Yesterday = Monday 17:00 UTC to now
+    // Use JavaScript Date with Cambodia offset
+    const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const cambodiaYesterday = new Date(cambodiaNow);
+    cambodiaYesterday.setDate(cambodiaYesterday.getDate() - 1);
+    cambodiaYesterday.setHours(17, 0, 0, 0);
+    const yesterdayStart = new Date(cambodiaYesterday.getTime() - 7 * 60 * 60 * 1000);
+
     // This week = Monday 17:00 UTC to now
-    // Use UTC date for day of week (not adjusted cambodiaDay)
-    // When UTC hour >= 17, cambodiaDay is tomorrow's UTC, but we still use utcDay for stable day calculation
-    const dayOfWeek = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay)).getDay();
+    // Use JavaScript Date with Cambodia offset to get correct day of week
+    const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const dayOfWeek = cambodiaNow.getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    // When UTC hour >= 17, cambodiaDay is tomorrow, so we need to go back extra day
-    const dayOffset = utcHour + 7 >= 24 ? 1 : 0;
-    const weekStart = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday - dayOffset, 17, 0, 0));
+    // Find Monday in Cambodia time
+    const mondayInCambodia = new Date(cambodiaNow);
+    mondayInCambodia.setDate(mondayInCambodia.getDate() - daysToMonday);
+    mondayInCambodia.setHours(17, 0, 0, 0);
+    // Convert to UTC (subtract 7 hours)
+    const weekStart = new Date(mondayInCambodia.getTime() - 7 * 60 * 60 * 1000);
 
     // This month = 1st of month 17:00 UTC to now
     const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
