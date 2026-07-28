@@ -73,13 +73,15 @@ export async function GET(req: NextRequest) {
       dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
       // This week = Monday 17:00 UTC to now
-      // Use UTC date for day of week calculation (stable, not affected by UTC+7 adjustment)
-      const dayOfWeek = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay)).getDay();
+      // When UTC hour >= 17, cambodiaDay is already tomorrow's UTC date
+      // In this case, the current Cambodia day started at UTC 17:00 yesterday
+      // So we need to find the Monday that started this Cambodia week
+      const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      // Monday 17:00 UTC using UTC values
-      const monday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday, 17, 0, 0));
+      const monday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
       dateFrom = monday17;
       dateTo = now;
+      console.log("[thisWeek] cambodiaDate:", cambodiaYear + "-" + cambodiaMonth + "-" + cambodiaDay, "dayOfWeek:", dayOfWeek, "daysToMonday:", daysToMonday, "dateFrom:", dateFrom.toISOString());
     } else if (dateFilter === "thisMonth") {
       // This month = 17:00 UTC on 1st of month to now
       const monthStart17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));

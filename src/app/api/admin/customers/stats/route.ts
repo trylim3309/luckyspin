@@ -56,9 +56,10 @@ export async function GET(req: NextRequest) {
     const todayStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
 
     // This week = Monday 17:00 UTC to now
-    const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
+    // Use UTC date for day of week (stable), not adjusted cambodiaDay
+    const dayOfWeek = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay)).getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const weekStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
+    const weekStart = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday, 17, 0, 0));
 
     // This month = 1st of month 17:00 UTC to now
     const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
