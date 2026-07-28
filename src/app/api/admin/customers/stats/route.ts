@@ -56,10 +56,13 @@ export async function GET(req: NextRequest) {
     const todayStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
 
     // This week = Monday 17:00 UTC to now
-    // Use UTC date for day of week (stable), not adjusted cambodiaDay
+    // Use UTC date for day of week (not adjusted cambodiaDay)
+    // When UTC hour >= 17, cambodiaDay is tomorrow's UTC, but we still use utcDay for stable day calculation
     const dayOfWeek = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay)).getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const weekStart = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday, 17, 0, 0));
+    // When UTC hour >= 17, cambodiaDay is tomorrow, so we need to go back extra day
+    const dayOffset = utcHour + 7 >= 24 ? 1 : 0;
+    const weekStart = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay - daysToMonday - dayOffset, 17, 0, 0));
 
     // This month = 1st of month 17:00 UTC to now
     const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
