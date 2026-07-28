@@ -100,7 +100,7 @@ const TYPE_COLORS: Record<CustomerType, string> = {
   NEVER_PLAYED: "#EF4444",
 };
 
-const PRIORITY_LABELS: Record<Priority, string> = {
+const PRIORITY_LABELS: Partial<Record<Priority, string>> = {
   FREQUENT: "លេងជាប្រចាំ",
   LAPSED: "ខានលេងយូ",
 };
