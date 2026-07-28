@@ -60,16 +60,16 @@ const CALL_COLORS: Record<CallStatus, string> = {
   NOT_INTERESTED: "#EF4444",
 };
 
-const ACTION_LABELS: Record<Action, string> = {
-  "": "—",
+const ACTION_LABELS: Record<string, string> = {
+  __none__: "—",
   CHATTED_SUCCESS: "ឆាតរួច",
   CHATTED_FAILED: "អត់ឆាត",
   SPAM: "ស្ពាម",
   BLOCKED: "ប្លុក",
 };
 
-const ACTION_COLORS: Record<Action, string> = {
-  "": "#6B7280",
+const ACTION_COLORS: Record<string, string> = {
+  __none__: "#6B7280",
   CHATTED_SUCCESS: "#10B981",
   CHATTED_FAILED: "#EF4444",
   SPAM: "#F59E0B",
@@ -223,6 +223,7 @@ export default function OldCustomersPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Build params for table data (with filters)
       const params = new URLSearchParams();
       params.set("dateFilter", dateFilter);
       if (dateFilter === "custom") {
@@ -232,7 +233,16 @@ export default function OldCustomersPage() {
       if (telegramFilter !== "all") params.set("telegramId", telegramFilter);
       if (search) params.set("search", search);
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
-      if (actionFilter !== "all") params.set("action", actionFilter);
+      if (actionFilter === "__none__" && dateFilter === "today") {
+        // For "__none__" filter on today tab, return customers where followUpDate != today
+        // These are the ones that show as action="" in the table
+        params.set("followUpNotToday", "true");
+      } else if (actionFilter === "__none__") {
+        // For "__none__" on other tabs, filter by empty action
+        params.set("action", "");
+      } else if (actionFilter && actionFilter !== "all") {
+        params.set("action", actionFilter);
+      }
       if (resultFilter !== "all") params.set("result", resultFilter);
       if (typeFilter !== "all") params.set("type", typeFilter);
       if (priorityFilter !== "all") params.set("priority", priorityFilter);
@@ -240,13 +250,17 @@ export default function OldCustomersPage() {
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
       params.set("limit", "1000"); // High limit for accurate stats
 
+      // Fetch filtered data for table
+      console.log("[fetchData] Calling API with params:", params.toString());
       const custRes = await fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json());
+      console.log("[fetchData] Got:", custRes.customers?.length, "total:", custRes.total);
 
       let realCustomers = custRes.customers || [];
 
       // For "today" filter: reset action and result to defaults for follow-up
-      // But only if followUpDate is NOT today (customers not yet updated today)
-      if (dateFilter === "today") {
+      // Skip transformation only when a SPECIFIC action filter is active (not "__none__")
+      const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
+      if (dateFilter === "today" && !isSpecificActionFilter) {
         const today = new Date().toISOString().split("T")[0];
         realCustomers = realCustomers.map((c: OldCustomer) => {
           const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
@@ -263,12 +277,32 @@ export default function OldCustomersPage() {
         });
       }
 
-      // Calculate action, result and type counts from ALL fetched data
+      // Fetch unfiltered data for accurate stats (without action/result/type filters)
+      const statsParams = new URLSearchParams();
+      statsParams.set("dateFilter", dateFilter);
+      if (dateFilter === "custom") {
+        if (customDateFrom) statsParams.set("dateFrom", customDateFrom);
+        if (customDateTo) statsParams.set("dateTo", customDateTo);
+      }
+      if (telegramFilter !== "all") statsParams.set("telegramId", telegramFilter);
+      if (search) statsParams.set("search", search);
+      if (callStatusFilter !== "all") statsParams.set("callStatus", callStatusFilter);
+      // Note: NOT applying action/result/type/priority/remarks filters for stats
+      if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
+      statsParams.set("limit", "10000");
+
+      const statsRes = await fetch(`/api/admin/old-customers?${statsParams}`, { credentials: "include" }).then((r) => r.json());
+      const allCustomers = statsRes.customers || [];
+
+      // Calculate action, result and type counts from TRANSFORMED data (same as table display)
+      // This ensures stats match what's shown in the table
       const actionStats: Record<string, number> = {};
       const resultStats: Record<string, number> = {};
       const typeStats: Record<string, number> = {};
       realCustomers.forEach((c: OldCustomer) => {
-        actionStats[c.action] = (actionStats[c.action] || 0) + 1;
+        // Map empty action to __none__ for stats display
+        const actionKey = c.action === "" ? "__none__" : c.action;
+        actionStats[actionKey] = (actionStats[actionKey] || 0) + 1;
         resultStats[c.result] = (resultStats[c.result] || 0) + 1;
         typeStats[c.type] = (typeStats[c.type] || 0) + 1;
       });

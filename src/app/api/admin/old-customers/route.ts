@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
       // Today = show all customers (no filter)
       // No date filter, just show all
     } else if (dateFilter === "thisWeek") {
+      // Cambodia week starts on Monday at 17:00 UTC
       const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const monday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
@@ -117,34 +118,31 @@ export async function GET(req: NextRequest) {
       where.callStatus = searchParams.get("callStatus") as any;
     }
 
-    // Special handling for "today" filter with empty action/result
-    // In today mode, empty action/result means "needs follow-up today" (followUpDate != today)
-    if (dateFilter === "today") {
-      const todayStr = new Date().toISOString().split("T")[0];
-      const actionParam = searchParams.get("action");
-      const resultParam = searchParams.get("result");
+    // Apply action filter for all date modes (including "today")
+    const actionParam = searchParams.get("action");
+    const followUpNotToday = searchParams.get("followUpNotToday") === "true";
+    if (actionParam && actionParam !== "all") {
+      where.action = actionParam as any;
+    } else if (followUpNotToday && dateFilter === "today") {
+      // For "__none__" filter on today tab, return customers where followUpDate != today
+      // This includes: null, past dates, and future dates (matching client transformation)
+      const today = new Date().toISOString().split("T")[0];
+      const todayStart = new Date(today + "T00:00:00.000Z");
+      const todayEnd = new Date(today + "T23:59:59.999Z");
+      // Return customers where followUpDate is NOT today (including null)
+      where.OR = [
+        { followUpDate: null },
+        { followUpDate: { not: { gte: todayStart, lte: todayEnd } } },
+      ];
+    } else if (actionParam === "") {
+      // Filter for empty action
+      where.action = "";
+    }
 
-      if (actionParam === "") {
-        // Empty action in today mode = customers where followUpDate is NOT today
-        where.followUpDate = { not: todayStr };
-      } else if (actionParam && actionParam !== "all") {
-        where.action = actionParam as any;
-      }
-
-      if (resultParam === "") {
-        // Empty result in today mode = customers where followUpDate is NOT today
-        where.followUpDate = { not: todayStr };
-      } else if (resultParam && resultParam !== "all") {
-        where.result = resultParam as any;
-      }
-    } else {
-      // Normal filtering for non-today modes
-      if (searchParams.get("action") && searchParams.get("action") !== "all") {
-        where.action = searchParams.get("action") as any;
-      }
-      if (searchParams.get("result") && searchParams.get("result") !== "all") {
-        where.result = searchParams.get("result") as any;
-      }
+    // Apply result filter for all date modes (including "today")
+    const resultParam = searchParams.get("result");
+    if (resultParam && resultParam !== "all") {
+      where.result = resultParam as any;
     }
     if (searchParams.get("type") && searchParams.get("type") !== "all") {
       where.type = searchParams.get("type") as any;
