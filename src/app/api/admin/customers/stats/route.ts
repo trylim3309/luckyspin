@@ -65,11 +65,11 @@ export async function GET(req: NextRequest) {
 
     // This week = Monday 17:00 UTC to now
     // Use JavaScript Date with Cambodia offset to get correct day of week
-    const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-    const dayOfWeek = cambodiaNow.getDay();
+    const cambodiaNowWeek = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const dayOfWeek = cambodiaNowWeek.getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     // Find Monday in Cambodia time
-    const mondayInCambodia = new Date(cambodiaNow);
+    const mondayInCambodia = new Date(cambodiaNowWeek);
     mondayInCambodia.setDate(mondayInCambodia.getDate() - daysToMonday);
     mondayInCambodia.setHours(17, 0, 0, 0);
     // Convert to UTC (subtract 7 hours)
