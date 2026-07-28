@@ -53,11 +53,13 @@ export async function GET(req: NextRequest) {
     }
 
     // Today = 17:00 UTC yesterday to 17:00 UTC today
-    const todayStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - 1, 17, 0, 0));
-
-    // Yesterday = Monday 17:00 UTC to now
     // Use JavaScript Date with Cambodia offset
     const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const cambodiaToday = new Date(cambodiaNow);
+    cambodiaToday.setHours(17, 0, 0, 0);
+    const todayStart = new Date(cambodiaToday.getTime() - 7 * 60 * 60 * 1000);
+
+    // Yesterday = 17:00 UTC day before to 17:00 UTC yesterday
     const cambodiaYesterday = new Date(cambodiaNow);
     cambodiaYesterday.setDate(cambodiaYesterday.getDate() - 1);
     cambodiaYesterday.setHours(17, 0, 0, 0);

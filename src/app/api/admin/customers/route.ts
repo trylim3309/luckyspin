@@ -60,9 +60,12 @@ export async function GET(req: NextRequest) {
 
     if (dateFilter === "today") {
       // Today in Cambodia = from 17:00 UTC yesterday to 17:00 UTC today
-      // (Cambodia midnight = UTC 17:00 of previous day)
-      const yesterday17 = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay, 17, 0, 0));
-      const today17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 17, 0, 0));
+      // Use JavaScript Date with Cambodia offset
+      const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const cambodiaToday = new Date(cambodiaNow);
+      cambodiaToday.setHours(17, 0, 0, 0);
+      const today17 = new Date(cambodiaToday.getTime() - 7 * 60 * 60 * 1000);
+      const yesterday17 = new Date(today17.getTime() - 24 * 60 * 60 * 1000);
       dateFrom = yesterday17;
       dateTo = today17;
     } else if (dateFilter === "yesterday") {
