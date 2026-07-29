@@ -101,7 +101,7 @@ export default function NewCustomersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Current agent
-  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team } | null>(null);
+  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team; teams?: Team[] } | null>(null);
   const [isAgent, setIsAgent] = useState(false);
 
   // Stats with breakdowns for each period
@@ -130,6 +130,7 @@ export default function NewCustomersPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importAgentId, setImportAgentId] = useState<string>("");
+  const [importTeam, setImportTeam] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -152,7 +153,7 @@ export default function NewCustomersPage() {
         if (data.admin) {
           const agentTeams = data.admin.teams || ["KING88"];
           const agentTeam = agentTeams[0] as Team;
-          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam });
+          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam, teams: agentTeams });
           const agentRole = data.admin.role;
           // Agents (AGENT role) can only see their own customers
           setIsAgent(agentRole === "AGENT");
@@ -166,16 +167,38 @@ export default function NewCustomersPage() {
   // Fetch agents list for filter (filtered by team if selected)
   useEffect(() => {
     if (!isAdmin) return;
-    const url = teamFilter !== "all" ? `/api/admin/admin-users?team=${teamFilter}` : "/api/admin/admin-users";
-    fetch(url, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.users) {
-          setAgents(data.users.map((u: any) => ({ id: u.id, name: u.name, fullName: u.fullName })));
-        }
-      })
-      .catch(console.error);
-  }, [isAdmin, teamFilter]);
+    // When teamFilter is "all", only show agents from user's teams
+    if (teamFilter === "all" && currentAgent?.teams) {
+      // Fetch agents for each of user's teams
+      Promise.all(
+        currentAgent.teams.map((t) =>
+          fetch(`/api/admin/admin-users?team=${t}`, { credentials: "include" }).then((r) => r.json())
+        )
+      ).then((results) => {
+        const allAgents: any[] = [];
+        results.forEach((data) => {
+          if (data.users) {
+            data.users.forEach((u: any) => {
+              if (!allAgents.find((a) => a.id === u.id)) {
+                allAgents.push({ id: u.id, name: u.name, fullName: u.fullName });
+              }
+            });
+          }
+        });
+        setAgents(allAgents);
+      }).catch(console.error);
+    } else {
+      const url = teamFilter !== "all" ? `/api/admin/admin-users?team=${teamFilter}` : "/api/admin/admin-users";
+      fetch(url, { credentials: "include" })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.users) {
+            setAgents(data.users.map((u: any) => ({ id: u.id, name: u.name, fullName: u.fullName })));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isAdmin, teamFilter, currentAgent?.teams]);
 
   // Create empty placeholder row
   const createEmptyRow = useCallback((): Customer => ({
@@ -214,13 +237,16 @@ export default function NewCustomersPage() {
 
       // Build stats params
       const statsParams = new URLSearchParams();
+      console.log("FRONTEND: teamFilter:", teamFilter, "isAdmin:", isAdmin, "isAgent:", isAgent);
       if (isAdmin && agentFilter !== "all") {
         statsParams.set("agentId", agentFilter);
       } else if (isAgent && currentAgent?.id) {
         // Agents can only see their own stats
         statsParams.set("agentId", currentAgent.id);
       }
-      if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
+      // Always pass team filter when set (for agents too)
+      if (teamFilter !== "all") statsParams.set("team", teamFilter);
+      console.log("FRONTEND statsParams:", statsParams.toString());
 
       const [custRes, statsRes] = await Promise.all([
         fetch(`/api/admin/customers?${params}`, { credentials: "include" }).then((r) => r.json()),
@@ -624,6 +650,9 @@ export default function NewCustomersPage() {
       if (isAdmin && importAgentId) {
         formData.append("agentId", importAgentId);
       }
+      // Use selected team or default to current agent's primary team
+      const teamToUse = importTeam || currentAgent?.team || "KING88";
+      formData.append("team", teamToUse);
       if (importDate) {
         formData.append("createdAt", importDate);
       }
@@ -870,9 +899,9 @@ export default function NewCustomersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Teams</SelectItem>
-                <SelectItem value="KING88">KING88</SelectItem>
-                <SelectItem value="SKY24">SKY24</SelectItem>
-                <SelectItem value="B88">B88</SelectItem>
+                {currentAgent?.teams?.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v || "all")}>
@@ -929,6 +958,22 @@ export default function NewCustomersPage() {
                 defaultValue={new Date().toISOString().split("T")[0]}
               />
               <p className="text-xs text-gray-500 mt-1">All imported customers will have this created date</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Assign to Team</label>
+              <Select value={importTeam} onValueChange={(v) => setImportTeam(v || "KING88")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select team...">
+                    {importTeam ? importTeam : (currentAgent?.team || "KING88")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {(currentAgent?.teams?.length ? currentAgent.teams : ["KING88"]).map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">Select team for imported customers</p>
             </div>
             {isAdmin && (
               <div className="mb-4">

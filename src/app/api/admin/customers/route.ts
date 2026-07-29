@@ -53,6 +53,32 @@ export async function GET(req: NextRequest) {
           cambodiaYear++;
         }
       }
+    } else if (utcHour < 17) {
+      // UTC hour < 17: Cambodia is still yesterday (utcDay - 1)
+      cambodiaDay--;
+      if (cambodiaDay < 1) {
+        // Handle month underflow
+        cambodiaMonth--;
+        if (cambodiaMonth < 1) {
+          cambodiaMonth = 12;
+          cambodiaYear--;
+        }
+        const daysInPrevMonth = new Date(Date.UTC(cambodiaYear, cambodiaMonth, 0)).getDate();
+        cambodiaDay = daysInPrevMonth;
+      }
+    }
+
+    // For date filters, always use todayDay to represent Cambodia "today"
+    // When utcHour >= 17: today = utcDay + 1 (Cambodia is next day)
+    // When utcHour < 17: today = utcDay (Cambodia is same day as UTC)
+    let todayDay = utcDay;
+    if (utcHour + 7 >= 24) todayDay = utcDay + 1;
+    if (todayDay < 1) {
+      let tMonth = utcMonth - 1;
+      let tYear = utcYear;
+      if (tMonth < 1) { tMonth = 12; tYear--; }
+      const daysInPrevMonth = new Date(Date.UTC(tYear, tMonth, 0)).getDate();
+      todayDay = daysInPrevMonth;
     }
 
     let dateFrom: Date | undefined;
@@ -60,24 +86,17 @@ export async function GET(req: NextRequest) {
 
     if (dateFilter === "today") {
       // Today in Cambodia = from 17:00 UTC yesterday to 17:00 UTC today
-      // Use JavaScript Date with Cambodia offset
-      const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-      const cambodiaToday = new Date(cambodiaNow);
-      cambodiaToday.setHours(17, 0, 0, 0);
-      const today17 = new Date(cambodiaToday.getTime() - 7 * 60 * 60 * 1000);
+      const today17 = new Date(Date.UTC(utcYear, utcMonth - 1, todayDay, 17, 0, 0));
       const yesterday17 = new Date(today17.getTime() - 24 * 60 * 60 * 1000);
       dateFrom = yesterday17;
       dateTo = today17;
     } else if (dateFilter === "yesterday") {
-      // Yesterday in Cambodia = from 17:00 UTC previous day to 17:00 UTC yesterday
-      const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-      const cambodiaYesterday = new Date(cambodiaNow);
-      cambodiaYesterday.setDate(cambodiaYesterday.getDate() - 1);
-      cambodiaYesterday.setHours(17, 0, 0, 0);
-      const yesterdayStart = new Date(cambodiaYesterday.getTime() - 7 * 60 * 60 * 1000);
-      const today17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 17, 0, 0));
-      dateFrom = yesterdayStart;
-      dateTo = today17;
+      // Yesterday in Cambodia = 17:00 UTC day before yesterday to 17:00 UTC yesterday
+      const today17 = new Date(Date.UTC(utcYear, utcMonth - 1, todayDay, 17, 0, 0));
+      const yesterday17 = new Date(today17.getTime() - 24 * 60 * 60 * 1000);
+      const dayBeforeYesterday17 = new Date(yesterday17.getTime() - 24 * 60 * 60 * 1000);
+      dateFrom = dayBeforeYesterday17;
+      dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
       // This week = Monday 17:00 UTC to now
       // Use JavaScript Date with Cambodia offset to get correct day of week

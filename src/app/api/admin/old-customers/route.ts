@@ -105,7 +105,12 @@ export async function GET(req: NextRequest) {
       where.createdAt = { gte: dateFrom, lte: dateTo };
     }
     if (searchParams.get("telegramId") && searchParams.get("telegramId") !== "all") {
-      where.telegramId = searchParams.get("telegramId");
+      const telegramParam = searchParams.get("telegramId");
+      if (telegramParam === "__blank__") {
+        where.telegramId = null;
+      } else {
+        where.telegramId = telegramParam;
+      }
     }
     if (search) {
       where.OR = [

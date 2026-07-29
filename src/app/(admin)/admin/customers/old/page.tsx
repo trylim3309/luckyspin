@@ -1179,13 +1179,16 @@ export default function OldCustomersPage() {
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Telegram">
               {telegramFilter && telegramFilter !== "all"
-                ? telegramContacts.find(c => c.id === telegramFilter)?.name || "Telegram"
+                ? telegramFilter === "__blank__"
+                  ? "No Telegram"
+                  : telegramContacts.find(c => c.id === telegramFilter)?.name || "Telegram"
                 : "All Telegram"
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Telegram</SelectItem>
+            <SelectItem value="__blank__">No Telegram</SelectItem>
             {telegramContacts.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}{c.username ? ` (@${c.username})` : ""}
