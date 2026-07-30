@@ -8,6 +8,13 @@ import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
 import { Plus, Users, TrendingUp, Upload, Calendar } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
 type Action = "" | "CHATTED_SUCCESS" | "CHATTED_FAILED" | "SPAM" | "BLOCKED";
@@ -963,21 +970,23 @@ export default function OldCustomersPage() {
       </div>
 
       {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-            <h3 className="text-lg font-bold mb-4">Import Old Customers</h3>
-            <div className="mb-4">
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Import Old Customers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
               <label className="block text-sm font-medium mb-2">Created Date</label>
               <input
                 type="date"
                 id="importDate"
-                className="w-full border rounded-lg p-2"
+                className="w-full border rounded-lg p-2.5 text-sm"
                 defaultValue={new Date().toISOString().split("T")[0]}
               />
               <p className="text-xs text-gray-500 mt-1">All imported customers will have this created date</p>
             </div>
-            <div className="mb-4">
+            <div>
               <label className="block text-sm font-medium mb-2">Team</label>
               <Select value={importTeam} onValueChange={(v) => setImportTeam(v || "")}>
                 <SelectTrigger className="w-full">
@@ -992,59 +1001,58 @@ export default function OldCustomersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="mb-4">
+            <div>
               <label className="block text-sm font-medium mb-2">Select File</label>
               <input
                 type="file"
                 ref={importFileInputRef}
                 accept=".csv,.xlsx,.xls"
-                className="w-full border rounded-lg p-2"
+                className="w-full border rounded-lg p-2.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
               />
             </div>
-            <div className="mb-4">
+            <div>
               <label className="block text-sm font-medium mb-2">Sheet Name (for Excel)</label>
               <input
                 type="text"
                 id="importSheet"
-                className="w-full border rounded-lg p-2"
+                className="w-full border rounded-lg p-2.5 text-sm"
                 placeholder="Leave empty for first sheet"
                 defaultValue=""
               />
               <p className="text-xs text-gray-500 mt-1">For Excel files with multiple sheets</p>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                onClick={() => {
-                  const input = importFileInputRef.current;
-                  const dateInput = document.getElementById("importDate") as HTMLInputElement;
-                  const sheetInput = document.getElementById("importSheet") as HTMLInputElement;
-                  if (input?.files?.[0]) {
-                    handleExcelUpload({ target: input } as any, dateInput?.value, sheetInput?.value);
-                  } else {
-                    alert("Please select a file");
-                  }
-                }}
-                disabled={isUploading}
-                className="bg-purple-500 hover:bg-purple-600"
-              >
-                {isUploading ? "Importing..." : "Import"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowImportModal(false);
-                  if (isUploading) {
-                    // Force reset UI state - server may still process but we don't wait
-                    setIsUploading(false);
-                  }
-                }}
-              >
-                {isUploading ? "Close" : "Cancel"}
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowImportModal(false);
+                if (isUploading) {
+                  setIsUploading(false);
+                }
+              }}
+            >
+              {isUploading ? "Close" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => {
+                const input = importFileInputRef.current;
+                const dateInput = document.getElementById("importDate") as HTMLInputElement;
+                const sheetInput = document.getElementById("importSheet") as HTMLInputElement;
+                if (input?.files?.[0]) {
+                  handleExcelUpload({ target: input } as any, dateInput?.value, sheetInput?.value);
+                } else {
+                  alert("Please select a file");
+                }
+              }}
+              disabled={isUploading}
+              className="bg-purple-500 hover:bg-purple-600"
+            >
+              {isUploading ? "Importing..." : "Import"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Action, Result & Type Stats Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
