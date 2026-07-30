@@ -100,6 +100,11 @@ export default function NewCustomersPage() {
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100;
+  const [totalCustomers, setTotalCustomers] = useState(0);
+
   // Current agent
   const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team; teams?: Team[] } | null>(null);
   const [isAgent, setIsAgent] = useState(false);
@@ -233,7 +238,8 @@ export default function NewCustomersPage() {
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && agentFilter !== "all") params.set("agentId", agentFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
-      params.set("limit", "100");
+      params.set("limit", pageSize.toString());
+      params.set("page", currentPage.toString());
 
       // Build stats params
       const statsParams = new URLSearchParams();
@@ -304,19 +310,26 @@ export default function NewCustomersPage() {
           allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 },
         });
         setStats(totalStats);
+        setTotalCustomers(custRes.total || 0);
       } else {
         setStats({ today: 0, week: 0, month: 0, all: 0, todayBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, weekBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, monthBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 }, allBreakdown: { total: 0, notCreated: 0, notDeposit: 0, deposit: 0 } });
+        setTotalCustomers(0);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, remarksFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow]);
+  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, resultFilter, remarksFilter, agentFilter, teamFilter, currentAgent?.id, createEmptyRow, currentPage]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, teamFilter, agentFilter, search, telegramFilter, callStatusFilter, resultFilter, remarksFilter, customDateFrom, customDateTo]);
 
   // Guard to prevent duplicate saves for same row
   const savingRef = useRef<Set<number>>(new Set());
@@ -1278,6 +1291,46 @@ export default function NewCustomersPage() {
           emptyMessage="No customers found. Click 'Add Row' to add a new customer!"
         />
       </div>
+
+      {/* Pagination */}
+      {totalCustomers > pageSize && (
+        <div className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border shadow-sm">
+          <div className="text-sm text-gray-600">
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCustomers)} of {totalCustomers} customers
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-2 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-2 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            <span className="text-sm">Page {currentPage} of {Math.ceil(totalCustomers / pageSize)}</span>
+            <button
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={currentPage >= Math.ceil(totalCustomers / pageSize)}
+              className="px-2 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setCurrentPage(Math.ceil(totalCustomers / pageSize))}
+              disabled={currentPage >= Math.ceil(totalCustomers / pageSize)}
+              className="px-2 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
