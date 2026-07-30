@@ -247,7 +247,7 @@ export default function OldCustomersPage() {
       if (priorityFilter !== "all") params.set("priority", priorityFilter);
       if (remarksFilter !== "all") params.set("remarks", remarksFilter);
       if (isAdmin && teamFilter !== "all") params.set("team", teamFilter);
-      params.set("limit", "1000"); // High limit for accurate stats
+      params.set("limit", "10000"); // High limit for accurate stats
 
       // Fetch filtered data for table
       console.log("[fetchData] Calling API with params:", params.toString());
