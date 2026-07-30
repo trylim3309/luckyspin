@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp, Upload, Calendar } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload, Calendar, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -170,6 +170,8 @@ export default function OldCustomersPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importTeam, setImportTeam] = useState<string>("");
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [showImportResult, setShowImportResult] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -554,9 +556,8 @@ export default function OldCustomersPage() {
 
       if (res.ok) {
         const data = await res.json();
-        let msg = `Imported ${data.imported} customers successfully!`;
-        if (data.skipped > 0) msg += ` (${data.skipped} duplicates skipped)`;
-        alert(msg);
+        setImportResult({ imported: data.imported, skipped: data.skipped });
+        setShowImportResult(true);
         setShowImportModal(false);
         setImportTeam("");
         fetchData();

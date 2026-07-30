@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp, Upload, Calendar } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload, Calendar, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -143,6 +143,8 @@ export default function NewCustomersPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importAgentId, setImportAgentId] = useState<string>("");
   const [importTeam, setImportTeam] = useState<string>("");
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [showImportResult, setShowImportResult] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -689,9 +691,8 @@ export default function NewCustomersPage() {
       if (res.ok) {
         const data = await res.json();
         console.log("5. Import result:", data);
-        let msg = `Imported ${data.imported} customers successfully!`;
-        if (data.skipped > 0) msg += ` (${data.skipped} duplicates skipped)`;
-        alert(msg);
+        setImportResult({ imported: data.imported, skipped: data.skipped });
+        setShowImportResult(true);
         setShowImportModal(false);
         setImportAgentId("");
         fetchData();
@@ -1062,6 +1063,35 @@ export default function NewCustomersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Result Notification */}
+      {showImportResult && importResult && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => { setShowImportResult(false); setImportResult(null); }} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-2xl p-8 w-80 text-center border border-gray-200">
+            <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+            <div className="space-y-2">
+              <div className="text-lg font-bold text-green-600">
+                <span className="text-2xl">{importResult.imported}</span> បានដាក់បញ្ចូល
+              </div>
+              {importResult.skipped > 0 && (
+                <div className="text-lg font-bold text-red-500">
+                  {importResult.skipped} ដដែលៗ មិនដាក់បញ្ចូល
+                </div>
+              )}
+            </div>
+            <Button
+              onClick={() => {
+                setShowImportResult(false);
+                setImportResult(null);
+              }}
+              className="mt-6 w-full bg-purple-500 hover:bg-purple-600"
+            >
+              OK
+            </Button>
+          </div>
+        </>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
