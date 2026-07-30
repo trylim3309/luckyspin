@@ -142,6 +142,61 @@ export async function POST(req: NextRequest) {
       ? new Date(createdAtParam + "T12:00:00.000Z")
       : new Date();
 
+    // Build date range for duplicate checking (same day in Cambodia timezone)
+    const dayStart = new Date(createdAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(createdAt);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Fetch existing customers for the same day to check for duplicates
+    const existingCustomers = await prisma.customer.findMany({
+      where: {
+        createdAt: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+      select: {
+        name: true,
+        phone: true,
+        accountId: true,
+      },
+    });
+    console.log("Existing customers for duplicate check:", existingCustomers.length);
+
+    // Build a set of normalized values for quick lookup
+    const existingKeys = new Set<string>();
+    for (const c of existingCustomers) {
+      const nameKey = c.name.toLowerCase().trim();
+      const phoneKey = c.phone?.replace(/\D/g, "") || "";
+      const accountIdKey = c.accountId?.toUpperCase().trim() || "";
+      if (nameKey) existingKeys.add(`name:${nameKey}`);
+      if (phoneKey) existingKeys.add(`phone:${phoneKey}`);
+      if (accountIdKey) existingKeys.add(`accountId:${accountIdKey}`);
+    }
+
+    // Helper to check if a customer is duplicate
+    const isDuplicate = (name: string, phone: string | null | undefined, accountId: string | null | undefined): boolean => {
+      const nameKey = name.toLowerCase().trim();
+      const phoneKey = phone?.replace(/\D/g, "") || "";
+      const accountIdKey = (accountId || "").toUpperCase().trim();
+      return Boolean(
+        (nameKey && existingKeys.has(`name:${nameKey}`)) ||
+        (phoneKey && existingKeys.has(`phone:${phoneKey}`)) ||
+        (accountIdKey && existingKeys.has(`accountId:${accountIdKey}`))
+      );
+    };
+
+    // Helper to add customer to existing keys (so subsequent rows in same import don't duplicate each other)
+    const addToExistingKeys = (name: string, phone: string | null | undefined, accountId: string | null | undefined) => {
+      const nameKey = name.toLowerCase().trim();
+      const phoneKey = phone?.replace(/\D/g, "") || "";
+      const accountIdKey = (accountId || "").toUpperCase().trim();
+      if (nameKey) existingKeys.add(`name:${nameKey}`);
+      if (phoneKey) existingKeys.add(`phone:${phoneKey}`);
+      if (accountIdKey) existingKeys.add(`accountId:${accountIdKey}`);
+    };
+
     // Process data rows (skip header)
     for (let i = 1; i < lines.length; i++) {
       try {
@@ -159,6 +214,13 @@ export async function POST(req: NextRequest) {
         const telegramValue = telegramIdx !== -1 ? values[telegramIdx] || null : null;
         const telegramId = findTelegramId(telegramValue);
 
+        // Check for duplicate
+        if (isDuplicate(name, phone, accountId)) {
+          skipped++;
+          errors.push(`Row ${i}: Duplicate (name/phone/accountId) skipped`);
+          continue;
+        }
+
         console.log(`Creating: name="${name}", phone="${phone}", accountId="${accountId}", callStatus="${callStatus}", result="${result}", telegramId="${telegramId}", remarks="${remarks}"`);
 
         await prisma.customer.create({
@@ -175,6 +237,9 @@ export async function POST(req: NextRequest) {
             telegramId: telegramId,
           },
         });
+
+        // Add to existing keys so subsequent rows in same import don't duplicate this one
+        addToExistingKeys(name, phone, accountId);
         imported++;
       } catch (err) {
         console.error(`Row ${i} error:`, err instanceof Error ? err.message : err);
