@@ -276,25 +276,8 @@ export default function OldCustomersPage() {
         });
       }
 
-      // Fetch unfiltered data for accurate stats (without action/result/type filters)
-      const statsParams = new URLSearchParams();
-      statsParams.set("dateFilter", dateFilter);
-      if (dateFilter === "custom") {
-        if (customDateFrom) statsParams.set("dateFrom", customDateFrom);
-        if (customDateTo) statsParams.set("dateTo", customDateTo);
-      }
-      if (telegramFilter !== "all") statsParams.set("telegramId", telegramFilter);
-      if (search) statsParams.set("search", search);
-      if (callStatusFilter !== "all") statsParams.set("callStatus", callStatusFilter);
-      // Note: NOT applying action/result/type/priority/remarks filters for stats
-      if (isAdmin && teamFilter !== "all") statsParams.set("team", teamFilter);
-      statsParams.set("limit", "10000");
-
-      const statsRes = await fetch(`/api/admin/old-customers?${statsParams}`, { credentials: "include" }).then((r) => r.json());
-      const allCustomers = statsRes.customers || [];
-
-      // Calculate action, result and type counts from TRANSFORMED data (same as table display)
-      // This ensures stats match what's shown in the table
+      // Calculate action, result and type counts from the fetched customers
+      // This matches what is displayed in the table
       const actionStats: Record<string, number> = {};
       const resultStats: Record<string, number> = {};
       const typeStats: Record<string, number> = {};

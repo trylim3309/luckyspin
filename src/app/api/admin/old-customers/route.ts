@@ -60,8 +60,8 @@ export async function GET(req: NextRequest) {
     let dateTo: Date | undefined;
 
     if (dateFilter === "today") {
-      // Today = show all customers (no filter)
-      // No date filter, just show all
+      // Today = show all customers (no date filter - for follow-up)
+      // No date filter
     } else if (dateFilter === "thisWeek") {
       // Cambodia week starts on Monday at 17:00 UTC
       const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
