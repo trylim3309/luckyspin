@@ -143,7 +143,7 @@ export default function OldCustomersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Current agent
-  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team } | null>(null);
+  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team; teams?: Team[] } | null>(null);
 
   // Stats
   const [totalCustomers, setTotalCustomers] = useState(0);
@@ -185,7 +185,7 @@ export default function OldCustomersPage() {
         if (data.admin) {
           const agentTeams = data.admin.teams || ["KING88"];
           const agentTeam = agentTeams[0] as Team;
-          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam });
+          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam, teams: agentTeams });
           const agentRole = data.admin.role;
           // ADMIN, SUPER_ADMIN, MANAGER, TEAM_LEADER can see all teams
           const canViewAllTeams = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"].includes(agentRole);
@@ -933,9 +933,15 @@ export default function OldCustomersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Teams</SelectItem>
-                <SelectItem value="KING88">KING88</SelectItem>
-                <SelectItem value="SKY24">SKY24</SelectItem>
-                <SelectItem value="B88">B88</SelectItem>
+                {currentAgent?.teams?.map((team) => (
+                  <SelectItem key={team} value={team}>{team}</SelectItem>
+                )) || (
+                  <>
+                    <SelectItem value="KING88">KING88</SelectItem>
+                    <SelectItem value="SKY24">SKY24</SelectItem>
+                    <SelectItem value="B88">B88</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
             <input
