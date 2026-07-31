@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File is empty or has no data rows" }, { status: 400 });
     }
 
+    console.log("Import debug - total lines:", lines.length, "data rows:", lines.length - 1);
+
     // Parse header row
     const headerLine = lines[0];
     const headers = headerLine.split(",").map((h: string) => h.trim().toLowerCase());
@@ -129,18 +131,19 @@ export async function POST(req: NextRequest) {
         const values = parseCSVLine(lines[i]);
         const accountId = (values[accountIdIdx] || "").toUpperCase().trim();
 
+        // Count empty accountId as error, not duplicate
         if (!accountId) {
-          skipped++;
+          errors.push(`Row ${i}: Empty accountId`);
           continue;
         }
 
-        // Check for duplicate accountId (same day)
+        // Check for duplicate accountId
         if (existingAccountIds.has(accountId)) {
           skipped++;
           continue;
         }
+        existingAccountIds.add(accountId);
         processedRows++;
-        existingAccountIds.add(accountId); // Prevent duplicates within same import
 
         const name = nameIdx !== -1 && values[nameIdx] ? values[nameIdx] : "Unknown";
         const phone = phoneIdx !== -1 && values[phoneIdx] ? values[phoneIdx] : null;
