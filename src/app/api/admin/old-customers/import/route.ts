@@ -88,24 +88,12 @@ export async function POST(req: NextRequest) {
     const createdAtParam = formData.get("createdAt") as string | null;
     const createdAt = createdAtParam ? new Date(createdAtParam + "T12:00:00.000Z") : new Date();
 
-    // Parse date for duplicate check (using the date string directly, stored as UTC noon)
-    const checkDate = createdAtParam || new Date().toISOString().split("T")[0];
-    const [year, month, day] = checkDate.split("-").map(Number);
-    const dayStart = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-    const dayEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-
     let imported = 0;
     let skipped = 0;
     const errors: string[] = [];
 
-    // Fetch existing customers for the same day to check for duplicates by accountId
+    // Fetch ALL existing accountIds (Old Customers check by accountId only, no date filter)
     const existingCustomers = await prisma.oldCustomer.findMany({
-      where: {
-        createdAt: {
-          gte: dayStart,
-          lte: dayEnd,
-        },
-      },
       select: { accountId: true },
     });
 
