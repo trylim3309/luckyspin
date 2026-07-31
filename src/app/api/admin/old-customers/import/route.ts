@@ -92,11 +92,29 @@ export async function POST(req: NextRequest) {
     let skipped = 0;
     const errors: string[] = [];
 
-    // Fetch all existing accountIds in one query for fast duplicate checking
+    // Build date range for duplicate checking (same day in Cambodia timezone)
+    const dayStart = new Date(createdAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(createdAt);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Fetch existing customers for the same day to check for duplicates by accountId
     const existingCustomers = await prisma.oldCustomer.findMany({
+      where: {
+        createdAt: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
       select: { accountId: true },
     });
-    const existingAccountIds = new Set(existingCustomers.map(c => c.accountId));
+
+    // Build a set of accountIds for quick lookup
+    const existingAccountIds = new Set<string>();
+    for (const c of existingCustomers) {
+      const accountIdKey = c.accountId?.toUpperCase().trim() || "";
+      if (accountIdKey) existingAccountIds.add(accountIdKey);
+    }
 
     // Fetch telegram contacts for lookup
     const telegramContacts = await prisma.telegramContact.findMany();
@@ -121,19 +139,20 @@ export async function POST(req: NextRequest) {
     for (let i = 1; i < lines.length; i++) {
       try {
         const values = parseCSVLine(lines[i]);
-        const accountId = values[accountIdIdx] || "";
+        const accountId = (values[accountIdIdx] || "").toUpperCase().trim();
 
         if (!accountId) {
           skipped++;
           continue;
         }
 
-        // Fast duplicate check using Set
+        // Check for duplicate accountId (same day)
         if (existingAccountIds.has(accountId)) {
           skipped++;
           continue;
         }
         processedRows++;
+        existingAccountIds.add(accountId); // Prevent duplicates within same import
 
         const name = nameIdx !== -1 && values[nameIdx] ? values[nameIdx] : "Unknown";
         const phone = phoneIdx !== -1 && values[phoneIdx] ? values[phoneIdx] : null;
@@ -217,7 +236,6 @@ export async function POST(req: NextRequest) {
 
         // Add to batch and mark as seen
         customersToCreate.push(data);
-        existingAccountIds.add(accountId); // Prevent duplicates within same import
       } catch (err) {
         console.error(`Row ${i} error:`, err instanceof Error ? err.message : err);
         errors.push(`Row ${i}: ${err instanceof Error ? err.message : "Unknown error"}`);
