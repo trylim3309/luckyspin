@@ -505,7 +505,7 @@ export default function OldCustomersPage() {
 
   // Auto Add from New Customers
   const handleAutoAdd = async () => {
-    if (!confirm("Add customers from New Customers (accountId NOT NULL AND result = DEPOSIT)?")) return;
+    if (!confirm("ដាក់បញ្ចូលភ្ញៀវដាក់លុយលេងសម្រាប់ Follow up")) return;
     setIsAutoAdding(true);
     try {
       const res = await fetch("/api/admin/old-customers", {
@@ -516,7 +516,8 @@ export default function OldCustomersPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(`Added ${data.added} customers from New Customers`);
+        const names = data.customers?.map((c: any) => `${c.name} (${c.accountId})`).join("\n") || "";
+        alert(`Added ${data.added} customers:\n\n${names}\n\n(${data.total - data.added} already exist)`);
         fetchData();
       } else {
         alert(data.error || "Failed to auto add");

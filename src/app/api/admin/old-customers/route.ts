@@ -217,9 +217,9 @@ export async function POST(req: NextRequest) {
       // Filter to only those not in Old Customers
       const toAdd = newCustomers.filter(c => c.accountId && !existingAccountIds.has(c.accountId.toUpperCase()));
 
-      let added = 0;
+      const addedCustomers: any[] = [];
       for (const c of toAdd) {
-        await prisma.oldCustomer.create({
+        const customer = await prisma.oldCustomer.create({
           data: {
             accountId: c.accountId!,
             name: c.name || "",
@@ -233,10 +233,10 @@ export async function POST(req: NextRequest) {
             createdAt: c.createdAt,
           },
         });
-        added++;
+        addedCustomers.push(customer);
       }
 
-      return NextResponse.json({ added, total: toAdd.length });
+      return NextResponse.json({ added: addedCustomers.length, total: toAdd.length, customers: addedCustomers });
     }
 
     // Auto-generate accountId if not provided (for quick-add temp rows)
