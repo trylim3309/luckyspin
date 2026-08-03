@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       // Today = show all customers (no date filter - for follow-up)
       // No date filter
     } else if (dateFilter === "thisWeek") {
-      // Cambodia week starts on Monday at 17:00 UTC
+      // This week in Cambodia = Monday 17:00 UTC to now
       const dayOfWeek = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay)).getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const monday17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay - daysToMonday, 17, 0, 0));
@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
       dateFrom = monthStart17;
       dateTo = now;
     } else if (dateFilter === "lastMonth") {
+      // Last month = 17:00 UTC on 1st of last month to 16:59:59 UTC on last day of last month
       let lmMonth = cambodiaMonth - 1;
       let lmYear = cambodiaYear;
       if (lmMonth < 1) {
@@ -81,9 +82,10 @@ export async function GET(req: NextRequest) {
         lmYear--;
       }
       const lastMonthStart17 = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
-      const thisMonthStart17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+      const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth, 0)).getUTCDate();
+      const lastMonthEnd17 = new Date(Date.UTC(lmYear, lmMonth - 1, lastDayOfLastMonth, 16, 59, 59, 999));
       dateFrom = lastMonthStart17;
-      dateTo = thisMonthStart17;
+      dateTo = lastMonthEnd17;
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
