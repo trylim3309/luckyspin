@@ -190,6 +190,55 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
+    // Auto Add: copy from New Customers where accountId IS NOT NULL AND result = DEPOSIT
+    if (body.action === "autoAdd") {
+      // Get all existing accountIds in Old Customers
+      const existingOldCustomers = await prisma.oldCustomer.findMany({
+        select: { accountId: true },
+      });
+      const existingAccountIds = new Set(existingOldCustomers.map(c => c.accountId?.toUpperCase()).filter(Boolean));
+
+      // Find New Customers with accountId AND result = DEPOSIT
+      const newCustomers = await prisma.customer.findMany({
+        where: {
+          accountId: { not: null },
+          result: "DEPOSIT",
+        },
+        select: {
+          accountId: true,
+          name: true,
+          phone: true,
+          telegramId: true,
+          team: true,
+          createdAt: true,
+        },
+      });
+
+      // Filter to only those not in Old Customers
+      const toAdd = newCustomers.filter(c => c.accountId && !existingAccountIds.has(c.accountId.toUpperCase()));
+
+      let added = 0;
+      for (const c of toAdd) {
+        await prisma.oldCustomer.create({
+          data: {
+            accountId: c.accountId!,
+            name: c.name || "",
+            phone: c.phone,
+            callStatus: "NOT_CONTACTED",
+            telegramId: c.telegramId,
+            result: "NOT_PLAYED_YET",
+            type: "SMALL",
+            priority: "OCCASIONAL",
+            team: c.team,
+            createdAt: c.createdAt,
+          },
+        });
+        added++;
+      }
+
+      return NextResponse.json({ added, total: toAdd.length });
+    }
+
     // Auto-generate accountId if not provided (for quick-add temp rows)
     const accountId = body.accountId || `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 

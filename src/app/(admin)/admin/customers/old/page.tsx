@@ -168,6 +168,7 @@ export default function OldCustomersPage() {
   // Telegram contacts for dropdown
   const [telegramContacts, setTelegramContacts] = useState<TelegramContact[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAutoAdding, setIsAutoAdding] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importTeam, setImportTeam] = useState<string>("");
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
@@ -500,6 +501,32 @@ export default function OldCustomersPage() {
     // Immediately update customersRef so edits work right away
     customersRef.current = [tempRow, ...customersRef.current];
     setCustomers((prev) => [tempRow, ...prev]);
+  };
+
+  // Auto Add from New Customers
+  const handleAutoAdd = async () => {
+    if (!confirm("Add customers from New Customers (accountId NOT NULL AND result = DEPOSIT)?")) return;
+    setIsAutoAdding(true);
+    try {
+      const res = await fetch("/api/admin/old-customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "autoAdd" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Added ${data.added} customers from New Customers`);
+        fetchData();
+      } else {
+        alert(data.error || "Failed to auto add");
+      }
+    } catch (error) {
+      console.error("Auto add error:", error);
+      alert("Failed to auto add customers");
+    } finally {
+      setIsAutoAdding(false);
+    }
   };
 
   // Delete customer
@@ -965,6 +992,14 @@ export default function OldCustomersPage() {
             >
               <Upload className="w-4 h-4 mr-2" />
               Import Old
+            </Button>
+            <Button
+              onClick={handleAutoAdd}
+              disabled={isAutoAdding}
+              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {isAutoAdding ? "Adding..." : "Auto Add"}
             </Button>
           </div>
         )}
