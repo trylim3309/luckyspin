@@ -505,7 +505,7 @@ export default function OldCustomersPage() {
 
   // Auto Add from New Customers
   const handleAutoAdd = async () => {
-    if (!confirm("ដាក់បញ្ចូលភ្ញៀវដាក់លុយលេងសម្រាប់ Follow up")) return;
+    if (!confirm("ដាក់បញ្ចូលភ្ញៀវដែលមាន Account ID សម្រាប់ Follow up")) return;
     setIsAutoAdding(true);
     try {
       const res = await fetch("/api/admin/old-customers", {

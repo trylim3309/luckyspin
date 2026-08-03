@@ -198,11 +198,10 @@ export async function POST(req: NextRequest) {
       });
       const existingAccountIds = new Set(existingOldCustomers.map(c => c.accountId?.toUpperCase()).filter(Boolean));
 
-      // Find New Customers with accountId AND result = DEPOSIT
+      // Find New Customers with accountId (no result filter)
       const newCustomers = await prisma.customer.findMany({
         where: {
           accountId: { not: null },
-          result: "DEPOSIT",
         },
         select: {
           accountId: true,
