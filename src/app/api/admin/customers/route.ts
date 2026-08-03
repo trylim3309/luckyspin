@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       dateFrom = monthStart17;
       dateTo = now;
     } else if (dateFilter === "lastMonth") {
-      // Last month = 17:00 UTC on 1st of last month to 17:00 UTC on 1st of this month
+      // Last month = 17:00 UTC on 1st of last month to 16:59:59 UTC on last day of last month
       let lmMonth = cambodiaMonth - 1;
       let lmYear = cambodiaYear;
       if (lmMonth < 1) {
@@ -124,9 +124,11 @@ export async function GET(req: NextRequest) {
         lmYear--;
       }
       const lastMonthStart17 = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
-      const thisMonthStart17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+      // Last day of last month
+      const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth, 0)).getDate();
+      const lastMonthEnd17 = new Date(Date.UTC(lmYear, lmMonth - 1, lastDayOfLastMonth, 16, 59, 59, 999));
       dateFrom = lastMonthStart17;
-      dateTo = thisMonthStart17;
+      dateTo = lastMonthEnd17;
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
