@@ -98,37 +98,42 @@ export async function GET(req: NextRequest) {
       dateFrom = dayBeforeYesterday17;
       dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
-      // This week = Monday 17:00 UTC to now
-      // Use JavaScript Date with Cambodia offset to get correct day of week
-      const cambodiaNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-      const dayOfWeek = cambodiaNow.getDay();
+      // This week in Cambodia = Monday 17:00 UTC to now
+      // Calculate Cambodia "today" first
+      const utcHour = now.getUTCHours();
+      let cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const dayOfWeek = cambodiaDate.getUTCDay(); // 0=Sunday, 1=Monday
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       // Find Monday in Cambodia time
-      const mondayInCambodia = new Date(cambodiaNow);
-      mondayInCambodia.setDate(mondayInCambodia.getDate() - daysToMonday);
-      mondayInCambodia.setHours(17, 0, 0, 0);
-      // Convert to UTC (subtract 7 hours)
-      dateFrom = new Date(mondayInCambodia.getTime() - 7 * 60 * 60 * 1000);
+      cambodiaDate.setUTCDate(cambodiaDate.getUTCDate() - daysToMonday);
+      cambodiaDate.setUTCHours(17, 0, 0, 0); // Monday 17:00 UTC
+      // Convert Monday 17:00 UTC back to UTC timestamp
+      dateFrom = new Date(cambodiaDate.getTime());
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
-      // This month = 17:00 UTC on 1st of month to now
-      const monthStart17 = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
-      dateFrom = monthStart17;
+      // This month in Cambodia = 17:00 UTC on 1st of this month to now
+      // Calculate Cambodia date first
+      const utcHour = now.getUTCHours();
+      let cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const cmYear = cambodiaDate.getUTCFullYear();
+      const cmMonth = cambodiaDate.getUTCMonth(); // 0-indexed
+      const monthStart17 = Date.UTC(cmYear, cmMonth, 1, 17, 0, 0, 0);
+      dateFrom = new Date(monthStart17);
       dateTo = now;
     } else if (dateFilter === "lastMonth") {
-      // Last month = 17:00 UTC on 1st of last month to 16:59:59 UTC on last day of last month
-      let lmMonth = cambodiaMonth - 1;
-      let lmYear = cambodiaYear;
-      if (lmMonth < 1) {
-        lmMonth = 12;
+      // Last month in Cambodia = 17:00 UTC on 1st of last month to 16:59:59 UTC on last day of last month
+      const cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      let lmMonth = cambodiaDate.getUTCMonth() - 1; // 0-indexed
+      let lmYear = cambodiaDate.getUTCFullYear();
+      if (lmMonth < 0) {
+        lmMonth = 11;
         lmYear--;
       }
-      const lastMonthStart17 = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
-      // Last day of last month
-      const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth, 0)).getDate();
-      const lastMonthEnd17 = new Date(Date.UTC(lmYear, lmMonth - 1, lastDayOfLastMonth, 16, 59, 59, 999));
-      dateFrom = lastMonthStart17;
-      dateTo = lastMonthEnd17;
+      const lastMonthStart17 = Date.UTC(lmYear, lmMonth, 1, 17, 0, 0, 0);
+      const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth + 1, 0)).getUTCDate();
+      const lastMonthEnd17 = Date.UTC(lmYear, lmMonth, lastDayOfLastMonth, 16, 59, 59, 999);
+      dateFrom = new Date(lastMonthStart17);
+      dateTo = new Date(lastMonthEnd17);
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
