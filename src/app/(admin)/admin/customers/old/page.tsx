@@ -120,8 +120,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 
 const DATE_TABS: { key: DateFilter; label: string }[] = [
   { key: "today", label: "Today" },
-  { key: "all", label: "All Time" },
-  { key: "custom", label: "" },
 ];
 
 export default function OldCustomersPage() {
@@ -138,8 +136,6 @@ export default function OldCustomersPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [customDateFrom, setCustomDateFrom] = useState<string>("");
-  const [customDateTo, setCustomDateTo] = useState<string>("");
   const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<string>("all");
@@ -235,10 +231,6 @@ export default function OldCustomersPage() {
       // Build params for table data (with filters)
       const params = new URLSearchParams();
       params.set("dateFilter", dateFilter);
-      if (dateFilter === "custom") {
-        if (customDateFrom) params.set("dateFrom", customDateFrom);
-        if (customDateTo) params.set("dateTo", customDateTo);
-      }
       if (telegramFilter !== "all") params.set("telegramId", telegramFilter);
       if (search) params.set("search", search);
       if (callStatusFilter !== "all") params.set("callStatus", callStatusFilter);
@@ -320,7 +312,7 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, customDateFrom, customDateTo, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage]);
+  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage]);
 
   useEffect(() => {
     fetchData();
@@ -1235,25 +1227,6 @@ export default function OldCustomersPage() {
             </button>
           ))}
         </div>
-
-        {/* Custom Date Picker */}
-        {dateFilter === "custom" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={customDateFrom}
-              onChange={(e) => setCustomDateFrom(e.target.value)}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
-            />
-            <span className="text-gray-500">to</span>
-            <input
-              type="date"
-              value={customDateTo}
-              onChange={(e) => setCustomDateTo(e.target.value)}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
-            />
-          </div>
-        )}
 
         {/* Telegram Filter */}
         <Select value={telegramFilter} onValueChange={(v) => setTelegramFilter(v || "all")}>
