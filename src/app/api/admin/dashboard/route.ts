@@ -49,18 +49,18 @@ export async function GET(req: NextRequest) {
     const weekStart = new Date(today);
     weekStart.setDate(weekStart.getDate() - daysToMonday);
 
-    // This month
-    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
+    // This month = 1st of month 17:00 UTC (Cambodia midnight)
+    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
 
-    // Last month
+    // Last month = 1st of last month 17:00 UTC to 1st of this month 17:00 UTC
     let lmMonth = cambodiaMonth - 1;
     let lmYear = cambodiaYear;
     if (lmMonth < 1) {
       lmMonth = 12;
       lmYear--;
     }
-    const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 0, 0, 0));
-    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 0, 0, 0));
+    const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
+    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
 
     const { searchParams } = req.nextUrl;
     const team = searchParams.get("team");
