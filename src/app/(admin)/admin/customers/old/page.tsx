@@ -268,8 +268,10 @@ export default function OldCustomersPage() {
 
       // For "today" filter: reset action and result to defaults for follow-up
       // Skip transformation only when a SPECIFIC action filter is active (not "__none__")
+      // Also skip if a specific result filter is active (keep actual results for filtering)
       const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
-      if (dateFilter === "today" && !isSpecificActionFilter) {
+      const isSpecificResultFilter = resultFilter && resultFilter !== "all";
+      if (dateFilter === "today" && !isSpecificActionFilter && !isSpecificResultFilter) {
         const today = new Date().toISOString().split("T")[0];
         realCustomers = realCustomers.map((c: OldCustomer) => {
           const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
