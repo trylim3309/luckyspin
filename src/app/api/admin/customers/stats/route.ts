@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
 
     const isAgent = session.role === "AGENT" || session.role === "TEAM_LEADER";
 
-    // Deposit condition
+    // Deposit condition: accountId exists AND result = DEPOSIT (matching New Customers stats)
     const depositCondition = { accountId: { not: null }, result: "DEPOSIT" as const };
 
     // Build base where clause based on filters
