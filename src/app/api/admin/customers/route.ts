@@ -98,23 +98,14 @@ export async function GET(req: NextRequest) {
       dateFrom = dayBeforeYesterday17;
       dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
-      // This week in Cambodia = Monday 00:00 to now
-      // Use a helper date that represents Cambodia "today" at midday to avoid timezone boundary issues
-      const utcHour = now.getUTCHours();
-      let cambodiaNow;
-      if (utcHour > 17) {
-        // After 17:00 UTC, Cambodia is next UTC day
-        cambodiaNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 12, 0, 0));
-      } else {
-        cambodiaNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
-      }
-      const dayOfWeek = cambodiaNow.getUTCDay(); // 0=Sunday
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const mondayCambodia = new Date(cambodiaNow);
-      mondayCambodia.setUTCDate(mondayCambodia.getUTCDate() - daysToMonday);
-      // Monday 00:00 Cambodia = Sunday 17:00 UTC
-      const mondayUTC = new Date(Date.UTC(mondayCambodia.getUTCFullYear(), mondayCambodia.getUTCMonth(), mondayCambodia.getUTCDate(), 17, 0, 0));
-      dateFrom = mondayUTC;
+      // This month in Cambodia = 00:00 on 1st to now (Cambodia time)
+      // 00:00 Cambodia = 17:00 UTC the day before
+      let cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const cmYear = cambodiaDate.getUTCFullYear();
+      const cmMonth = cambodiaDate.getUTCMonth(); // 0-indexed
+      // 00:00 on 1st of month in Cambodia = 17:00 UTC the day before
+      const monthStartUTC = Date.UTC(cmYear, cmMonth, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000;
+      dateFrom = new Date(monthStartUTC);
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
       // This month in Cambodia = 00:00 on 1st to now (Cambodia time)
