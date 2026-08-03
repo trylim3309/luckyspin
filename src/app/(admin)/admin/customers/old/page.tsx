@@ -461,15 +461,31 @@ export default function OldCustomersPage() {
   const handleAdd = async (data: Partial<OldCustomer>) => {
     setIsAdding(true);
     try {
+      // Set followUpDate to today by default so new customers appear in "today" tab
+      const dataWithFollowUp = {
+        ...data,
+        followUpDate: data.followUpDate || new Date().toISOString(),
+      };
       const res = await fetch("/api/admin/old-customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(data),
+        body: JSON.stringify(dataWithFollowUp),
       });
 
       if (res.ok || res.status === 201) {
-        fetchData();
+        const result = await res.json();
+        if (result.customer) {
+          // Add the new customer to the local state optimistically
+          // Wrap with temp ID so it can still be edited
+          const newTempRow: OldCustomer = {
+            ...result.customer,
+            id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          };
+          setCustomers((prev) => [newTempRow, ...prev]);
+          // Update the ref to match
+          customersRef.current = [newTempRow, ...customersRef.current];
+        }
       }
     } finally {
       setIsAdding(false);

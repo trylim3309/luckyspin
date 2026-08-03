@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
             telegramId: c.telegramId,
             result: "NOT_PLAYED_YET",
             type: "SMALL",
-            priority: "OCCASIONAL",
+            priority: "FREQUENT",
             team: c.team,
             createdAt: c.createdAt,
           },
