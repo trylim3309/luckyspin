@@ -121,19 +121,18 @@ export async function GET(req: NextRequest) {
       dateFrom = new Date(monthStart17);
       dateTo = now;
     } else if (dateFilter === "lastMonth") {
-      // Last month in Cambodia = 17:00 UTC on 1st of last month to 16:59:59 UTC on last day of last month
-      const cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-      let lmMonth = cambodiaDate.getUTCMonth() - 1; // 0-indexed
-      let lmYear = cambodiaDate.getUTCFullYear();
-      if (lmMonth < 0) {
-        lmMonth = 11;
+      // Last month = 17:00 UTC on 1st of last month to 16:59:59 UTC on last day of last month
+      let lmMonth = cambodiaMonth - 1;
+      let lmYear = cambodiaYear;
+      if (lmMonth < 1) {
+        lmMonth = 12;
         lmYear--;
       }
-      const lastMonthStart17 = Date.UTC(lmYear, lmMonth, 1, 17, 0, 0, 0);
-      const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth + 1, 0)).getUTCDate();
-      const lastMonthEnd17 = Date.UTC(lmYear, lmMonth, lastDayOfLastMonth, 16, 59, 59, 999);
-      dateFrom = new Date(lastMonthStart17);
-      dateTo = new Date(lastMonthEnd17);
+      const lastMonthStart17 = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
+      const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth, 0)).getUTCDate();
+      const lastMonthEnd17 = new Date(Date.UTC(lmYear, lmMonth - 1, lastDayOfLastMonth, 16, 59, 59, 999));
+      dateFrom = lastMonthStart17;
+      dateTo = lastMonthEnd17;
     } else if (dateFilter === "custom") {
       const dateFromParam = searchParams.get("dateFrom");
       const dateToParam = searchParams.get("dateTo");
