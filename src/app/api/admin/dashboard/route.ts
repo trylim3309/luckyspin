@@ -43,24 +43,28 @@ export async function GET(req: NextRequest) {
 
     const today = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, cambodiaDay, 0, 0, 0));
 
-    // This week = Monday to today
-    const dayOfWeek = today.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const weekStart = new Date(today);
-    weekStart.setDate(weekStart.getDate() - daysToMonday);
+    // This week = 1st of month 17:00 UTC (same as customers API)
+    let cambodiaDateWeek = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const cmYearWeek = cambodiaDateWeek.getUTCFullYear();
+    const cmMonthWeek = cambodiaDateWeek.getUTCMonth();
+    const weekStart = new Date(Date.UTC(cmYearWeek, cmMonthWeek, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000);
 
-    // This month = 1st of month 17:00 UTC (Cambodia midnight)
-    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+    // This month = 1st of month 17:00 UTC (same calculation as customers API)
+    let cambodiaDateMonth = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const cmYear = cambodiaDateMonth.getUTCFullYear();
+    const cmMonth = cambodiaDateMonth.getUTCMonth();
+    const monthStart = new Date(Date.UTC(cmYear, cmMonth, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000);
 
-    // Last month = 1st of last month 17:00 UTC to 1st of this month 17:00 UTC
-    let lmMonth = cambodiaMonth - 1;
-    let lmYear = cambodiaYear;
+    // Last month = 1st of last month 17:00 UTC to last day of last month 16:59:59 UTC
+    let lmMonth = cmMonth;
+    let lmYear = cmYear;
     if (lmMonth < 1) {
       lmMonth = 12;
       lmYear--;
     }
     const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
-    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+    const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth, 0)).getUTCDate();
+    const lastMonthEnd = new Date(Date.UTC(lmYear, lmMonth - 1, lastDayOfLastMonth, 16, 59, 59, 999));
 
     const { searchParams } = req.nextUrl;
     const team = searchParams.get("team");
