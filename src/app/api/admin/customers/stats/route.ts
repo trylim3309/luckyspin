@@ -62,18 +62,22 @@ export async function GET(req: NextRequest) {
     const cmMonth = cambodiaDate.getUTCMonth();
     const weekStart = new Date(Date.UTC(cmYear, cmMonth, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000);
 
-    // This month = 1st of month 17:00 UTC to now (use cambodiaMonth)
-    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+    // This month = 1st of month 17:00 UTC to now (same calculation as customers API)
+    let cambodiaDateMonth = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const cmYearMonth = cambodiaDateMonth.getUTCFullYear();
+    const cmMonthMonth = cambodiaDateMonth.getUTCMonth();
+    const monthStart = new Date(Date.UTC(cmYearMonth, cmMonthMonth, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000);
 
-    // Last month = 1st of last month 17:00 UTC to 1st of this month 17:00 UTC
-    let lmMonth = cambodiaMonth - 1;
-    let lmYear = cambodiaYear;
+    // Last month = 1st of last month 17:00 UTC to last day of last month 16:59:59 UTC
+    let lmMonth = cmMonthMonth;
+    let lmYear = cmYearMonth;
     if (lmMonth < 1) {
       lmMonth = 12;
       lmYear--;
     }
     const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
-    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
+    const lastDayOfLastMonth = new Date(Date.UTC(lmYear, lmMonth, 0)).getUTCDate();
+    const lastMonthEnd = new Date(Date.UTC(lmYear, lmMonth - 1, lastDayOfLastMonth, 16, 59, 59, 999));
 
     const isAgent = session.role === "AGENT" || session.role === "TEAM_LEADER";
 
