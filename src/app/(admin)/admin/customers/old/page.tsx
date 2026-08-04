@@ -263,24 +263,18 @@ export default function OldCustomersPage() {
       // Also skip if a specific result filter is active (keep actual results for filtering)
       const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
       const isSpecificResultFilter = resultFilter && resultFilter !== "all";
-      console.log("[DEBUG] dateFilter:", dateFilter, "isSpecificActionFilter:", isSpecificActionFilter, "isSpecificResultFilter:", isSpecificResultFilter);
       if (dateFilter === "today" && !isSpecificActionFilter && !isSpecificResultFilter) {
-        const today = new Date().toISOString().split("T")[0];
+        // For "today" tab: show all as NOT_PLAYED_YET for follow-up
         realCustomers = realCustomers.map((c: OldCustomer) => {
           const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
-          // If followUpDate is today, keep existing action and result
+          const today = new Date().toISOString().split("T")[0];
+          // If followUpDate is today, keep existing action
           if (followUp === today) {
-            return c;
+            return { ...c, result: "NOT_PLAYED_YET" as OldResult };
           }
-          // Otherwise reset to defaults for follow-up
-          return {
-            ...c,
-            action: "" as Action,
-            result: "NOT_PLAYED_YET" as OldResult,
-          };
+          // Otherwise reset action to empty and result to NOT_PLAYED_YET
+          return { ...c, action: "" as Action, result: "NOT_PLAYED_YET" as OldResult };
         });
-      } else {
-        console.log("[DEBUG] Skipping transformation. Conditions:", { dateFilter_is_today: dateFilter === "today", isSpecificActionFilter, isSpecificResultFilter });
       }
 
       // Calculate action, result and type counts from the fetched customers
