@@ -263,6 +263,7 @@ export default function OldCustomersPage() {
       // Also skip if a specific result filter is active (keep actual results for filtering)
       const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
       const isSpecificResultFilter = resultFilter && resultFilter !== "all";
+      console.log("[DEBUG] dateFilter:", dateFilter, "isSpecificActionFilter:", isSpecificActionFilter, "isSpecificResultFilter:", isSpecificResultFilter);
       if (dateFilter === "today" && !isSpecificActionFilter && !isSpecificResultFilter) {
         const today = new Date().toISOString().split("T")[0];
         realCustomers = realCustomers.map((c: OldCustomer) => {
@@ -278,6 +279,8 @@ export default function OldCustomersPage() {
             result: "NOT_PLAYED_YET" as OldResult,
           };
         });
+      } else {
+        console.log("[DEBUG] Skipping transformation. Conditions:", { dateFilter_is_today: dateFilter === "today", isSpecificActionFilter, isSpecificResultFilter });
       }
 
       // Calculate action, result and type counts from the fetched customers
