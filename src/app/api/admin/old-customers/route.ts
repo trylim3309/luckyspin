@@ -102,7 +102,12 @@ export async function GET(req: NextRequest) {
       where.team = team as any;
     }
 
-    // Today filter: no filter, show all
+    // Today filter: default to result = NOT_PLAYED_YET and action = "" (empty)
+    if (dateFilter === "today") {
+      where.result = "NOT_PLAYED_YET";
+      (where as any).action = "";
+    }
+
     if (dateFilter !== "today" && dateFrom && dateTo) {
       where.createdAt = { gte: dateFrom, lte: dateTo };
     }
