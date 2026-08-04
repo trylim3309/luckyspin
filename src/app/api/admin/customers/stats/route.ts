@@ -56,14 +56,11 @@ export async function GET(req: NextRequest) {
     const yesterday17UTC = new Date(today17UTC.getTime() - 24 * 60 * 60 * 1000);
     const todayStart = yesterday17UTC;
 
-    // This week = Monday 17:00 UTC to now
-    const cambodiaNowWeek = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-    const dayOfWeek = cambodiaNowWeek.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const mondayInCambodia = new Date(cambodiaNowWeek);
-    mondayInCambodia.setDate(mondayInCambodia.getDate() - daysToMonday);
-    mondayInCambodia.setHours(17, 0, 0, 0);
-    const weekStart = new Date(mondayInCambodia.getTime() - 7 * 60 * 60 * 1000);
+    // This week = 1st of month 17:00 UTC (same as customers API)
+    let cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const cmYear = cambodiaDate.getUTCFullYear();
+    const cmMonth = cambodiaDate.getUTCMonth();
+    const weekStart = new Date(Date.UTC(cmYear, cmMonth, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000);
 
     // This month = 1st of month 17:00 UTC to now (use cambodiaMonth)
     const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
