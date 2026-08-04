@@ -65,18 +65,18 @@ export async function GET(req: NextRequest) {
     mondayInCambodia.setHours(17, 0, 0, 0);
     const weekStart = new Date(mondayInCambodia.getTime() - 7 * 60 * 60 * 1000);
 
-    // This month = 1st of month 17:00 UTC to now (use utcMonth not cambodiaMonth)
-    const monthStart = new Date(Date.UTC(utcYear, utcMonth - 1, 1, 17, 0, 0));
+    // This month = 1st of month 17:00 UTC to now (use cambodiaMonth)
+    const monthStart = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
 
     // Last month = 1st of last month 17:00 UTC to 1st of this month 17:00 UTC
-    let lmMonth = utcMonth - 1;
-    let lmYear = utcYear;
+    let lmMonth = cambodiaMonth - 1;
+    let lmYear = cambodiaYear;
     if (lmMonth < 1) {
       lmMonth = 12;
       lmYear--;
     }
     const lastMonthStart = new Date(Date.UTC(lmYear, lmMonth - 1, 1, 17, 0, 0));
-    const lastMonthEnd = new Date(Date.UTC(utcYear, utcMonth - 1, 1, 17, 0, 0));
+    const lastMonthEnd = new Date(Date.UTC(cambodiaYear, cambodiaMonth - 1, 1, 17, 0, 0));
 
     const isAgent = session.role === "AGENT" || session.role === "TEAM_LEADER";
 
