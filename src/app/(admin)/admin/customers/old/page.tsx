@@ -980,20 +980,24 @@ export default function OldCustomersPage() {
             <p className="text-xs text-gray-400 mt-1">Today loaded: {lastRefreshed}</p>
           )}
           <div className="flex items-center gap-2 mt-2">
-            <label className="text-xs text-gray-500">Scheduled time:</label>
-            <input
-              type="time"
-              value={transformDate || "03:00"}
-              onChange={(e) => setTransformDate(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
-            />
-            {transformDate && (
-              <button
-                onClick={() => setTransformDate("")}
-                className="text-xs text-purple-600 hover:text-purple-800"
-              >
-                Reset to 03:00
-              </button>
+            {isAdmin && (
+              <>
+                <label className="text-xs text-gray-500">Scheduled time:</label>
+                <input
+                  type="time"
+                  value={transformDate || "03:00"}
+                  onChange={(e) => setTransformDate(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm"
+                />
+                {transformDate && (
+                  <button
+                    onClick={() => setTransformDate("")}
+                    className="text-xs text-purple-600 hover:text-purple-800"
+                  >
+                    Reset to 03:00
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
