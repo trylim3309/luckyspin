@@ -174,6 +174,12 @@ export default function OldCustomersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Account ID filter state
+  const [accountIdFilter, setAccountIdFilter] = useState<string[]>([]);
+  const [showAccountIdFilterModal, setShowAccountIdFilterModal] = useState(false);
+  const [isAccountIdUploading, setIsAccountIdUploading] = useState(false);
+  const accountIdFileInputRef = useRef<HTMLInputElement>(null);
+
   // Fetch telegram contacts (filtered by team if selected)
   useEffect(() => {
     const url = teamFilter !== "all" ? `/api/admin/telegram/contacts?team=${teamFilter}` : "/api/admin/telegram/contacts";
@@ -289,6 +295,13 @@ export default function OldCustomersPage() {
         setLastRefreshed(scheduledTime);
       }
 
+      // Apply account ID filter (client-side, only for today tab)
+      if (accountIdFilter.length > 0) {
+        realCustomers = realCustomers.filter((c: OldCustomer) =>
+          c.accountId && accountIdFilter.includes(c.accountId.toUpperCase())
+        );
+      }
+
       // Calculate action, result and type counts from the fetched customers
       // This matches what is displayed in the table
       const actionStats: Record<string, number> = {};
@@ -321,7 +334,7 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage, transformDate]);
+  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage, transformDate, accountIdFilter]);
 
   useEffect(() => {
     fetchData();
@@ -331,6 +344,18 @@ export default function OldCustomersPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [dateFilter, teamFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, telegramFilter]);
+
+  // Clear accountId filter when date changes away from today
+  useEffect(() => {
+    if (dateFilter !== "today") {
+      setAccountIdFilter([]);
+    }
+  }, [dateFilter]);
+
+  // Reset page when accountId filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [accountIdFilter]);
 
   // Guard to prevent duplicate saves for same row
   const savingRef = useRef<Set<number>>(new Set());
@@ -618,6 +643,70 @@ export default function OldCustomersPage() {
     } finally {
       setIsUploading(false);
       if (importFileInputRef.current) importFileInputRef.current.value = "";
+    }
+  };
+
+  // Handle Account ID filter file upload
+  const handleAccountIdFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAccountIdUploading(true);
+    try {
+      const bytes = await file.arrayBuffer();
+      const { default: XLSX } = await import("xlsx");
+      const fileName = file.name.toLowerCase();
+      let lines: string[];
+
+      if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        const workbook = XLSX.read(new Uint8Array(bytes), { type: "array" });
+        const sheetNames = workbook.SheetNames;
+        const selectedSheet = sheetNames[0];
+        const worksheet = workbook.Sheets[selectedSheet];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+        lines = jsonData.map((row) => row.join(",")).filter((line) => line.trim());
+      } else {
+        const content = new TextDecoder("utf-8").decode(bytes);
+        lines = content.split("\n").filter((line) => line.trim());
+      }
+
+      if (lines.length < 2) {
+        alert("File is empty or has no data rows");
+        return;
+      }
+
+      // Parse header to find accountId column
+      const headerLine = lines[0];
+      const headers = headerLine.split(",").map((h: string) => h.trim().toLowerCase());
+      const accountIdIdx = headers.findIndex(h => h.includes("account") || h.includes("id"));
+      if (accountIdIdx === -1) {
+        alert("Could not find accountId column in file");
+        return;
+      }
+
+      // Extract accountIds
+      const accountIds: string[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",");
+        const accountId = values[accountIdIdx]?.trim().toUpperCase();
+        if (accountId) {
+          accountIds.push(accountId);
+        }
+      }
+
+      if (accountIds.length === 0) {
+        alert("No account IDs found in file");
+        return;
+      }
+
+      setAccountIdFilter(accountIds);
+      setShowAccountIdFilterModal(false);
+    } catch (error) {
+      console.error("Account ID filter upload error:", error);
+      alert("Failed to process file");
+    } finally {
+      setIsAccountIdUploading(false);
+      if (accountIdFileInputRef.current) accountIdFileInputRef.current.value = "";
     }
   };
 
@@ -1163,6 +1252,55 @@ export default function OldCustomersPage() {
         </>
       )}
 
+      {/* Account ID Filter Modal */}
+      <Dialog open={showAccountIdFilterModal} onOpenChange={setShowAccountIdFilterModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Filter by Account ID</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Upload an Excel or CSV file containing account IDs to filter customers.
+              The file should have a column with "account" or "id" in the header.
+            </p>
+            <div>
+              <label className="block text-sm font-medium mb-2">Select File</label>
+              <input
+                type="file"
+                ref={accountIdFileInputRef}
+                accept=".csv,.xlsx,.xls"
+                className="w-full border rounded-lg p-2.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              Currently filtering: {accountIdFilter.length} account IDs
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowAccountIdFilterModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const input = accountIdFileInputRef.current;
+                if (input?.files?.[0]) {
+                  handleAccountIdFileUpload({ target: input } as any);
+                } else {
+                  alert("Please select a file");
+                }
+              }}
+              disabled={isAccountIdUploading}
+              className="bg-purple-500 hover:bg-purple-600"
+            >
+              {isAccountIdUploading ? "Processing..." : "Apply Filter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Action, Result & Type Stats Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Action Stats */}
@@ -1381,6 +1519,26 @@ export default function OldCustomersPage() {
           placeholder="Search..."
           className="w-48"
         />
+
+        {/* By AccountID Filter */}
+        <Button
+          variant={accountIdFilter.length > 0 ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowAccountIdFilterModal(true)}
+          className={accountIdFilter.length > 0 ? "bg-purple-500 hover:bg-purple-600" : ""}
+        >
+          By AccountID {accountIdFilter.length > 0 && `(${accountIdFilter.length})`}
+        </Button>
+        {accountIdFilter.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAccountIdFilter([])}
+            className="text-red-500 hover:text-red-600"
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Spreadsheet */}
