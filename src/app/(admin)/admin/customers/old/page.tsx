@@ -148,7 +148,7 @@ export default function OldCustomersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Current agent
-  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team; teams?: Team[] } | null>(null);
+  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; fullName?: string | null; team: Team; teams?: Team[]; role?: string } | null>(null);
 
   // Stats
   const [totalCustomers, setTotalCustomers] = useState(0);
@@ -193,7 +193,7 @@ export default function OldCustomersPage() {
         if (data.admin) {
           const agentTeams = data.admin.teams || ["KING88"];
           const agentTeam = agentTeams[0] as Team;
-          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam, teams: agentTeams });
+          setCurrentAgent({ id: data.admin.id, name: data.admin.name, fullName: data.admin.fullName, team: agentTeam, teams: agentTeams, role: data.admin.role });
           const agentRole = data.admin.role;
           // ADMIN, SUPER_ADMIN, MANAGER, TEAM_LEADER can see all teams
           const canViewAllTeams = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"].includes(agentRole);
