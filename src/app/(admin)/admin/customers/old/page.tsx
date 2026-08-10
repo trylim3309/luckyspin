@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import * as XLSX from "xlsx";
 
 type CallStatus = "NOT_CONTACTED" | "CALLED" | "CHATTED" | "NO_ANSWER" | "NOT_INTERESTED";
 type Action = "" | "CHATTED_SUCCESS" | "CHATTED_FAILED" | "SPAM" | "BLOCKED";
@@ -654,7 +655,6 @@ export default function OldCustomersPage() {
     setIsAccountIdUploading(true);
     try {
       const bytes = await file.arrayBuffer();
-      const { default: XLSX } = await import("xlsx");
       const fileName = file.name.toLowerCase();
       let lines: string[];
 
