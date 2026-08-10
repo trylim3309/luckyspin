@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
         if (!name) continue;
 
         phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
-        accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() : null;
+        accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() ?? null : null;
         const callStatus = callStatusIdx !== -1 ? mapCallStatus(values[callStatusIdx]) : "CHATTED";
         const result = resultIdx !== -1 ? mapResult(values[resultIdx]) : "NOT_CREATED";
         const remarks = remarksIdx !== -1 ? values[remarksIdx] || null : null;
