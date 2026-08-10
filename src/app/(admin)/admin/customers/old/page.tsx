@@ -134,6 +134,8 @@ export default function OldCustomersPage() {
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+  const [lastRefreshed, setLastRefreshed] = useState<string>("");
+  const [transformDate, setTransformDate] = useState<string>("");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [callStatusFilter, setCallStatusFilter] = useState<string>("all");
@@ -254,7 +256,7 @@ export default function OldCustomersPage() {
       // Fetch filtered data for table
       console.log("[fetchData] Calling API with params:", params.toString());
       const custRes = await fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json());
-      console.log("[fetchData] Got:", custRes.customers?.length, "total:", custRes.total);
+      console.log("[fetchData] Got:", custRes.customers?.length, "total:", custRes.total, "loadedAt:", custRes.loadedAt);
 
       let realCustomers = custRes.customers || [];
 
@@ -263,18 +265,28 @@ export default function OldCustomersPage() {
       // Also skip if a specific result filter is active (keep actual results for filtering)
       const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
       const isSpecificResultFilter = resultFilter && resultFilter !== "all";
+      // Use scheduled time (transformDate) or default 03:00
+      const scheduledTime = transformDate || "03:00";
+      // Use current date for followUp comparison
+      // This ensures consistent transformation based on followUpDate
+      const todayStr = new Date().toISOString().split("T")[0]; // Current date YYYY-MM-DD
+
       if (dateFilter === "today" && !isSpecificActionFilter && !isSpecificResultFilter) {
         // For "today" tab: show all as NOT_PLAYED_YET for follow-up
         realCustomers = realCustomers.map((c: OldCustomer) => {
           const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
-          const today = new Date().toISOString().split("T")[0];
           // If followUpDate is today, keep existing action
-          if (followUp === today) {
+          if (followUp === todayStr) {
             return { ...c, result: "NOT_PLAYED_YET" as OldResult };
           }
           // Otherwise reset action to empty and result to NOT_PLAYED_YET
           return { ...c, action: "" as Action, result: "NOT_PLAYED_YET" as OldResult };
         });
+      }
+
+      // Show scheduled time for "today" follow-up display
+      if (dateFilter === "today") {
+        setLastRefreshed(scheduledTime);
       }
 
       // Calculate action, result and type counts from the fetched customers
@@ -309,7 +321,7 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage]);
+  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage, transformDate]);
 
   useEffect(() => {
     fetchData();
@@ -964,6 +976,26 @@ export default function OldCustomersPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#233446]">Old Customers</h1>
           <p className="text-[#868D9E] mt-1">Total: {totalCustomers} customers</p>
+          {lastRefreshed && (
+            <p className="text-xs text-gray-400 mt-1">Today loaded: {lastRefreshed}</p>
+          )}
+          <div className="flex items-center gap-2 mt-2">
+            <label className="text-xs text-gray-500">Scheduled time:</label>
+            <input
+              type="time"
+              value={transformDate || "03:00"}
+              onChange={(e) => setTransformDate(e.target.value)}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            {transformDate && (
+              <button
+                onClick={() => setTransformDate("")}
+                className="text-xs text-purple-600 hover:text-purple-800"
+              >
+                Reset to 03:00
+              </button>
+            )}
+          </div>
         </div>
         {/* Team Filter & Import - Admin only, right side */}
         {isAdmin && (

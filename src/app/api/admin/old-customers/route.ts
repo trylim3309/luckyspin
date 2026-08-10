@@ -176,7 +176,10 @@ export async function GET(req: NextRequest) {
       prisma.oldCustomer.count({ where }),
     ]);
 
-    return NextResponse.json({ customers, total, page, limit });
+    // Capture time RIGHT after database query for accurate follow-up load time
+    const loadedAt = new Date();
+
+    return NextResponse.json({ customers, total, page, limit, loadedAt: loadedAt.toISOString() });
   } catch (error) {
     console.error("Old Customers GET error:", error);
     return NextResponse.json({ error: "Failed to fetch customers" }, { status: 500 });
