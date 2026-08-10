@@ -980,7 +980,7 @@ export default function OldCustomersPage() {
             <p className="text-xs text-gray-400 mt-1">Today loaded: {lastRefreshed}</p>
           )}
           <div className="flex items-center gap-2 mt-2">
-            {isAdmin && (
+            {isAdmin && (["ADMIN", "SUPER_ADMIN"].includes(currentAgent?.role || "")) && (
               <>
                 <label className="text-xs text-gray-500">Scheduled time:</label>
                 <input
