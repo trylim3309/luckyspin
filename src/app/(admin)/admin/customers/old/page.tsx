@@ -661,15 +661,19 @@ export default function OldCustomersPage() {
       if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
         const workbook = XLSX.read(new Uint8Array(bytes), { type: "array" });
         const sheetNames = workbook.SheetNames;
+        console.log("Available sheets:", sheetNames);
         const selectedSheet = sheetName && sheetNames.includes(sheetName) ? sheetName : sheetNames[0];
+        console.log("Selected sheet:", selectedSheet);
         const worksheet = workbook.Sheets[selectedSheet];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+        console.log("Raw data rows:", jsonData.length);
         lines = jsonData.map((row) => row.join(",")).filter((line) => line.trim());
       } else {
         const content = new TextDecoder("utf-8").decode(bytes);
         lines = content.split("\n").filter((line) => line.trim());
       }
 
+      console.log("Total lines after processing:", lines.length);
       if (lines.length < 2) {
         alert("File is empty or has no data rows");
         return;
@@ -677,8 +681,10 @@ export default function OldCustomersPage() {
 
       // Parse header to find accountId column
       const headerLine = lines[0];
+      console.log("Header line:", headerLine);
       const headers = headerLine.split(",").map((h: string) => h.trim().toLowerCase());
       const accountIdIdx = headers.findIndex(h => h.includes("account") || h.includes("id"));
+      console.log("Account ID column index:", accountIdIdx);
       if (accountIdIdx === -1) {
         alert("Could not find accountId column in file");
         return;
@@ -694,6 +700,7 @@ export default function OldCustomersPage() {
         }
       }
 
+      console.log("Found account IDs:", accountIds.length);
       if (accountIds.length === 0) {
         alert("No account IDs found in file");
         return;
@@ -703,7 +710,7 @@ export default function OldCustomersPage() {
       setShowAccountIdFilterModal(false);
     } catch (error) {
       console.error("Account ID filter upload error:", error);
-      alert("Failed to process file");
+      alert("Failed to process file: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsAccountIdUploading(false);
       if (accountIdFileInputRef.current) accountIdFileInputRef.current.value = "";
