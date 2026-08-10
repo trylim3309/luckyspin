@@ -309,6 +309,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ customer: updatedCustomer });
   } catch (error) {
     console.error("Old Customers PUT error:", error);
+    // Handle unique constraint violation on accountId
+    if (error instanceof Error && error.message.includes("Unique constraint")) {
+      return NextResponse.json({ error: "Account ID already exists. Please use a different ID." }, { status: 400 });
+    }
     return NextResponse.json({ error: "Failed to update customer" }, { status: 500 });
   }
 }
