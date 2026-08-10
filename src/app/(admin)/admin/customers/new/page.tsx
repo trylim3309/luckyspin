@@ -143,7 +143,7 @@ export default function NewCustomersPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importAgentId, setImportAgentId] = useState<string>("");
   const [importTeam, setImportTeam] = useState<string>("");
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; duplicates?: { name: string; phone?: string | null; accountId?: string | null }[] } | null>(null);
   const [showImportResult, setShowImportResult] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
@@ -691,7 +691,7 @@ export default function NewCustomersPage() {
       if (res.ok) {
         const data = await res.json();
         console.log("5. Import result:", data);
-        setImportResult({ imported: data.imported, skipped: data.skipped });
+        setImportResult({ imported: data.imported, skipped: data.skipped, duplicates: data.duplicates || [] });
         setShowImportResult(true);
         setShowImportModal(false);
         setImportAgentId("");
@@ -1068,15 +1068,29 @@ export default function NewCustomersPage() {
       {showImportResult && importResult && (
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => { setShowImportResult(false); setImportResult(null); }} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-2xl p-8 w-80 text-center border border-gray-200">
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-2xl p-8 w-[500px] max-h-[80vh] overflow-y-auto border border-gray-200">
             <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-            <div className="space-y-2">
+            <div className="space-y-3 text-center">
               <div className="text-lg font-bold text-green-600">
                 <span className="text-2xl">{importResult.imported}</span> បានដាក់បញ្ចូល
               </div>
               {importResult.skipped > 0 && (
                 <div className="text-lg font-bold text-red-500">
                   {importResult.skipped} ដដែលៗ មិនដាក់បញ្ចូល
+                </div>
+              )}
+              {importResult.duplicates && importResult.duplicates.length > 0 && (
+                <div className="mt-4 text-left border rounded-lg p-3 bg-red-50">
+                  <div className="font-semibold text-red-600 mb-2">Duplicated Data:</div>
+                  <div className="space-y-1 text-sm max-h-40 overflow-y-auto">
+                    {importResult.duplicates.map((dup, idx) => (
+                      <div key={`${dup.name}-${idx}`} className="flex gap-2 text-gray-700">
+                        <span>{dup.name}</span>
+                        {dup.phone && <span>• {dup.phone}</span>}
+                        {dup.accountId && <span>• {dup.accountId}</span>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

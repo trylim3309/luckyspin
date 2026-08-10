@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
     let imported = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const duplicates: { name: string; phone?: string | null; accountId?: string | null }[] = [];
 
     // Get agent's team for default
     const agentId = formData.get("agentId") as string || session.id;
@@ -199,15 +200,18 @@ export async function POST(req: NextRequest) {
 
     // Process data rows (skip header)
     for (let i = 1; i < lines.length; i++) {
+      let name = "";
+      let phone: string | null = null;
+      let accountId: string | null = null;
       try {
         const values = parseCSVLine(lines[i]);
         console.log(`Row ${i}: raw="${lines[i]}"`, "parsed=", values);
-        const name = values[nameIdx] || "";
+        name = values[nameIdx] || "";
         console.log(`Row ${i}: name="${name}"`);
         if (!name) continue;
 
-        const phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
-        const accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() : null;
+        phone = phoneIdx !== -1 ? values[phoneIdx] || null : null;
+        accountId = accountIdIdx !== -1 ? (values[accountIdIdx] || null)?.toUpperCase() : null;
         const callStatus = callStatusIdx !== -1 ? mapCallStatus(values[callStatusIdx]) : "CHATTED";
         const result = resultIdx !== -1 ? mapResult(values[resultIdx]) : "NOT_CREATED";
         const remarks = remarksIdx !== -1 ? values[remarksIdx] || null : null;
@@ -217,6 +221,7 @@ export async function POST(req: NextRequest) {
         // Check for duplicate
         if (isDuplicate(name, phone, accountId)) {
           skipped++;
+          duplicates.push({ name, phone, accountId });
           errors.push(`Row ${i}: Duplicate (name/phone/accountId) skipped`);
           continue;
         }
@@ -246,6 +251,7 @@ export async function POST(req: NextRequest) {
         // If it's a unique constraint error, skip this row (duplicate accountId)
         if (err instanceof Error && err.message.includes("Unique constraint")) {
           skipped++;
+          duplicates.push({ name, phone, accountId });
           errors.push(`Row ${i}: Duplicate accountId skipped`);
         } else {
           errors.push(`Row ${i}: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -258,6 +264,7 @@ export async function POST(req: NextRequest) {
       skipped,
       total: lines.length - 1,
       errors: errors.slice(0, 10),
+      duplicates,
     });
   } catch (error) {
     console.error("Import error:", error);
