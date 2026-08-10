@@ -647,7 +647,7 @@ export default function OldCustomersPage() {
   };
 
   // Handle Account ID filter file upload
-  const handleAccountIdFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAccountIdFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, sheetName?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -661,7 +661,7 @@ export default function OldCustomersPage() {
       if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
         const workbook = XLSX.read(new Uint8Array(bytes), { type: "array" });
         const sheetNames = workbook.SheetNames;
-        const selectedSheet = sheetNames[0];
+        const selectedSheet = sheetName && sheetNames.includes(sheetName) ? sheetName : sheetNames[0];
         const worksheet = workbook.Sheets[selectedSheet];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
         lines = jsonData.map((row) => row.join(",")).filter((line) => line.trim());
@@ -1272,6 +1272,16 @@ export default function OldCustomersPage() {
                 className="w-full border rounded-lg p-2.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Sheet Name (for Excel)</label>
+              <input
+                type="text"
+                id="accountIdSheetName"
+                className="w-full border rounded-lg p-2.5 text-sm"
+                placeholder="Leave empty for first sheet"
+                defaultValue=""
+              />
+            </div>
             <p className="text-xs text-gray-500">
               Currently filtering: {accountIdFilter.length} account IDs
             </p>
@@ -1286,8 +1296,9 @@ export default function OldCustomersPage() {
             <Button
               onClick={() => {
                 const input = accountIdFileInputRef.current;
+                const sheetInput = document.getElementById("accountIdSheetName") as HTMLInputElement;
                 if (input?.files?.[0]) {
-                  handleAccountIdFileUpload({ target: input } as any);
+                  handleAccountIdFileUpload({ target: input } as any, sheetInput?.value);
                 } else {
                   alert("Please select a file");
                 }
