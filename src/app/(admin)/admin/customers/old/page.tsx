@@ -339,7 +339,7 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, transformDate, accountIdFilter]);
+  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage, transformDate, accountIdFilter]);
 
   // Ref to always have latest currentPage inside fetchData callback
   const currentPageRef = useRef(currentPage);
