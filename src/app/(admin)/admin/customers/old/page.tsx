@@ -301,6 +301,8 @@ export default function OldCustomersPage() {
         realCustomers = realCustomers.filter((c: OldCustomer) =>
           c.accountId && accountIdFilter.includes(c.accountId.toUpperCase())
         );
+        // Reset to page 1 when filter is applied (after filter changes fetchData is called)
+        setCurrentPage(1);
       }
 
       // Calculate action, result and type counts from the fetched customers
@@ -319,7 +321,11 @@ export default function OldCustomersPage() {
       setResultCounts(resultStats as Record<OldResult, number>);
       setTypeCounts(typeStats as Record<CustomerType, number>);
 
-      setTotalCustomers(custRes.total || 0);
+      // When accountIdFilter is applied, totalCustomers should reflect the filtered count
+      const displayTotal = accountIdFilter.length > 0
+        ? realCustomers.length
+        : (custRes.total || 0);
+      setTotalCustomers(displayTotal);
 
       // Paginate the real customers for display (client-side pagination)
       const startIdx = (currentPage - 1) * pageSize;
