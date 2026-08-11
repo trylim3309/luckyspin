@@ -301,8 +301,6 @@ export default function OldCustomersPage() {
         realCustomers = realCustomers.filter((c: OldCustomer) =>
           c.accountId && accountIdFilter.includes(c.accountId.toUpperCase())
         );
-        // Reset to page 1 when filter is applied (after filter changes fetchData is called)
-        setCurrentPage(1);
       }
 
       // Calculate action, result and type counts from the fetched customers
@@ -328,7 +326,7 @@ export default function OldCustomersPage() {
       setTotalCustomers(displayTotal);
 
       // Paginate the real customers for display (client-side pagination)
-      const startIdx = (currentPage - 1) * pageSize;
+      const startIdx = (currentPageRef.current - 1) * pageSize;
       const endIdx = startIdx + pageSize;
       let paginatedCustomers = realCustomers.slice(startIdx, endIdx);
 
@@ -341,7 +339,9 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage, transformDate, accountIdFilter]);
+    // Ref to always have latest currentPage inside fetchData callback
+  const currentPageRef = useRef(currentPage);
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
 
   useEffect(() => {
     fetchData();
@@ -361,7 +361,9 @@ export default function OldCustomersPage() {
 
   // Reset page when accountId filter changes
   useEffect(() => {
-    setCurrentPage(1);
+    if (accountIdFilter.length > 0) {
+      setCurrentPage(1);
+    }
   }, [accountIdFilter]);
 
   // Guard to prevent duplicate saves for same row
