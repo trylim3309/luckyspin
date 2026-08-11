@@ -339,7 +339,9 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-    // Ref to always have latest currentPage inside fetchData callback
+  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, transformDate, accountIdFilter]);
+
+  // Ref to always have latest currentPage inside fetchData callback
   const currentPageRef = useRef(currentPage);
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
 
