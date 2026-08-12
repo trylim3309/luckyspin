@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
+    if (admin.isActive === false) {
+      return NextResponse.json({ error: "Account is inactive. Please contact administrator." }, { status: 403 });
+    }
+
     const sessionToken = Buffer.from(
       JSON.stringify({
         id: admin.id,
