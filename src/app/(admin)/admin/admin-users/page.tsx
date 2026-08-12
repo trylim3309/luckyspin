@@ -45,6 +45,7 @@ interface AdminUser {
   role: Role;
   permissions: string[];
   teams: string[];
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -77,12 +78,14 @@ export default function AdminUsersPage() {
     role: Role;
     teams: string[];
     permissions?: string[];
+    isActive: boolean;
   }>({
     name: "",
     fullName: "",
     password: "",
     role: "AGENT",
     teams: ["KING88"],
+    isActive: true,
   });
 
   useEffect(() => {
@@ -127,7 +130,8 @@ export default function AdminUsersPage() {
       password: "",
       role: "AGENT",
       teams: ["KING88"],
-      permissions: rolePermissions["AGENT"] || []
+      permissions: rolePermissions["AGENT"] || [],
+      isActive: true,
     });
     setIsDialogOpen(true);
   };
@@ -140,7 +144,8 @@ export default function AdminUsersPage() {
       password: "",
       role: user.role,
       teams: user.teams && user.teams.length > 0 ? user.teams : ["KING88"],
-      permissions: user.permissions && user.permissions.length > 0 ? user.permissions : (rolePermissions[user.role] || [])
+      permissions: user.permissions && user.permissions.length > 0 ? user.permissions : (rolePermissions[user.role] || []),
+      isActive: user.isActive ?? true,
     });
     setIsDialogOpen(true);
   };
@@ -188,6 +193,7 @@ export default function AdminUsersPage() {
       if (formData.permissions && formData.permissions.length > 0) {
         body.permissions = formData.permissions;
       }
+      body.isActive = formData.isActive;
 
       const response = await fetch("/api/admin/admin-users", {
         method,
@@ -203,7 +209,7 @@ export default function AdminUsersPage() {
       }
 
       setIsDialogOpen(false);
-      setFormData({ name: "", fullName: "", password: "", role: "AGENT", teams: ["KING88"] });
+      setFormData({ name: "", fullName: "", password: "", role: "AGENT", teams: ["KING88"], isActive: true });
       fetchUsers();
     } catch (error) {
       console.error("Failed to save user:", error);
@@ -231,6 +237,14 @@ export default function AdminUsersPage() {
   };
 
   const columns = [
+    {
+      key: "no",
+      label: "No",
+      width: 40,
+      render: (user: AdminUser, index: number) => (
+        <span className="text-sm text-gray-500">{index + 1}</span>
+      ),
+    },
     {
       key: "name",
       label: "Username",
@@ -312,6 +326,21 @@ export default function AdminUsersPage() {
       key: "createdAt",
       label: "Created",
       render: (user: AdminUser) => new Date(user.createdAt).toLocaleDateString(),
+    },
+    {
+      key: "isActive",
+      label: "Status",
+      render: (user: AdminUser) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            user.isActive
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {user.isActive ? "Active" : "Inactive"}
+        </span>
+      ),
     },
     {
       key: "actions",
@@ -461,6 +490,29 @@ export default function AdminUsersPage() {
                 ))}
               </div>
               <p className="text-xs text-[#868D9E]">Role defaults are pre-selected. Uncheck any to customize for this user.</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={formData.isActive === true}
+                    onChange={() => setFormData({ ...formData, isActive: true })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium text-green-700">Active</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={formData.isActive === false}
+                    onChange={() => setFormData({ ...formData, isActive: false })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium text-red-700">Inactive</span>
+                </label>
+              </div>
             </div>
           </div>
           <DialogFooter>

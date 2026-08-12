@@ -186,7 +186,7 @@ export default function NewCustomersPage() {
       // Fetch agents for each of user's teams
       Promise.all(
         currentAgent.teams.map((t) =>
-          fetch(`/api/admin/admin-users?team=${t}`, { credentials: "include" }).then((r) => r.json())
+          fetch(`/api/admin/admin-users?team=${t}&isActive=true`, { credentials: "include" }).then((r) => r.json())
         )
       ).then((results) => {
         const allAgents: any[] = [];
@@ -202,7 +202,7 @@ export default function NewCustomersPage() {
         setAgents(allAgents);
       }).catch(console.error);
     } else {
-      const url = teamFilter !== "all" ? `/api/admin/admin-users?team=${teamFilter}` : "/api/admin/admin-users";
+      const url = teamFilter !== "all" ? `/api/admin/admin-users?team=${teamFilter}&isActive=true` : "/api/admin/admin-users?isActive=true";
       fetch(url, { credentials: "include" })
         .then((r) => r.json())
         .then((data) => {

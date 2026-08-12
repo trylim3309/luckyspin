@@ -20,6 +20,13 @@ export async function GET(req: NextRequest) {
       where.teams = { has: team };
     }
 
+    // Filter by isActive status
+    if (searchParams.get("isActive") === "true") {
+      where.isActive = true;
+    } else if (searchParams.get("isActive") === "false") {
+      where.isActive = false;
+    }
+
     const [users, total] = await Promise.all([
       prisma.adminUser.findMany({
         where,
@@ -30,7 +37,13 @@ export async function GET(req: NextRequest) {
       prisma.adminUser.count({ where }),
     ]);
 
-    return NextResponse.json({ users, total, limit, offset });
+    // Ensure isActive defaults to true for users without this field (existing users)
+    const usersWithDefaults = users.map(u => ({
+      ...u,
+      isActive: u.isActive ?? true,
+    }));
+
+    return NextResponse.json({ users: usersWithDefaults, total, limit, offset });
   } catch (error) {
     console.error("Admin users GET error:", error);
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
@@ -71,6 +84,7 @@ export async function POST(req: NextRequest) {
         role: body.role || "ADMIN",
         permissions: body.permissions || [],
         teams: body.teams || ["KING88"],
+        isActive: body.isActive !== undefined ? body.isActive : true,
       },
     });
 
@@ -82,6 +96,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         permissions: user.permissions,
         teams: user.teams,
+        isActive: user.isActive,
         createdAt: user.createdAt,
       },
     });
@@ -95,6 +110,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log("PUT body:", JSON.stringify(body));
 
     if (!body.id) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
@@ -104,6 +120,7 @@ export async function PUT(req: NextRequest) {
 
     if (body.name) {
       const currentUser = await prisma.adminUser.findUnique({ where: { id: body.id } });
+      console.log("currentUser from DB:", currentUser?.id, "username:", currentUser?.username);
       const newUsername = body.name.toLowerCase().replace(/\s+/g, "");
 
       // Only check for duplicates and update username if name actually changed
@@ -133,15 +150,20 @@ export async function PUT(req: NextRequest) {
     if (body.role) updateData.role = body.role;
     if (body.permissions) updateData.permissions = body.permissions;
     if (body.teams) updateData.teams = body.teams;
+    if (typeof body.isActive === "boolean") updateData.isActive = body.isActive;
+    console.log("updateData before password:", JSON.stringify(updateData));
 
     if (body.password) {
       updateData.passwordHash = await bcrypt.hash(body.password, 12);
     }
 
+    console.log("Attempting prisma update with data:", JSON.stringify(updateData));
     const user = await prisma.adminUser.update({
       where: { id: body.id },
       data: updateData,
     });
+
+    console.log("PUT success, updated user:", user.id);
 
     return NextResponse.json({
       user: {
@@ -151,12 +173,14 @@ export async function PUT(req: NextRequest) {
         role: user.role,
         permissions: user.permissions,
         teams: user.teams,
+        isActive: user.isActive,
         createdAt: user.createdAt,
       },
     });
   } catch (error) {
     console.error("Admin users PUT error:", error);
-    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to update user: " + message }, { status: 500 });
   }
 }
 

@@ -157,7 +157,7 @@ export function DataTable<T extends { id: string }>({
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        minWidth: col.minWidth || "80px",
+                        minWidth: col.minWidth || (col.width ? undefined : "80px"),
                         width: col.width,
                       }}
                     >

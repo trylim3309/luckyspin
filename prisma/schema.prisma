@@ -17,6 +17,7 @@ model AdminUser {
   role         Role     @default(ADMIN)
   permissions  String[] @default([])
   teams        Team[]   @default([KING88])
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   customers    Customer[]

@@ -254,8 +254,8 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Customer ID required" }, { status: 400 });
     }
 
-    // Agents can only update their own customers
-    if (session.role === "AGENT" || session.role === "TEAM_LEADER" || session.role === "MANAGER") {
+    // Agents and Team Leaders can only update their own customers
+    if (session.role === "AGENT" || session.role === "TEAM_LEADER") {
       const customer = await prisma.customer.findUnique({ where: { id: body.id } });
       if (!customer || customer.agentId !== session.id) {
         return NextResponse.json({ error: "Cannot edit another agent's customer" }, { status: 403 });
@@ -301,8 +301,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Customer ID required" }, { status: 400 });
     }
 
-    // Agents can only delete their own customers
-    if (session.role === "AGENT" || session.role === "TEAM_LEADER" || session.role === "MANAGER") {
+    // Agents and Team Leaders can only delete their own customers
+    if (session.role === "AGENT" || session.role === "TEAM_LEADER") {
       const customer = await prisma.customer.findUnique({ where: { id } });
       if (!customer || customer.agentId !== session.id) {
         return NextResponse.json({ error: "Cannot delete another agent's customer" }, { status: 403 });
