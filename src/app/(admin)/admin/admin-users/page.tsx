@@ -240,7 +240,7 @@ export default function AdminUsersPage() {
     {
       key: "no",
       label: "No",
-      width: 40,
+      width: "40",
       render: (user: AdminUser, index: number) => (
         <span className="text-sm text-gray-500">{index + 1}</span>
       ),
