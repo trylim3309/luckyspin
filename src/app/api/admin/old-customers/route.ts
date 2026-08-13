@@ -128,9 +128,7 @@ export async function GET(req: NextRequest) {
     // Apply action filter for all date modes (including "today")
     const actionParam = searchParams.get("action");
     const followUpNotToday = searchParams.get("followUpNotToday") === "true";
-    if (actionParam && actionParam !== "all") {
-      where.action = actionParam as any;
-    } else if (followUpNotToday && dateFilter === "today") {
+    if (followUpNotToday && dateFilter === "today") {
       // For "__none__" filter on today tab, return customers where followUpDate != today
       // This includes: null, past dates, and future dates (matching client transformation)
       const today = new Date().toISOString().split("T")[0];
@@ -141,8 +139,11 @@ export async function GET(req: NextRequest) {
         { followUpDate: null },
         { followUpDate: { not: { gte: todayStart, lte: todayEnd } } },
       ];
-    } else if (actionParam === "") {
+    } else if (actionParam && actionParam !== "all" && actionParam !== "") {
+      where.action = actionParam as any;
+    } else if (actionParam === "" && !followUpNotToday) {
       // Filter for empty action (cast to any to bypass type check since DB may have empty strings)
+      // Only apply when NOT using followUpNotToday (which already handles "__none__" on today)
       (where as any).action = "";
     }
 
