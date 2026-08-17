@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spreadsheet, Column } from "@/components/admin/Spreadsheet";
-import { Plus, Users, TrendingUp, Upload, Calendar, CheckCircle } from "lucide-react";
+import { Plus, Users, TrendingUp, Upload, Calendar, CheckCircle, Download } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -725,6 +725,47 @@ export default function OldCustomersPage() {
       setIsAccountIdUploading(false);
       if (accountIdFileInputRef.current) accountIdFileInputRef.current.value = "";
     }
+  };
+
+  // Export to CSV
+  const handleExport = () => {
+    const realCustomers = customers.filter(c => !c.id.startsWith("temp-"));
+    if (realCustomers.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
+    const headers = ["Account ID", "Name", "Phone", "Call/Chat", "Action", "Result", "Telegram", "Type", "Priority", "Last Play", "Follow Up", "Remarks", "Team", "Created"];
+    const rows = realCustomers.map(c => [
+      c.accountId || "",
+      c.name,
+      c.phone || "",
+      CALL_LABELS[c.callStatus] || c.callStatus,
+      ACTION_LABELS[c.action] || c.action || "—",
+      RESULT_LABELS[c.result] || c.result,
+      (() => {
+        const contact = telegramContacts.find(t => t.id === c.telegramId);
+        return contact?.name || contact?.username || c.telegramId || "";
+      })(),
+      TYPE_LABELS[c.type] || c.type,
+      PRIORITY_LABELS[c.priority] || c.priority || "—",
+      c.lastPlayDate ? new Date(c.lastPlayDate).toLocaleDateString() : "",
+      c.followUpDate ? new Date(c.followUpDate).toLocaleDateString() : "",
+      c.remarks || "",
+      c.team,
+      c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `old_customers_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
   };
 
   // Spreadsheet columns
@@ -1578,6 +1619,7 @@ export default function OldCustomersPage() {
           onAdd={handleAdd}
           onAddEmpty={handleAddEmpty}
           onDelete={handleDelete}
+          onExport={handleExport}
           isLoading={isLoading}
           emptyMessage="No customers found!"
         />
