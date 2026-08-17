@@ -723,8 +723,8 @@ export default function NewCustomersPage() {
       c.accountId || "",
       c.name,
       c.phone || "",
-      c.callStatus,
-      c.result,
+      CALL_LABELS[c.callStatus] || c.callStatus,
+      RESULT_LABELS[c.result] || c.result,
       (() => {
         const contact = telegramContacts.find(t => t.id === c.telegramId);
         return contact?.name || contact?.username || c.telegramId || "";
