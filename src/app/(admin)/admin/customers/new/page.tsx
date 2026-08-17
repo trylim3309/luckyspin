@@ -172,7 +172,7 @@ export default function NewCustomersPage() {
           // Agents (AGENT role) can only see their own customers
           setIsAgent(agentRole === "AGENT");
           // Admins and Team Leaders can filter by agent
-          setIsAdmin(["ADMIN", "SUPER_ADMIN", "TEAM_LEADER", "MANAGER"].includes(agentRole));
+          setIsAdmin(["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(agentRole));
         }
       })
       .catch(console.error);
