@@ -276,10 +276,17 @@ export async function PUT(req: NextRequest) {
       updateData.telegramId = null;
     }
 
+    // Admin-only: allow agentId reassignment
+    if (["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(session.role)) {
+      if (body.agentId !== undefined) {
+        updateData.agentId = body.agentId;
+      }
+    }
+
     const updatedCustomer = await prisma.customer.update({
       where: { id: body.id },
       data: updateData,
-      include: { agent: { select: { id: true, name: true } } },
+      include: { agent: { select: { id: true, name: true, fullName: true } } },
     });
 
     return NextResponse.json({ customer: updatedCustomer });

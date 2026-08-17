@@ -518,6 +518,15 @@ export default function NewCustomersPage() {
       const data = await res.json();
       const updated = data.customer;
 
+      // Update agent relation in state after agent reassignment
+      if (key === "agentId") {
+        setCustomers((prev) => {
+          const newRows = [...prev];
+          newRows[rowIndex] = updated;
+          return newRows;
+        });
+      }
+
       // Check if customer falls within each time period
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -888,13 +897,28 @@ export default function NewCustomersPage() {
     {
       key: "agentId",
       label: "Agent",
-      width: 120,
-      editable: false,
+      width: 140,
+      editable: isAdmin,
       render: (value, row: any) => {
         const agent = row?.agent;
         const displayName = agent?.fullName || agent?.name || "-";
         return <span className="text-sm">{displayName}</span>;
       },
+      renderEdit: (value, onChange) => (
+        <select
+          value={value as string}
+          onChange={(e) => { onChange(e.target.value); }}
+          onBlur={() => {}} // Prevent double-save
+          className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
+          autoFocus
+        >
+          {agents.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.fullName || a.name}
+            </option>
+          ))}
+        </select>
+      ),
     },
     {
       key: "createdAt",
