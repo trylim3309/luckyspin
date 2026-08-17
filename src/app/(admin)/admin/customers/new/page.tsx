@@ -725,7 +725,10 @@ export default function NewCustomersPage() {
       c.phone || "",
       c.callStatus,
       c.result,
-      c.telegramName || c.telegramId || "",
+      (() => {
+        const contact = telegramContacts.find(t => t.id === c.telegramId);
+        return contact?.name || contact?.username || c.telegramId || "";
+      })(),
       c.remarks || "",
       c.team,
       c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "",
