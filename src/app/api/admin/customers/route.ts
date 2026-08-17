@@ -98,14 +98,15 @@ export async function GET(req: NextRequest) {
       dateFrom = dayBeforeYesterday17;
       dateTo = yesterday17;
     } else if (dateFilter === "thisWeek") {
-      // This week in Cambodia = 00:00 on 1st to now (Cambodia time)
-      // 00:00 Cambodia = 17:00 UTC the day before
+      // This week in Cambodia = start of current week (Monday 00:00 ICT = Sunday 17:00 UTC)
       let cambodiaDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
       const cmYear = cambodiaDate.getUTCFullYear();
-      const cmMonth = cambodiaDate.getUTCMonth(); // 0-indexed
-      // 00:00 on 1st of month in Cambodia = 17:00 UTC the day before
-      const monthStartUTC = Date.UTC(cmYear, cmMonth, 1, 17, 0, 0, 0) - 24 * 60 * 60 * 1000;
-      dateFrom = new Date(monthStartUTC);
+      const cmMonth = cambodiaDate.getUTCMonth();
+      const cmDay = cambodiaDate.getUTCDate();
+      const cmDayOfWeek = cambodiaDate.getUTCDay(); // 0 = Sunday
+      // Go back to Monday (if Sunday, go back 6 days; otherwise go back cmDayOfWeek-1 days)
+      const daysToMonday = cmDayOfWeek === 0 ? 6 : cmDayOfWeek - 1;
+      dateFrom = new Date(Date.UTC(cmYear, cmMonth, cmDay - daysToMonday, 17, 0, 0, 0));
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
       // This month in Cambodia = 00:00 on 1st to now (Cambodia time)
