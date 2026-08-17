@@ -104,8 +104,8 @@ export async function GET(req: NextRequest) {
       const cmMonth = cambodiaDate.getUTCMonth();
       const cmDay = cambodiaDate.getUTCDate();
       const cmDayOfWeek = cambodiaDate.getUTCDay(); // 0 = Sunday
-      // Go back to Monday (if Sunday, go back 6 days; otherwise go back cmDayOfWeek-1 days)
-      const daysToMonday = cmDayOfWeek === 0 ? 6 : cmDayOfWeek - 1;
+      // Go back to Monday (if Sunday, go back 6 days; otherwise go back cmDayOfWeek days to get to previous Sunday 17:00 UTC)
+      const daysToMonday = cmDayOfWeek === 0 ? 6 : cmDayOfWeek;
       dateFrom = new Date(Date.UTC(cmYear, cmMonth, cmDay - daysToMonday, 17, 0, 0, 0));
       dateTo = now;
     } else if (dateFilter === "thisMonth") {
