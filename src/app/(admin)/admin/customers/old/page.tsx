@@ -126,10 +126,12 @@ const DATE_TABS: { key: DateFilter; label: string }[] = [
 export default function OldCustomersPage() {
   const { t } = useLanguage();
 
-  // Data
+  // Data — realCustomers holds untransformed data for edits/API calls
+  // customers holds transformed display data (today-tab result override), display-only
+  const [realCustomers, setRealCustomers] = useState<OldCustomer[]>([]);
   const [customers, setCustomers] = useState<OldCustomer[]>([]);
-  const customersRef = useRef<OldCustomer[]>(customers);
-  useEffect(() => { customersRef.current = customers; }, [customers]);
+  const customersRef = useRef<OldCustomer[]>(realCustomers);
+  useEffect(() => { customersRef.current = realCustomers; }, [realCustomers]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -265,51 +267,43 @@ export default function OldCustomersPage() {
       const custRes = await fetch(`/api/admin/old-customers?${params}`, { credentials: "include" }).then((r) => r.json());
       console.log("[fetchData] Got:", custRes.customers?.length, "total:", custRes.total, "loadedAt:", custRes.loadedAt);
 
-      let realCustomers = custRes.customers || [];
+      // realCustomers = untransformed data from API (used for edits)
+      const fetchedCustomers: OldCustomer[] = custRes.customers || [];
 
-      // For "today" filter: reset action and result to defaults for follow-up
-      // Skip transformation only when a SPECIFIC action filter is active (not "__none__")
-      // Also skip if a specific result filter is active (keep actual results for filtering)
+      // Apply account ID filter to untransformed data (for display and stats)
+      let filteredCustomers = accountIdFilter.length > 0
+        ? fetchedCustomers.filter((c: OldCustomer) =>
+            c.accountId && accountIdFilter.includes(c.accountId.toUpperCase())
+          )
+        : fetchedCustomers;
+
+      // Compute transformed display data from filtered (untransformed) customers
       const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
       const isSpecificResultFilter = resultFilter && resultFilter !== "all";
-      // Use scheduled time (transformDate) or default 03:00
-      const scheduledTime = transformDate || "03:00";
-      // Use current date for followUp comparison
-      // This ensures consistent transformation based on followUpDate
-      const todayStr = new Date().toISOString().split("T")[0]; // Current date YYYY-MM-DD
+      const todayStr = new Date().toISOString().split("T")[0];
 
+      let displayCustomers = filteredCustomers;
       if (dateFilter === "today" && !isSpecificActionFilter && !isSpecificResultFilter) {
-        // For "today" tab: show all as NOT_PLAYED_YET for follow-up
-        realCustomers = realCustomers.map((c: OldCustomer) => {
+        displayCustomers = filteredCustomers.map((c: OldCustomer) => {
           const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
-          // If followUpDate is today, keep existing action
           if (followUp === todayStr) {
             return { ...c, result: "NOT_PLAYED_YET" as OldResult };
           }
-          // Otherwise reset action to empty and result to NOT_PLAYED_YET
           return { ...c, action: "" as Action, result: "NOT_PLAYED_YET" as OldResult };
         });
       }
 
       // Show scheduled time for "today" follow-up display
+      const scheduledTime = transformDate || "03:00";
       if (dateFilter === "today") {
         setLastRefreshed(scheduledTime);
       }
 
-      // Apply account ID filter (client-side, only for today tab)
-      if (accountIdFilter.length > 0) {
-        realCustomers = realCustomers.filter((c: OldCustomer) =>
-          c.accountId && accountIdFilter.includes(c.accountId.toUpperCase())
-        );
-      }
-
-      // Calculate action, result and type counts from the fetched customers
-      // This matches what is displayed in the table
+      // Calculate stats from display data (matches what user sees in table)
       const actionStats: Record<string, number> = {};
       const resultStats: Record<string, number> = {};
       const typeStats: Record<string, number> = {};
-      realCustomers.forEach((c: OldCustomer) => {
-        // Map empty action to __none__ for stats display
+      displayCustomers.forEach((c: OldCustomer) => {
         const actionKey = c.action === "" ? "__none__" : c.action;
         actionStats[actionKey] = (actionStats[actionKey] || 0) + 1;
         resultStats[c.result] = (resultStats[c.result] || 0) + 1;
@@ -319,21 +313,18 @@ export default function OldCustomersPage() {
       setResultCounts(resultStats as Record<OldResult, number>);
       setTypeCounts(typeStats as Record<CustomerType, number>);
 
-      // When accountIdFilter is applied, totalCustomers should reflect the filtered count
-      const displayTotal = accountIdFilter.length > 0
-        ? realCustomers.length
-        : (custRes.total || 0);
-      setTotalCustomers(displayTotal);
-
-      // Paginate the real customers for display (client-side pagination)
+      // Store untransformed filtered data for edits (paginated, with temp rows)
       const startIdx = (currentPageRef.current - 1) * pageSize;
       const endIdx = startIdx + pageSize;
-      let paginatedCustomers = realCustomers.slice(startIdx, endIdx);
+      const paginatedReal = [...tempRowsRef.current, ...filteredCustomers.slice(startIdx, endIdx)];
+      setRealCustomers(paginatedReal);
 
-      // Re-add any pending temp rows to the displayed data
-      paginatedCustomers = [...tempRowsRef.current, ...paginatedCustomers];
+      // Store display-transformed data for rendering
+      setCustomers(displayCustomers);
 
-      setCustomers(paginatedCustomers);
+      // Set total from filtered (untransformed) count
+      const displayTotal = accountIdFilter.length > 0 ? filteredCustomers.length : (custRes.total || 0);
+      setTotalCustomers(displayTotal);
     } catch (e) {
       console.error(e);
     } finally {
@@ -387,9 +378,9 @@ export default function OldCustomersPage() {
 
     const isTempRow = customer.id.startsWith("temp-");
 
-    // Optimistic update
+    // Optimistic update — update both realCustomers (source of truth) and display customers
     const optimisticCustomer = { ...customer, [key]: value };
-    setCustomers((prev) => {
+    setRealCustomers((prev) => {
       const newRows = [...prev];
       newRows[rowIndex] = optimisticCustomer;
       return newRows;
@@ -441,7 +432,7 @@ export default function OldCustomersPage() {
         const text = await response.text();
         console.error(`${method} failed (${response.status}):`, text);
         // Revert optimistic update
-        setCustomers((prev) => {
+        setRealCustomers((prev) => {
           const newRows = [...prev];
           newRows[rowIndex] = customer;
           return newRows;
@@ -454,36 +445,46 @@ export default function OldCustomersPage() {
 
       const result = await response.json();
       if (result.customer) {
-        // For temp rows, update customersRef so subsequent edits use the real id
-        if (isTempRow) {
-          customersRef.current[rowIndex] = result.customer;
-          pendingCreates.current.delete(customer.id);
-          tempRowsRef.current = tempRowsRef.current.filter(r => r.id !== customer.id);
-        }
-        setCustomers((prev) => {
-          const newRows = [...prev];
-          newRows[rowIndex] = result.customer;
-
-          // Recalculate stats from updated data
+        // Update realCustomers (untransformed data for edits)
+        setRealCustomers((prev) => {
+          const newReal = [...prev];
+          newReal[rowIndex] = result.customer;
+          if (isTempRow) {
+            pendingCreates.current.delete(customer.id);
+            tempRowsRef.current = tempRowsRef.current.filter(r => r.id !== customer.id);
+          }
+          // Recompute display data and stats from updated realCustomers
+          const todayStr = new Date().toISOString().split("T")[0];
+          const newDisplay = newReal.map((c: OldCustomer) => {
+            const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
+            if (dateFilter === "today" && followUp === todayStr) {
+              return { ...c, result: "NOT_PLAYED_YET" as OldResult };
+            }
+            if (dateFilter === "today") {
+              return { ...c, action: "" as Action, result: "NOT_PLAYED_YET" as OldResult };
+            }
+            return c;
+          });
           const actionStats: Record<string, number> = {};
           const resultStats: Record<string, number> = {};
           const typeStats: Record<string, number> = {};
-          newRows.forEach((c: OldCustomer) => {
-            actionStats[c.action] = (actionStats[c.action] || 0) + 1;
+          newDisplay.forEach((c: OldCustomer) => {
+            const actionKey = c.action === "" ? "__none__" : c.action;
+            actionStats[actionKey] = (actionStats[actionKey] || 0) + 1;
             resultStats[c.result] = (resultStats[c.result] || 0) + 1;
             typeStats[c.type] = (typeStats[c.type] || 0) + 1;
           });
           setActionCounts(actionStats as Record<Action, number>);
           setResultCounts(resultStats as Record<OldResult, number>);
           setTypeCounts(typeStats as Record<CustomerType, number>);
-
-          return newRows;
+          setCustomers(newDisplay);
+          return newReal;
         });
       }
     } catch (err) {
       console.error(`${method} exception:`, err);
       // Revert optimistic update
-      setCustomers((prev) => {
+      setRealCustomers((prev) => {
         const newRows = [...prev];
         newRows[rowIndex] = customer;
         return newRows;
@@ -515,15 +516,12 @@ export default function OldCustomersPage() {
       if (res.ok || res.status === 201) {
         const result = await res.json();
         if (result.customer) {
-          // Add the new customer to the local state optimistically
-          // Wrap with temp ID so it can still be edited
+          // Add the new customer to realCustomers optimistically
           const newTempRow: OldCustomer = {
             ...result.customer,
             id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           };
-          setCustomers((prev) => [newTempRow, ...prev]);
-          // Update the ref to match
-          customersRef.current = [newTempRow, ...customersRef.current];
+          setRealCustomers((prev) => [newTempRow, ...prev]);
         }
       }
     } finally {
@@ -553,9 +551,8 @@ export default function OldCustomersPage() {
       createdAt: new Date().toISOString(),
     };
     tempRowsRef.current = [...tempRowsRef.current, tempRow];
-    // Immediately update customersRef so edits work right away
-    customersRef.current = [tempRow, ...customersRef.current];
-    setCustomers((prev) => [tempRow, ...prev]);
+    // Add to realCustomers so edits work right away
+    setRealCustomers((prev) => [tempRow, ...prev]);
   };
 
   // Auto Add from New Customers
@@ -592,10 +589,10 @@ export default function OldCustomersPage() {
 
     if (!confirm(`Delete customer "${customer.name || customer.accountId}"?`)) return;
 
-    // For temp rows, just remove locally without API call
+    // For temp rows, remove from both tempRowsRef and realCustomers (both have temp rows prepended)
     if (customer.id.startsWith("temp-")) {
       tempRowsRef.current = tempRowsRef.current.filter(r => r.id !== customer.id);
-      setCustomers((prev) => prev.filter((_, i) => i !== rowIndex));
+      setRealCustomers((prev) => prev.filter((_, i) => i !== rowIndex));
       return;
     }
 
