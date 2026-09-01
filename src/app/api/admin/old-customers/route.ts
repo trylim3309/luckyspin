@@ -302,6 +302,13 @@ export async function PUT(req: NextRequest) {
       updateData.telegramId = null;
     }
 
+    // Auto-update priority based on lastPlayDate
+    if (body.lastPlayDate) {
+      const lpDate = new Date(body.lastPlayDate);
+      const daysSince = Math.floor((Date.now() - lpDate.getTime()) / (1000 * 60 * 60 * 24));
+      updateData.priority = daysSince >= 15 ? "LAPSED" : "FREQUENT";
+    }
+
     const updatedCustomer = await prisma.oldCustomer.update({
       where: { id: body.id },
       data: updateData,

@@ -419,6 +419,12 @@ export default function OldCustomersPage() {
     if (key === "result" && (value === "REGULAR_PLAYER" || value === "RETURNED_PLAYER")) {
       postData.lastPlayDate = new Date().toISOString();
     }
+    // Auto-update priority based on days since lastPlayDate
+    if (key === "lastPlayDate" || (key === "result" && (value === "REGULAR_PLAYER" || value === "RETURNED_PLAYER"))) {
+      const lpDate = key === "lastPlayDate" ? new Date(value) : new Date();
+      const daysSince = Math.floor((Date.now() - lpDate.getTime()) / (1000 * 60 * 60 * 24));
+      postData.priority = daysSince >= 15 ? "LAPSED" : "FREQUENT";
+    }
 
     try {
       const response = await fetch("/api/admin/old-customers", {
