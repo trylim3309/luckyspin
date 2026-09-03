@@ -130,8 +130,13 @@ export default function OldCustomersPage() {
   // customers holds transformed display data (today-tab result override), display-only
   const [realCustomers, setRealCustomers] = useState<OldCustomer[]>([]);
   const [customers, setCustomers] = useState<OldCustomer[]>([]);
+  const [paginatedDisplayCustomers, setPaginatedDisplayCustomers] = useState<OldCustomer[]>([]);
   const customersRef = useRef<OldCustomer[]>(realCustomers);
+  const paginatedDisplayRef = useRef<OldCustomer[]>(paginatedDisplayCustomers);
+  // Holds all filtered data for pagination slicing (avoids re-fetching on page change)
+  const allFilteredRef = useRef<OldCustomer[]>([]);
   useEffect(() => { customersRef.current = realCustomers; }, [realCustomers]);
+  useEffect(() => { paginatedDisplayRef.current = paginatedDisplayCustomers; }, [paginatedDisplayCustomers]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -313,14 +318,21 @@ export default function OldCustomersPage() {
       setResultCounts(resultStats as Record<OldResult, number>);
       setTypeCounts(typeStats as Record<CustomerType, number>);
 
+      // Store all filtered data for pagination slicing
+      allFilteredRef.current = filteredCustomers;
+
       // Store untransformed filtered data for edits (paginated, with temp rows)
       const startIdx = (currentPageRef.current - 1) * pageSize;
       const endIdx = startIdx + pageSize;
       const paginatedReal = [...tempRowsRef.current, ...filteredCustomers.slice(startIdx, endIdx)];
       setRealCustomers(paginatedReal);
 
-      // Store display-transformed data for rendering
+      // Store display-transformed data for rendering (all data for stats)
       setCustomers(displayCustomers);
+
+      // Compute paginated display data for spreadsheet (only current page + temp rows)
+      const paginatedDisplay = [...tempRowsRef.current, ...displayCustomers.slice(startIdx, endIdx)];
+      setPaginatedDisplayCustomers(paginatedDisplay);
 
       // Set total from filtered (untransformed) count
       const displayTotal = accountIdFilter.length > 0 ? filteredCustomers.length : (custRes.total || 0);
@@ -330,19 +342,44 @@ export default function OldCustomersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, currentPage, transformDate, accountIdFilter]);
+  }, [dateFilter, telegramFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, teamFilter, currentAgent?.id, createEmptyRow, isAdmin, transformDate, accountIdFilter]);
 
   // Ref to always have latest currentPage inside fetchData callback
   const currentPageRef = useRef(currentPage);
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
 
+  // Update displayed rows when page changes (no API call needed)
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (isLoading) return;
+    const allFiltered = allFilteredRef.current;
+    if (allFiltered.length === 0) return;
+    const startIdx = (currentPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const tempRows = tempRowsRef.current;
+    // Update realCustomers paginated slice
+    setRealCustomers([...tempRows, ...allFiltered.slice(startIdx, endIdx)]);
+    // Update paginatedDisplayCustomers slice with transformation
+    const todayStr = new Date().toISOString().split("T")[0];
+    const isSpecificActionFilter = actionFilter && actionFilter !== "all" && actionFilter !== "__none__";
+    const isSpecificResultFilter = resultFilter && resultFilter !== "all";
+    const displaySlice = allFiltered.slice(startIdx, endIdx).map((c: OldCustomer) => {
+      if (dateFilter === "today" && !isSpecificActionFilter && !isSpecificResultFilter) {
+        const followUp = c.followUpDate ? new Date(c.followUpDate).toISOString().split("T")[0] : null;
+        if (followUp === todayStr) {
+          return { ...c, result: "NOT_PLAYED_YET" as OldResult };
+        }
+        return { ...c, action: "" as Action, result: "NOT_PLAYED_YET" as OldResult };
+      }
+      return c;
+    });
+    setPaginatedDisplayCustomers([...tempRows, ...displaySlice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and fetch when filters change
   useEffect(() => {
     setCurrentPage(1);
+    fetchData();
   }, [dateFilter, teamFilter, search, callStatusFilter, actionFilter, resultFilter, typeFilter, priorityFilter, remarksFilter, telegramFilter]);
 
   // Clear accountId filter when date changes away from today
@@ -352,10 +389,11 @@ export default function OldCustomersPage() {
     }
   }, [dateFilter]);
 
-  // Reset page when accountId filter changes
+  // Reset page and fetch when accountId filter changes
   useEffect(() => {
     if (accountIdFilter.length > 0) {
       setCurrentPage(1);
+      fetchData();
     }
   }, [accountIdFilter]);
 
@@ -484,6 +522,12 @@ export default function OldCustomersPage() {
           setResultCounts(resultStats as Record<OldResult, number>);
           setTypeCounts(typeStats as Record<CustomerType, number>);
           setCustomers(newDisplay);
+          // Also update paginatedDisplayCustomers to reflect the change immediately
+          setPaginatedDisplayCustomers((prev) => {
+            const newPaginated = [...prev];
+            newPaginated[rowIndex] = newDisplay[rowIndex] || prev[rowIndex];
+            return newPaginated;
+          });
           return newReal;
         });
       }
@@ -1616,7 +1660,7 @@ export default function OldCustomersPage() {
       {/* Spreadsheet */}
       <div className="bg-white rounded-lg border shadow-sm p-4">
         <Spreadsheet
-          data={customers}
+          data={paginatedDisplayCustomers}
           columns={columns}
           onUpdate={handleUpdate}
           onAdd={handleAdd}
