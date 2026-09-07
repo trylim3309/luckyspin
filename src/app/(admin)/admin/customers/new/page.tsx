@@ -29,10 +29,11 @@ interface Customer {
   callStatus: CallStatus;
   result: ResultStatus;
   telegramId: string | null;
-  telegramName?: string | null;
+  telegramContact?: { id: string; name: string; username: string | null; phone: string | null } | null;
   remarks: string | null;
   agentId: string;
   agentName?: string;
+  agent?: { id: string; name: string; fullName: string | null };
   team: Team;
   createdAt: string;
   updatedAt: string;
@@ -831,8 +832,8 @@ export default function NewCustomersPage() {
       label: "Telegram",
       width: 120,
       editable: true,
-      render: (value) => {
-        const contact = telegramContacts.find(c => c.id === value);
+      render: (value, row: any) => {
+        const contact = row?.telegramContact;
         return (
           <span className="text-sm">
             {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : value || "-"}

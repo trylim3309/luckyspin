@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
-        include: { agent: { select: { id: true, name: true, fullName: true } } },
+        include: { agent: { select: { id: true, name: true, fullName: true } }, telegramContact: { select: { id: true, name: true, username: true, phone: true } } },
         orderBy: { createdAt: "desc" },
         take: limit,
         skip: offset,

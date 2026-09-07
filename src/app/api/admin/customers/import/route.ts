@@ -130,12 +130,16 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
     const duplicates: { name: string; phone?: string | null; accountId?: string | null }[] = [];
 
-    // Get agent's team for default
+    // Get agent's team info (for agentId resolution)
     const agentId = formData.get("agentId") as string || session.id;
     const agent = await prisma.adminUser.findUnique({
       where: { id: agentId },
       select: { teams: true },
     });
+
+    // Use team from formData (selected by user in import modal), fallback to agent's first team, then to KING88
+    const teamFromForm = formData.get("team") as string | null;
+    const teamToAssign = teamFromForm || agent?.teams?.[0] || "KING88";
 
     // Get createdAt date from formData (defaults to now)
     const createdAtParam = formData.get("createdAt") as string | null;
@@ -226,7 +230,7 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        console.log(`Creating: name="${name}", phone="${phone}", accountId="${accountId}", callStatus="${callStatus}", result="${result}", telegramId="${telegramId}", remarks="${remarks}"`);
+        console.log(`Creating: name="${name}", phone="${phone}", accountId="${accountId}", callStatus="${callStatus}", result="${result}", team="${teamToAssign}", telegramId="${telegramId}", remarks="${remarks}"`);
 
         await prisma.customer.create({
           data: {
@@ -236,7 +240,7 @@ export async function POST(req: NextRequest) {
             callStatus: callStatus as any,
             result: result as any,
             agentId: agentId,
-            team: agent?.teams?.[0] || "KING88",
+            team: teamToAssign as any,
             createdAt: createdAt,
             remarks: remarks,
             telegramId: telegramId,
