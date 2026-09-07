@@ -842,7 +842,7 @@ export default function NewCustomersPage() {
       },
       renderEdit: (value, onChange, onSave) => (
         <select
-          value={value || ""}
+          value={(value as string) || ""}
           onChange={(e) => { onChange(e.target.value || null); }}
           onBlur={() => {}} // Prevent double-save: onChange already saves
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
