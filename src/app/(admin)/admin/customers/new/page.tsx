@@ -763,7 +763,7 @@ export default function NewCustomersPage() {
       label: "Account ID",
       width: 100,
       editable: true,
-      render: (value) => <span className="uppercase">{value || "—"}</span>,
+      render: (value) => <span className="uppercase">{(value as string) || "—"}</span>,
       renderEdit: (value, onChange, onSave) => (
         <input
           type="text"
@@ -836,7 +836,7 @@ export default function NewCustomersPage() {
         const contact = row?.telegramContact;
         return (
           <span className="text-sm">
-            {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : value || "-"}
+            {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : (value as string) || "-"}
           </span>
         );
       },
@@ -925,7 +925,7 @@ export default function NewCustomersPage() {
       key: "createdAt",
       label: "Created",
       width: 100,
-      render: (value) => <span className="text-sm text-gray-500">{value ? new Date(value).toLocaleDateString() : "-"}</span>,
+      render: (value) => <span className="text-sm text-gray-500">{value ? new Date(value as string).toLocaleDateString() : "-"}</span>,
     },
   ];
 
