@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const [customers, total] = await Promise.all([
+    const [customers, total, telegramContacts] = await Promise.all([
       prisma.oldCustomer.findMany({
         where,
         orderBy: { accountId: "desc" },
@@ -175,12 +175,25 @@ export async function GET(req: NextRequest) {
         skip: offset,
       }),
       prisma.oldCustomer.count({ where }),
+      // Fetch telegram contacts to resolve telegram names
+      prisma.telegramContact.findMany({
+        select: { id: true, name: true, username: true, phone: true },
+      }),
     ]);
+
+    // Build a map for fast telegram lookup
+    const telegramMap = new Map(telegramContacts.map((c) => [c.id, c]));
+
+    // Attach telegramContact to each customer
+    const customersWithTelegram = customers.map((c) => ({
+      ...c,
+      telegramContact: c.telegramId ? (telegramMap.get(c.telegramId) ?? null) : null,
+    }));
 
     // Capture time RIGHT after database query for accurate follow-up load time
     const loadedAt = new Date();
 
-    return NextResponse.json({ customers, total, page, limit, loadedAt: loadedAt.toISOString() });
+    return NextResponse.json({ customers: customersWithTelegram, total, page, limit, loadedAt: loadedAt.toISOString() });
   } catch (error) {
     console.error("Old Customers GET error:", error);
     return NextResponse.json({ error: "Failed to fetch customers" }, { status: 500 });

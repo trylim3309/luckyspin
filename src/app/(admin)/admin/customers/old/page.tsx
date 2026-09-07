@@ -32,7 +32,7 @@ interface OldCustomer {
   phone: string | null;
   callStatus: CallStatus;
   telegramId: string | null;
-  telegramName?: string | null;
+  telegramContact?: { id: string; name: string; username: string | null; phone: string | null } | null;
   action: Action;
   lastPlayDate: string | null;
   result: OldResult;
@@ -822,7 +822,7 @@ export default function OldCustomersPage() {
       label: "Account ID",
       width: 120,
       editable: true,
-      render: (value) => <span className="uppercase font-medium">{value || "—"}</span>,
+      render: (value) => <span className="uppercase font-medium">{(value as string) || "—"}</span>,
       renderEdit: (value, onChange, onSave) => (
         <input
           type="text"
@@ -891,10 +891,10 @@ export default function OldCustomersPage() {
       label: "Telegram",
       width: 130,
       editable: true,
-      render: (value) => {
+      render: (value, row: any) => {
         if (!value) return <span className="text-gray-400">-</span>;
 
-        const contact = telegramContacts.find(c => c.id === value);
+        const contact = row?.telegramContact;
         const displayText = contact
           ? (contact.username ? `@${contact.username}` : contact.name)
           : value;
@@ -903,7 +903,7 @@ export default function OldCustomersPage() {
       },
       renderEdit: (value, onChange, onSave) => (
         <select
-          value={value || ""}
+          value={(value as string) || ""}
           onChange={(e) => { onChange(e.target.value || null); }}
           onBlur={() => {}}
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
@@ -989,7 +989,7 @@ export default function OldCustomersPage() {
       editable: true,
       render: (value) => (
         <span className="text-sm text-gray-600">
-          {value ? new Date(value).toLocaleDateString() : "-"}
+          {(value as string) ? new Date(value as string).toLocaleDateString() : "-"}
         </span>
       ),
       renderEdit: (value, onChange, onSave) => (
@@ -1074,12 +1074,12 @@ export default function OldCustomersPage() {
       editable: true,
       render: (value) => (
         <span className="text-sm text-gray-700">
-          {value || "-"}
+          {(value as string) || "-"}
         </span>
       ),
       renderEdit: (value, onChange, onSave) => (
         <select
-          value={value || ""}
+          value={(value as string) || ""}
           onChange={(e) => { onChange(e.target.value || null); }}
           onBlur={() => {}}
           className="w-full bg-white border-2 border-purple-400 rounded-lg px-2 py-1.5 text-sm shadow-sm outline-none"
@@ -1099,7 +1099,7 @@ export default function OldCustomersPage() {
       editable: true,
       render: (value) => (
         <span className="text-sm text-gray-600">
-          {value ? new Date(value).toLocaleDateString() : "-"}
+          {(value as string) ? new Date(value as string).toLocaleDateString() : "-"}
         </span>
       ),
       renderEdit: (value, onChange, onSave) => (
@@ -1140,7 +1140,7 @@ export default function OldCustomersPage() {
       label: "Team",
       width: 100,
       editable: true,
-      render: (value) => <span className="text-sm font-medium">{value}</span>,
+      render: (value) => <span className="text-sm font-medium">{value as string}</span>,
       renderEdit: (value, onChange, onSave) => (
         <select
           value={value as string}
@@ -1159,7 +1159,7 @@ export default function OldCustomersPage() {
       key: "createdAt",
       label: "Created",
       width: 100,
-      render: (value) => <span className="text-sm text-gray-500">{value ? new Date(value).toLocaleDateString() : "-"}</span>,
+      render: (value) => <span className="text-sm text-gray-500">{(value as string) ? new Date(value as string).toLocaleDateString() : "-"}</span>,
     },
   ];
 
