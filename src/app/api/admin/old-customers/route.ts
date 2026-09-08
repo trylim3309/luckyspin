@@ -277,6 +277,7 @@ export async function POST(req: NextRequest) {
         team: body.team || "KING88",
         // action is omitted so DB default is used
       },
+      include: { telegramContact: true },
     });
 
     return NextResponse.json({ customer }, { status: 201 });
@@ -325,6 +326,7 @@ export async function PUT(req: NextRequest) {
     const updatedCustomer = await prisma.oldCustomer.update({
       where: { id: body.id },
       data: updateData,
+      include: { telegramContact: true },
     });
 
     return NextResponse.json({ customer: updatedCustomer });
