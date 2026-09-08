@@ -277,10 +277,14 @@ export async function POST(req: NextRequest) {
         team: body.team || "KING88",
         // action is omitted so DB default is used
       },
-      include: { telegramContact: true },
     });
 
-    return NextResponse.json({ customer }, { status: 201 });
+    // Manually resolve telegramContact (no relation defined in schema)
+    const telegramContact = customer.telegramId
+      ? await prisma.telegramContact.findUnique({ where: { id: customer.telegramId } })
+      : null;
+
+    return NextResponse.json({ customer: { ...customer, telegramContact } }, { status: 201 });
   } catch (error) {
     console.error("Old Customers POST error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -326,10 +330,14 @@ export async function PUT(req: NextRequest) {
     const updatedCustomer = await prisma.oldCustomer.update({
       where: { id: body.id },
       data: updateData,
-      include: { telegramContact: true },
     });
 
-    return NextResponse.json({ customer: updatedCustomer });
+    // Manually resolve telegramContact (no relation defined in schema)
+    const telegramContact = updatedCustomer.telegramId
+      ? await prisma.telegramContact.findUnique({ where: { id: updatedCustomer.telegramId } })
+      : null;
+
+    return NextResponse.json({ customer: { ...updatedCustomer, telegramContact } });
   } catch (error) {
     console.error("Old Customers PUT error:", error);
     // Handle unique constraint violation on accountId
