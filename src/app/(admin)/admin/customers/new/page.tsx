@@ -833,7 +833,8 @@ export default function NewCustomersPage() {
       width: 120,
       editable: true,
       render: (value, row: any) => {
-        const contact = row?.telegramContact;
+        // Look up contact from telegramContacts array to ensure fresh data after changes
+        const contact = telegramContacts.find((c) => c.id === (value as string));
         return (
           <span className="text-sm">
             {contact ? `${contact.name}${contact.username ? ` (@${contact.username})` : ""}` : (value as string) || "-"}
